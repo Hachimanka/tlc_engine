@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
   button,
@@ -10,9 +8,6 @@
     @apply appearance-none bg-transparent border-0 outline-none;
   }
 }
-
-@tailwind components;
-@tailwind utilities;
 
 @layer components {
   .all-\[unset\] {
