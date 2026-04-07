@@ -26,7 +26,7 @@ type FeatureCard = {
 const featureRowOne: FeatureCard[] = [
   {
     id: 1,
-    iconName: "menu",
+    iconName: "file",
     title: "Teaching Load Automation",
     description:
       "Automatically calculate faculty teaching loads based on institutional policies and course assignments.",
@@ -68,6 +68,49 @@ const featureRowTwo: FeatureCard[] = [
     title: "Real-Time Compliance Monitoring",
     description:
       "Track compliance status in real-time with alerts for policy violations and exceptions.",
+  },
+];
+
+type StepItem = {
+  number: string;
+  title: string;
+  description: string;
+  iconName: IconName;
+  showConnector: boolean;
+};
+
+const steps: StepItem[] = [
+  {
+    number: "01",
+    title: "Set up your institution",
+    description:
+      "Configure your institution's basic information, departments, and organizational structure.",
+    iconName: "settings",
+    showConnector: true,
+  },
+  {
+    number: "02",
+    title: "Define policies and roles",
+    description:
+      "Create custom policies for teaching loads and define user roles with appropriate permissions.",
+    iconName: "file",
+    showConnector: true,
+  },
+  {
+    number: "03",
+    title: "Assign teaching loads",
+    description:
+      "Assign courses to faculty members and let the system automatically calculate their teaching loads.",
+    iconName: "people",
+    showConnector: true,
+  },
+  {
+    number: "04",
+    title: "Monitor compliance and approvals",
+    description:
+      "Track compliance in real-time, manage approval workflows, and generate comprehensive reports.",
+    iconName: "analytics",
+    showConnector: false,
   },
 ];
 
@@ -247,7 +290,7 @@ export default function MarketingPage() {
                 <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
                   <AppIcon
                     name={feature.iconName}
-                    className="inline-block [&_svg]:h-[34px] [&_svg]:w-[34px]"
+                    className="inline-block [&_svg]:h-8 [&_svg]:w-8"
                     title={feature.title}
                   />
                 </div>
@@ -280,6 +323,41 @@ export default function MarketingPage() {
                 <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
                   {feature.description}
                 </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS SECTION */}
+      <section id="how-it-works" className="bg-[var(--color-card)] px-6 py-16 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-display-h1 text-[var(--color-primary)]">How It Works</h2>
+            <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+              Get started with TLC Platform in four simple steps
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-4">
+            {steps.map((step) => (
+              <article key={step.number} className="relative w-full rounded-[10px] p-6 text-center">
+                <p className="text-[56px] font-bold leading-[60px] text-[#6ed3c7] opacity-30">{step.number}</p>
+
+                <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary)]">
+                  <AppIcon
+                    name={step.iconName}
+                    className="inline-block [&_svg]:h-8 [&_svg]:w-8 [&_svg_path]:stroke-white [&_svg_circle]:stroke-white"
+                    title={step.title}
+                  />
+                </div>
+
+                <h3 className="mt-6 text-xl font-semibold leading-7 text-[var(--color-high-emphasis)]">{step.title}</h3>
+                <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">{step.description}</p>
+
+                {step.showConnector && (
+                  <div className="absolute right-[-32px] top-[128px] hidden h-0.5 w-8 -translate-y-1/2 bg-[#6ed3c7] lg:block" />
+                )}
               </article>
             ))}
           </div>
