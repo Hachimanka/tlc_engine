@@ -76,6 +76,7 @@
   --color-background-dark: #e5e7eb;
   --color-card: #ffffff;
   --color-medium-dark: #6b7280;
+  --color-low-emphasis: #4A5565;
 
   /* Gradient */
   --gradient-primary: linear-gradient(90deg, #c5eeea 0%, #029383 100%);

@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { AppIcon } from "@/public/icons";
+import type { IconName } from "@/public/icons";
 
 const navItems = [
   { label: "Features", href: "#features" },
@@ -6,6 +8,67 @@ const navItems = [
   { label: "Pricing", href: "#pricing" },
   { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
+];
+
+const features = [
+  { label: "Multi-tenant academic system",},
+  { label: "Policy-driven workload computation",},
+  { label: "Automated compliance validation",},
+];
+
+type FeatureCard = {
+  id: number;
+  iconName: IconName;
+  title: string;
+  description: string;
+};
+
+const featureRowOne: FeatureCard[] = [
+  {
+    id: 1,
+    iconName: "menu",
+    title: "Teaching Load Automation",
+    description:
+      "Automatically calculate faculty teaching loads based on institutional policies and course assignments.",
+  },
+  {
+    id: 2,
+    iconName: "settings",
+    title: "Policy Enforcement Engine",
+    description:
+      "Define and enforce complex institutional policies with our flexible rule-based system.",
+  },
+  {
+    id: 3,
+    iconName: "analytics",
+    title: "Multi-Tenant Architecture",
+    description:
+      "Secure, scalable platform supporting multiple institutions with complete data isolation.",
+  },
+];
+
+const featureRowTwo: FeatureCard[] = [
+  {
+    id: 4,
+    iconName: "shield",
+    title: "Role-Based Access Control",
+    description:
+      "Granular permissions ensure users only access information relevant to their role.",
+  },
+  {
+    id: 5,
+    iconName: "flow",
+    title: "Approval Workflow System",
+    description:
+      "Streamlined approval processes for course assignments and load adjustments.",
+  },
+  {
+    id: 6,
+    iconName: "signal",
+    title: "Real-Time Compliance Monitoring",
+    description:
+      "Track compliance status in real-time with alerts for policy violations and exceptions.",
+  },
 ];
 
 export default function MarketingPage() {
@@ -48,23 +111,23 @@ export default function MarketingPage() {
       </nav>
 
       {/* HERO SECTION */}
-      <section className="bg-[var(--color-background)] px-6 py-10 md:px-10">
+      <section className="bg-[var(--color-background)] px-6 py-14 md:px-10">
         <div className="mx-auto max-w-7xl">
-          <div className="flex h-[550px] items-center justify-center gap-[50px]">
+          <div className="flex h-[550px] items-center justify-center gap-[100px]">
 
             {/* LEFT CONTENT */}
             <div className="flex flex-col flex-1 items-start justify-center gap-6 py-0">
 
               {/* TITLE */}
               <div className="flex items-start gap-2.5 w-full">
-                <h1 className="text-display-h1 text-[var(--color-primary)]">
+                <h1 className="text-display-h1 text-[var(--color-primary)] !text-5xl">
                   Streamline Teaching Loads. Ensure Compliance. Empower Institutions.
                 </h1>
               </div>
 
               {/* DESCRIPTION */}
               <div className="w-full">
-                <p className="text-body-large text-[var(--color-high-emphasis)]">
+                <p className="text-body-large text-[var(--color-low-emphasis)]">
                   Automate faculty workload management, enforce institutional policies, and gain real-time insights with the TLC Platform.
                 </p>
               </div>
@@ -83,38 +146,142 @@ export default function MarketingPage() {
 
               {/* TRUST SECTION */}
               <div className="flex w-full items-center gap-3 pt-4">
-                <div className="inline-flex items-center justify-center px-3 py-0 flex-[0_0_auto] rounded-full bg-[var(--color-card)] bg-opacity-10">
-                  <div className="relative w-6 h-6">
-                    <svg className="w-6 h-6 text-[var(--color-primary)]" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </div>
+                <div className="inline-flex items-center justify-center px-0 py-0 flex-[0_0_auto] rounded-full ">
+                  <AppIcon name="checkMarked" className="inline-block [&_svg]:h-8 [&_svg]:w-8" title="Checked" />
                 </div>
-                <p className="text-body-small text-[var(--color-high-emphasis)]">
+                <p className="text-body-small text-[var(--color-low-emphasis)]">
                   Trusted by academic institutions nationwide
                 </p>
               </div>
             </div>
 
             {/* RIGHT SIDE - IMAGE PLACEHOLDER */}
-            <div className="inline-flex flex-col items-center justify-center p-[25px] flex-[0_0_auto] self-stretch">
-              <div className="flex flex-col w-[550px] items-center relative flex-1 grow bg-[var(--color-card)] rounded-2xl overflow-hidden shadow-lg">
-                <div className="relative self-stretch w-full h-[550px] bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center">
-                  
-                  {/* PLACEHOLDER FOR FUTURE IMAGE */}
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-24 h-24 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
-                      <svg className="w-12 h-12 text-white opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-body-small text-white opacity-70">
-                      Future feature image coming soon
-                    </p>
-                  </div>
+            <div className="flex flex-col items-center justify-center flex-[0_0_auto]">
+              <div className="flex flex-col w-[550px] h-[550px] items-center justify-center relative bg-[var(--color-card)] rounded-2xl overflow-hidden shadow-lg">
+                <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] flex items-center justify-center">
+                  <Image
+                    src="/ad.png"
+                    alt="Marketing"
+                    width={550}
+                    height={550}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES SECTION */}
+      <section className="bg-[var(--color-card)] px-6 py-14 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex h-[496px] items-center justify-center gap-[50px]">
+            
+            {/* LEFT CONTENT */}
+            <div className="flex flex-col flex-1 items-start justify-center gap-6 py-0">
+
+              {/* TITLE */}
+              <div className="w-full">
+                <h2 className="text-display-h1 text-[var(--color-primary)]">
+                  What is the TLC Platform?
+                </h2>
+              </div>
+
+              {/* DESCRIPTION */}
+              <div className="w-full">
+                <p className="text-body-large text-[var(--color-low-emphasis)]">
+                  The Teaching Load Compliance Platform is a comprehensive solution designed to modernize academic workload management. Our system helps institutions enforce policies, automate complex calculations, and maintain compliance across all departments.
+                </p>
+              </div>
+
+              {/* FEATURES LIST */}
+              <div className="flex flex-col gap-4 w-full">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <AppIcon name="checkMarked" className="inline-block [&_svg]:h-8 [&_svg]:w-8" title="Checked" />
+                    </div>
+                    <span className="text-body-small text-[var(--color-low-emphasis)]">
+                      {feature.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT SIDE - IMAGE */}
+            <div className="flex flex-col items-center justify-start flex-[0_0_auto]">
+              <div className="flex flex-col w-[650px] h-[396px] items-center justify-center relative bg-[var(--color-background)] rounded-2xl overflow-hidden shadow-lg">
+                <Image
+                  src="/jm.png"
+                  alt="TLC Platform Features"
+                  width={450}
+                  height={396}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* POWERFUL FEATURES SECTION */}
+      <section className="bg-[var(--color-background)] px-6 py-16 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-display-h1 text-[var(--color-primary)]">
+              Powerful Features for Modern Institutions
+            </h2>
+            <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+              Everything you need to manage teaching loads, enforce policies, and maintain compliance
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {featureRowOne.map((feature) => (
+              <article
+                key={feature.id}
+                className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
+              >
+                <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+                  <AppIcon
+                    name={feature.iconName}
+                    className="inline-block [&_svg]:h-[34px] [&_svg]:w-[34px]"
+                    title={feature.title}
+                  />
+                </div>
+                <h3 className="mt-4 text-[22px] font-semibold leading-7 text-[var(--color-high-emphasis)]">
+                  {feature.title}
+                </h3>
+                <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {featureRowTwo.map((feature) => (
+              <article
+                key={feature.id}
+                className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
+              >
+                <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+                  <AppIcon
+                    name={feature.iconName}
+                    className="inline-block [&_svg]:h-[34px] [&_svg]:w-[34px]"
+                    title={feature.title}
+                  />
+                </div>
+                <h3 className="mt-4 text-[22px] font-semibold leading-7 text-[var(--color-high-emphasis)]">
+                  {feature.title}
+                </h3>
+                <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
