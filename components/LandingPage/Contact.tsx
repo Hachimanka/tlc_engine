@@ -131,7 +131,7 @@ export default function Contact() {
             ].map(({ icon: Icon, label, value, sub }) => (
               <div key={label} className="flex items-start gap-4">
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: "var(--teal-light)" }}
                 >
                   <Icon size={18} style={{ color: "var(--teal-primary)" }} />
