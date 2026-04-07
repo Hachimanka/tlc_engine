@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;500;600;700&family=Source+Sans+3:wght@400;700&display=swap");
 @import "tailwindcss";
 
 @layer base {
@@ -5,7 +6,10 @@
   input,
   select,
   textarea {
-    @apply appearance-none bg-transparent border-0 outline-none;
+    appearance: none;
+    background-color: transparent;
+    border: 0;
+    outline: none;
   }
 }
 
@@ -17,10 +21,195 @@
 
 :root {
   --variable-collection-px: 0px;
+  --animate-spin: spin 1s linear infinite;
+
+  /* Font families */
+  --font-ibm-plex-sans: "IBM Plex Sans", sans-serif;
+  --font-source-sans-3: "Source Sans 3", sans-serif;
+
+  /* Display + heading */
+  --text-display-h1-size: 2.1875em;
+  --text-display-h1-line-height: 1.2;
+  --text-heading-h2-size: 2em;
+  --text-heading-h2-line-height: 1.25;
+  --text-heading-h3-size: 1.75em;
+  --text-heading-h3-line-height: 1.3;
+  --text-heading-h4-size: 1.5em;
+  --text-heading-h4-line-height: 1.35;
+
+  /* Labels + navbar */
+  --text-status-pill-size: 0.75em;
+  --text-status-pill-line-height: 1.2;
+  --text-label-button-size: 0.875em;
+  --text-label-button-line-height: 1.35;
+  --text-label-input-size: 0.875em;
+  --text-label-input-line-height: 1.35;
+  --text-label-table-header-size: 0.875em;
+  --text-label-table-header-line-height: 1.3;
+  --text-label-caption-size: 0.75em;
+  --text-label-caption-line-height: 1.35;
+  --text-navbar-sidebar-size: 1em;
+  --text-navbar-sidebar-line-height: 1.4;
+  --text-navbar-topbar-size: 0.875em;
+  --text-navbar-topbar-line-height: 1.4;
+
+  /* Body */
+  --text-body-default-size: 1em;
+  --text-body-default-line-height: 1.5;
+  --text-body-large-size: 1.25em;
+  --text-body-large-line-height: 1.5;
+  --text-body-medium-size: 1em;
+  --text-body-medium-line-height: 1.5;
+  --text-body-small-size: 0.875em;
+  --text-body-small-line-height: 1.5;
+
+  /* Colors */
+  --color-default: #c5eeea;
+  --color-primary: #006b5f;
+  --color-light-primary: #029383;
+  --color-secondary: #01ac8e;
+  --color-accent: #006b5f;
+  --color-warning: #ffa500;
+  --color-error: #ff4c4c;
+  --color-high-emphasis: #1f2125;
+  --color-background: #f3f3f1;
+  --color-background-dark: #e5e7eb;
+  --color-card: #ffffff;
+  --color-medium-dark: #6b7280;
+
+  /* Gradient */
+  --gradient-primary: linear-gradient(90deg, #c5eeea 0%, #029383 100%);
+
+  /* Shadows */
+  --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.051);
+  --shadow-level-2: 0 2px 4px 0 rgba(0, 0, 0, 0.102);
 }
 
-:root {
-  --animate-spin: spin 1s linear infinite;
+@layer utilities {
+  .font-ibm-plex-sans {
+    font-family: var(--font-ibm-plex-sans);
+  }
+
+  .font-source-sans-3 {
+    font-family: var(--font-source-sans-3);
+  }
+
+  .text-status-pill {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-status-pill-size);
+    font-weight: 500;
+    line-height: var(--text-status-pill-line-height);
+  }
+
+  .text-display-h1 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-display-h1-size);
+    font-weight: 700;
+    line-height: var(--text-display-h1-line-height);
+  }
+
+  .text-heading-h2 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h2-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h2-line-height);
+  }
+
+  .text-heading-h3 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h3-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h3-line-height);
+  }
+
+  .text-heading-h4 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h4-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h4-line-height);
+  }
+
+  .text-label-button {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-button-size);
+    font-weight: 600;
+    line-height: var(--text-label-button-line-height);
+  }
+
+  .text-label-input {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-input-size);
+    font-weight: 500;
+    line-height: var(--text-label-input-line-height);
+  }
+
+  .text-label-table-header {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-table-header-size);
+    font-weight: 600;
+    line-height: var(--text-label-table-header-line-height);
+  }
+
+  .text-label-caption {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-caption-size);
+    font-weight: 300;
+    line-height: var(--text-label-caption-line-height);
+  }
+
+  .text-navbar-sidebar {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-navbar-sidebar-size);
+    font-weight: 500;
+    line-height: var(--text-navbar-sidebar-line-height);
+  }
+
+  .text-navbar-topbar {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-navbar-topbar-size);
+    font-weight: 500;
+    line-height: var(--text-navbar-topbar-line-height);
+  }
+
+  .text-body-default {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-default-size);
+    font-weight: 700;
+    line-height: var(--text-body-default-line-height);
+  }
+
+  .text-body-large {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-large-size);
+    font-weight: 400;
+    line-height: var(--text-body-large-line-height);
+  }
+
+  .text-body-medium {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-medium-size);
+    font-weight: 400;
+    line-height: var(--text-body-medium-line-height);
+  }
+
+  .text-body-small {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-small-size);
+    font-weight: 400;
+    line-height: var(--text-body-small-line-height);
+  }
+
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+
+  .shadow-level-1 {
+    box-shadow: var(--shadow-level-1);
+  }
+
+  .shadow-level-2 {
+    box-shadow: var(--shadow-level-2);
+  }
 }
 
 .animate-fade-in {
