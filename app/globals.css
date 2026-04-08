@@ -1,27 +1,321 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;500;600;700&family=Source+Sans+3:wght@400;700&display=swap");
 @import "tailwindcss";
 
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    appearance: none;
+    background-color: transparent;
+    border: 0;
+    outline: none;
+  }
+}
+
+@layer components {
+  .all-\[unset\] {
+    all: unset;
+  }
+}
+
 :root {
-  --teal-primary: #0d7b6b;
-  --teal-dark: #085c4f;
-  --teal-light: #e6f4f1;
-  --teal-mid: #1a9e8a;
-  --accent: #f0a500;
-  --text-dark: #1a1f2e;
-  --text-mid: #4a5568;
-  --text-light: #718096;
-  --bg-off: #f7f9f8;
-  --white: #ffffff;
+  --variable-collection-px: 0px;
+  --animate-spin: spin 1s linear infinite;
+
+  /* Font families */
+  --font-ibm-plex-sans: "IBM Plex Sans", sans-serif;
+  --font-source-sans-3: "Source Sans 3", sans-serif;
+
+  /* Display + heading */
+  --text-display-h1-size: 2.1875em;
+  --text-display-h1-line-height: 1.2;
+  --text-heading-h2-size: 2em;
+  --text-heading-h2-line-height: 1.25;
+  --text-heading-h3-size: 1.75em;
+  --text-heading-h3-line-height: 1.3;
+  --text-heading-h4-size: 1.5em;
+  --text-heading-h4-line-height: 1.35;
+
+  /* Labels + navbar */
+  --text-status-pill-size: 0.75em;
+  --text-status-pill-line-height: 1.2;
+  --text-label-button-size: 0.875em;
+  --text-label-button-line-height: 1.35;
+  --text-label-input-size: 0.875em;
+  --text-label-input-line-height: 1.35;
+  --text-label-table-header-size: 0.875em;
+  --text-label-table-header-line-height: 1.3;
+  --text-label-caption-size: 0.75em;
+  --text-label-caption-line-height: 1.35;
+  --text-navbar-sidebar-size: 1em;
+  --text-navbar-sidebar-line-height: 1.4;
+  --text-navbar-topbar-size: 0.875em;
+  --text-navbar-topbar-line-height: 1.4;
+
+  /* Body */
+  --text-body-default-size: 1em;
+  --text-body-default-line-height: 1.5;
+  --text-body-large-size: 1.25em;
+  --text-body-large-line-height: 1.5;
+  --text-body-medium-size: 1em;
+  --text-body-medium-line-height: 1.5;
+  --text-body-small-size: 0.875em;
+  --text-body-small-line-height: 1.5;
+
+  /* Colors */
+  --color-default: #c5eeea;
+  --color-primary: #006b5f;
+  --color-light-primary: #029383;
+  --color-secondary: #01ac8e;
+  --color-accent: #006b5f;
+  --color-warning: #ffa500;
+  --color-error: #ff4c4c;
+  --color-high-emphasis: #1f2125;
+  --color-background: #f3f3f1;
+  --color-background-dark: #e5e7eb;
+  --color-card: #ffffff;
+  --color-medium-dark: #6b7280;
+  --color-low-emphasis: #4A5565;
+
+  /* Gradient */
+  --gradient-primary: linear-gradient(90deg, #c5eeea 0%, #029383 100%);
+
+  /* Shadows */
+  --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.051);
+  --shadow-level-2: 0 2px 4px 0 rgba(0, 0, 0, 0.102);
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+@layer utilities {
+  .font-ibm-plex-sans {
+    font-family: var(--font-ibm-plex-sans);
+  }
 
-body {
-  font-family: 'DM Sans', sans-serif;
-  color: var(--text-dark);
-  background: var(--white);
-  -webkit-font-smoothing: antialiased;
+  .font-source-sans-3 {
+    font-family: var(--font-source-sans-3);
+  }
+
+  .text-status-pill {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-status-pill-size);
+    font-weight: 500;
+    line-height: var(--text-status-pill-line-height);
+  }
+
+  .text-display-h1 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-display-h1-size);
+    font-weight: 700;
+    line-height: var(--text-display-h1-line-height);
+  }
+
+  .text-heading-h2 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h2-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h2-line-height);
+  }
+
+  .text-heading-h3 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h3-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h3-line-height);
+  }
+
+  .text-heading-h4 {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-heading-h4-size);
+    font-weight: 600;
+    line-height: var(--text-heading-h4-line-height);
+  }
+
+  .text-label-button {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-button-size);
+    font-weight: 600;
+    line-height: var(--text-label-button-line-height);
+  }
+
+  .text-label-input {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-input-size);
+    font-weight: 500;
+    line-height: var(--text-label-input-line-height);
+  }
+
+  .text-label-table-header {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-table-header-size);
+    font-weight: 600;
+    line-height: var(--text-label-table-header-line-height);
+  }
+
+  .text-label-caption {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-label-caption-size);
+    font-weight: 300;
+    line-height: var(--text-label-caption-line-height);
+  }
+
+  .text-navbar-sidebar {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-navbar-sidebar-size);
+    font-weight: 500;
+    line-height: var(--text-navbar-sidebar-line-height);
+  }
+
+  .text-navbar-topbar {
+    font-family: var(--font-ibm-plex-sans);
+    font-size: var(--text-navbar-topbar-size);
+    font-weight: 500;
+    line-height: var(--text-navbar-topbar-line-height);
+  }
+
+  .text-body-default {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-default-size);
+    font-weight: 700;
+    line-height: var(--text-body-default-line-height);
+  }
+
+  .text-body-large {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-large-size);
+    font-weight: 400;
+    line-height: var(--text-body-large-line-height);
+  }
+
+  .text-body-medium {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-medium-size);
+    font-weight: 400;
+    line-height: var(--text-body-medium-line-height);
+  }
+
+  .text-body-small {
+    font-family: var(--font-source-sans-3);
+    font-size: var(--text-body-small-size);
+    font-weight: 400;
+    line-height: var(--text-body-small-line-height);
+  }
+
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+
+  .shadow-level-1 {
+    box-shadow: var(--shadow-level-1);
+  }
+
+  .shadow-level-2 {
+    box-shadow: var(--shadow-level-2);
+  }
 }
 
-h1, h2, h3 { font-family: 'DM Serif Display', serif; }
+.animate-fade-in {
+  animation: fade-in 1s var(--animation-delay, 0s) ease forwards;
+}
+
+.animate-fade-up {
+  animation: fade-up 1s var(--animation-delay, 0s) ease forwards;
+}
+
+.animate-marquee {
+  animation: marquee var(--duration) infinite linear;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 8s infinite;
+}
+
+.animate-spin {
+  animation: var(--animate-spin);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes image-glow {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.74, 0.25, 0.76, 1);
+  }
+
+  10% {
+    opacity: 0.7;
+    animation-timing-function: cubic-bezier(0.12, 0.01, 0.08, 0.99);
+  }
+
+  to {
+    opacity: 0.4;
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  90%,
+  to {
+    background-position: calc(-100% - var(--shimmer-width)) 0;
+  }
+
+  30%,
+  60% {
+    background-position: calc(100% + var(--shimmer-width)) 0;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translate(0);
+  }
+
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
