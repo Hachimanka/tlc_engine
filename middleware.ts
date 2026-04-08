@@ -32,8 +32,12 @@ export function middleware(req: NextRequest) {
   }
 
   if (subdomain === 'localhost') {
-    const newPath = url.pathname === '/' ? '/marketing' : `/marketing${url.pathname}`
-    return NextResponse.rewrite(new URL(newPath, req.url))
+    // In local dev, serve the landing page at root and keep other routes unchanged.
+    if (url.pathname === '/') {
+      return NextResponse.rewrite(new URL('/LandingPage', req.url))
+    }
+
+    return NextResponse.next()
   }
 
   if (subdomain === 'admin') {
@@ -46,6 +50,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.rewrite(new URL(newPath, req.url))
   }
 
-  const newPath = url.pathname === '/' ? '/marketing' : `/marketing${url.pathname}`
+  const newPath = url.pathname === '/' ? '/LandingPage' : `/LandingPage${url.pathname}`
   return NextResponse.rewrite(new URL(newPath, req.url))
 }

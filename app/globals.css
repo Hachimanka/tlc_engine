@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import "tailwindcss";
+
+:root {
+  --teal-primary: #0d7b6b;
+  --teal-dark: #085c4f;
+  --teal-light: #e6f4f1;
+  --teal-mid: #1a9e8a;
+  --accent: #f0a500;
+  --text-dark: #1a1f2e;
+  --text-mid: #4a5568;
+  --text-light: #718096;
+  --bg-off: #f7f9f8;
+  --white: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-dark);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: 'DM Serif Display', serif; }
