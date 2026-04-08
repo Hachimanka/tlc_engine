@@ -6,7 +6,7 @@ const navItems = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
-  { label: "About", href: "#about" },
+  { label: "About Us", href: "#about-us" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -114,6 +114,155 @@ const steps: StepItem[] = [
   },
 ];
 
+type StakeholderCard = {
+  id: string;
+  iconName: IconName;
+  title: string;
+  description: string;
+  features: string[];
+};
+
+const stakeholders: StakeholderCard[] = [
+  {
+    id: "administrators",
+    iconName: "settings",
+    title: "For Administrators",
+    description:
+      "Streamline workload management across departments, enforce institutional policies, and gain comprehensive oversight with powerful reporting tools.",
+    features: [
+      "Centralized workload management",
+      "Policy compliance tracking",
+      "Comprehensive analytics and reporting",
+      "Automated approval workflows",
+    ],
+  },
+  {
+    id: "departments",
+    iconName: "people",
+    title: "For Departments",
+    description:
+      "Manage faculty assignments efficiently, balance teaching loads, and ensure fair distribution of courses across your department.",
+    features: [
+      "Department-level oversight",
+      "Fair load distribution",
+      "Course assignment optimization",
+      "Real-time compliance alerts",
+    ],
+  },
+  {
+    id: "faculty",
+    iconName: "file",
+    title: "For Faculty",
+    description:
+      "View your teaching assignments, track your workload progress, and submit requests through a simple, intuitive interface.",
+    features: [
+      "Clear workload visibility",
+      "Easy request submission",
+      "Teaching history tracking",
+      "Mobile-friendly access",
+    ],
+  },
+];
+
+type PricingPlan = {
+  id: string;
+  name: string;
+  price: string;
+  description: string;
+  accent: "light" | "brand";
+  iconName: IconName;
+  features: Array<{
+    text: string;
+    iconName: IconName;
+  }>;
+};
+
+const pricingPlans: PricingPlan[] = [
+  {
+    id: "basic",
+    name: "Basic",
+    price: "0.0",
+    description: "Perfect for small institutions getting started",
+    accent: "light",
+    iconName: "file",
+    features: [
+      { text: "Up to 100 faculty members", iconName: "people" },
+      { text: "Core teaching load features", iconName: "file" },
+      { text: "Basic policy enforcement", iconName: "settings" },
+      { text: "Email support", iconName: "email" },
+      { text: "Monthly reports", iconName: "analytics" },
+    ],
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    price: "0.0",
+    description: "Ideal for growing institutions",
+    accent: "brand",
+    iconName: "subscription",
+    features: [
+      { text: "Up to 500 faculty members", iconName: "people" },
+      { text: "Full feature access", iconName: "menu" },
+      { text: "Advanced workflow automation", iconName: "flow" },
+      { text: "Custom policy rules", iconName: "settings" },
+      { text: "Priority support", iconName: "bell" },
+      { text: "Real-time analytics", iconName: "analytics" },
+      { text: "API access", iconName: "lock" },
+    ],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise (Custom)",
+    price: "0.0",
+    description: "For large institutions and multi-campus systems",
+    accent: "light",
+    iconName: "shield",
+    features: [
+      { text: "Unlimited faculty members", iconName: "people" },
+      { text: "Multi-campus support", iconName: "location" },
+      { text: "Custom policy engine", iconName: "settings" },
+      { text: "Dedicated support team", iconName: "bell" },
+      { text: "Advanced security features", iconName: "shield" },
+      { text: "Custom integrations", iconName: "flow" },
+      { text: "Training & onboarding", iconName: "hat" },
+      { text: "SLA guarantee", iconName: "subscription" },
+    ],
+  },
+];
+
+type ContactItem = {
+  id: string;
+  iconName: IconName;
+  title: string;
+  lines: string[];
+};
+
+const contactInfo: ContactItem[] = [
+  {
+    id: "email",
+    iconName: "email",
+    title: "Email",
+    lines: ["support@tlcplatform.edu", "sales@tlcplatform.edu"],
+  },
+  {
+    id: "phone",
+    iconName: "call",
+    title: "Phone",
+    lines: ["09987654321", "Mon-Fri, 9am-5pm"],
+  },
+  {
+    id: "office",
+    iconName: "location",
+    title: "Office",
+    lines: ["Tres de Abril", "Labangon", "Cebu"],
+  },
+];
+
+const footerProductLinks = ["Features", "Pricing"];
+const footerCompanyLinks = ["About Us", "Contact"];
+const footerLegalLinks = ["Privacy Policy", "Terms of Service", "Cookie Policy", "Security"];
+const footerSocialIcons: IconName[] = ["x", "linkedIn", "facebook", "email"];
+
 export default function MarketingPage() {
   return (
     <main className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
@@ -163,7 +312,7 @@ export default function MarketingPage() {
 
               {/* TITLE */}
               <div className="flex items-start gap-2.5 w-full">
-                <h1 className="text-display-h1 text-[var(--color-primary)] !text-5xl">
+                <h1 className="text-display-h1 text-[var(--color-primary)]">
                   Streamline Teaching Loads. Ensure Compliance. Empower Institutions.
                 </h1>
               </div>
@@ -181,7 +330,7 @@ export default function MarketingPage() {
                   type="button"
                   className="flex w-[180px] h-[50px] items-center justify-center gap-2 px-4 py-3 bg-[var(--color-primary)] rounded-lg shadow-lg hover:opacity-90 transition-opacity cursor-pointer"
                 >
-                  <span className="text-body-small text-white font-semibold">
+                  <span className="text-label-button text-white">
                     Request a Demo
                   </span>
                 </button>
@@ -270,7 +419,7 @@ export default function MarketingPage() {
       </section>
 
       {/* POWERFUL FEATURES SECTION */}
-      <section className="bg-[var(--color-background)] px-6 py-16 md:px-10">
+      <section id="features" className="bg-[var(--color-background)] px-6 py-8 md:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-display-h1 text-[var(--color-primary)]">
@@ -294,7 +443,7 @@ export default function MarketingPage() {
                     title={feature.title}
                   />
                 </div>
-                <h3 className="mt-4 text-[22px] font-semibold leading-7 text-[var(--color-high-emphasis)]">
+                <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
                   {feature.title}
                 </h3>
                 <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
@@ -317,7 +466,7 @@ export default function MarketingPage() {
                     title={feature.title}
                   />
                 </div>
-                <h3 className="mt-4 text-[22px] font-semibold leading-7 text-[var(--color-high-emphasis)]">
+                <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
                   {feature.title}
                 </h3>
                 <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
@@ -330,7 +479,7 @@ export default function MarketingPage() {
       </section>
 
       {/* HOW IT WORKS SECTION */}
-      <section id="how-it-works" className="bg-[var(--color-card)] px-6 py-16 md:px-10">
+      <section id="how-it-works" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-display-h1 text-[var(--color-primary)]">How It Works</h2>
@@ -344,7 +493,7 @@ export default function MarketingPage() {
               <article key={step.number} className="relative w-full rounded-[10px] p-6 text-center">
                 <p className="text-[56px] font-bold leading-[60px] text-[#6ed3c7] opacity-30">{step.number}</p>
 
-                <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary)]">
+                <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)]">
                   <AppIcon
                     name={step.iconName}
                     className="inline-block [&_svg]:h-8 [&_svg]:w-8 [&_svg_path]:stroke-white [&_svg_circle]:stroke-white"
@@ -352,7 +501,7 @@ export default function MarketingPage() {
                   />
                 </div>
 
-                <h3 className="mt-6 text-xl font-semibold leading-7 text-[var(--color-high-emphasis)]">{step.title}</h3>
+                <h3 className="text-heading-h4 mt-6 text-[var(--color-high-emphasis)]">{step.title}</h3>
                 <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">{step.description}</p>
 
                 {step.showConnector && (
@@ -363,6 +512,397 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
+
+      {/* STAKEHOLDERS SECTION */}
+      <section className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-display-h1 text-[var(--color-primary)]">Built for Every Stakeholder</h2>
+            <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+              TLC Platform serves the unique needs of administrators, departments, and faculty
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {stakeholders.map((stakeholder) => (
+              <article
+                key={stakeholder.id}
+                className="rounded-[14px] bg-white p-8 shadow-[0px_4px_6px_-4px_#0000001a,0px_10px_15px_-3px_#0000001a]"
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)]">
+                  <AppIcon
+                    name={stakeholder.iconName}
+                    className="inline-block [&_svg]:h-8 [&_svg]:w-8 [&_svg_path]:stroke-white [&_svg_circle]:stroke-white"
+                    title={stakeholder.title}
+                  />
+                </div>
+
+                <h3 className="text-heading-h3 mt-6 text-[var(--color-high-emphasis)]">
+                  {stakeholder.title}
+                </h3>
+
+                <p className="text-body-small mt-4 leading-[26px] text-[var(--color-low-emphasis)]">
+                  {stakeholder.description}
+                </p>
+
+                <ul className="mt-6 space-y-3">
+                  {stakeholder.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-3">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
+                      <span className="text-body-medium text-[#364153]">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING SECTION */}
+      <section id="pricing" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto mb-12 max-w-3xl text-center">
+            <h2 className="text-display-h1 text-[var(--color-primary)]">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+              Choose the plan that best fits your institution's needs
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {pricingPlans.map((plan) => {
+              const isBrand = plan.accent === "brand";
+
+              return (
+                <article
+                  key={plan.id}
+                  className={`flex min-h-[560px] flex-col rounded-2xl p-8 shadow-lg ${
+                    isBrand
+                      ? "bg-[var(--color-light-primary)] text-white"
+                      : "bg-[#f3f3f1] text-[var(--color-high-emphasis)]"
+                  }`}
+                >
+                  
+                  <h3 className="text-heading-h3">{plan.name}</h3>
+                  <h4 className="text-heading-h2 mt-2">{plan.price}</h4>
+                  <p className={`mt-2 ${isBrand ? "text-white/90" : "text-[var(--color-low-emphasis)]"}`}>
+                    {plan.description}
+                  </p>
+
+                  <div className="mt-4 flex flex-1 flex-col gap-4">
+                    {plan.features.map((feature) => (
+                      <div key={feature.text} className="flex items-center gap-3">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full">
+                          <AppIcon
+                            name={feature.iconName}
+                            className={`inline-block [&_svg]:h-4 [&_svg]:w-4 ${isBrand ? "[&_svg_path]:stroke-white" : ""}`}
+                            title={feature.text}
+                          />
+                        </span>
+                        <p className={isBrand ? "text-white" : "text-[#364153]"}>{feature.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`text-label-button mt-4 rounded-lg px-4 py-3 transition-opacity hover:opacity-90 ${
+                      isBrand
+                        ? "bg-white text-[var(--color-primary)]"
+                        : "bg-[var(--color-light-primary)] text-white"
+                    }`}
+                  >
+                    Get Started
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ABOUT US SECTION */}
+      <section id="about-us" className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex min-h-[700px] items-center gap-12">
+            <div className="flex flex-1 items-center">
+              <div className="w-full max-w-[700px]">
+                <h2 className="text-heading-h2 text-[var(--color-primary)]">About Us</h2>
+
+                <div className="mt-6 space-y-6">
+                  <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                    <span className="font-bold text-[var(--color-high-emphasis)]">Our Mission:</span>{" "}
+                    To modernize academic workload management through automation and policy-driven systems.
+                  </p>
+
+                  <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                    The TLC Platform was born from years of experience working with academic institutions
+                    struggling with manual workload tracking, inconsistent policy enforcement, and limited
+                    visibility into faculty assignments.
+                  </p>
+
+                  <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                    We believe that education administrators deserve modern tools that match the complexity
+                    of their work. Our platform combines advanced technology with deep understanding of
+                    academic operations to deliver a solution that truly works.
+                  </p>
+
+                  <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                    Today, we are proud to serve institutions across the country, helping them streamline
+                    operations, ensure compliance, and focus on what matters most: delivering quality
+                    education.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-center">
+              <div className="relative h-[650px] w-full max-w-[885px] overflow-hidden rounded-2xl shadow-lg">
+                <Image
+                  src="/lf.png"
+                  alt="About TLC Platform"
+                  width={885}
+                  height={650}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT SECTION */}
+      <section id="contact" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-display-h1 text-[var(--color-primary)]">Get in Touch</h2>
+            <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+              Have questions? We would love to hear from you. Send us a message and we will respond as soon as possible.
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-20 lg:grid-cols-2">
+
+            {/* MESSAGING FORM */}
+            <form className="flex flex-col gap-6">
+
+              {/* FULL NAME FIELD */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="fullName" className="text-label-input text-[#364153]">Full Name</label>
+                <input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  placeholder="John Doe"
+                  className="text-body-small h-10 rounded-lg border border-transparent bg-[var(--color-background)] px-3 text-[var(--color-low-emphasis)] focus:border-[var(--color-light-primary)]"
+                />
+              </div>
+
+              {/* EMAIL FIELD */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="email" className="text-label-input text-[#364153]">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="john@university.edu"
+                  className="text-body-small h-10 rounded-lg border border-transparent bg-[var(--color-background)] px-3 text-[var(--color-low-emphasis)] focus:border-[var(--color-light-primary)]"
+                />
+              </div>
+
+              {/* INSTITUTION FIELD */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="institutionName" className="text-label-input text-[#364153]">Institution Name</label>
+                <input
+                  id="institutionName"
+                  name="institutionName"
+                  type="text"
+                  placeholder="University Name"
+                  className="text-body-small h-10 rounded-lg border border-transparent bg-[var(--color-background)] px-3 text-[var(--color-low-emphasis)] focus:border-[var(--color-light-primary)]"
+                />
+              </div>
+
+              {/* MESSAGE FIELD */}
+              <div className="flex flex-col gap-2">
+                <label htmlFor="message" className="text-label-input text-[#364153]">Message</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  placeholder="Tell us about your needs..."
+                  className="text-body-small min-h-[150px] rounded-lg border border-transparent bg-[var(--color-background)] px-3 py-2 text-[var(--color-low-emphasis)] focus:border-[var(--color-light-primary)]"
+                />
+              </div>
+
+              {/* FORM ACTIONS */}
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  type="submit"
+                  className="text-label-button rounded-lg bg-[var(--color-primary)] px-4 py-3 text-white transition-opacity hover:opacity-90"
+                >
+                  Send Message
+                </button>
+              </div>
+            </form>
+
+            {/* CONTACT INFORMATION */}
+            <div className="flex flex-col gap-6">
+              <h3 className="text-heading-h3 text-[var(--color-high-emphasis)]">Contact Information</h3>
+
+              {/* CONTACT INFO ITEMS */}
+              <div className="space-y-6">
+                {contactInfo.map((item) => (
+                  <div key={item.id} className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-default)]">
+                      <AppIcon
+                        name={item.iconName}
+                        className="inline-block [&_svg]:h-6 [&_svg]:w-6"
+                        title={item.title}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-heading-h4 text-[var(--color-high-emphasis)]">{item.title}</p>
+                      {item.lines.map((line) => (
+                        <p key={line} className="text-body-medium text-[var(--color-low-emphasis)]">{line}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA SECTION */}
+      <section className="bg-[var(--color-light-primary)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-4xl text-center">
+            <h2 className="text-display-h1 text-white">Ready to Transform Your Institution?</h2>
+            <p className="text-body-large mt-4 text-white/90">
+              Join the growing number of institutions streamlining their teaching load management with TLC Platform
+            </p>
+          </div>
+
+          <div className="mt-10 flex items-center justify-center">
+            <button
+              type="button"
+              className="text-label-button flex h-[50px] w-[200px] items-center justify-center gap-2 rounded-lg border border-white bg-[var(--color-card)] px-4 py-3 text-[var(--color-light-primary)] shadow-level-1 transition-opacity hover:opacity-90"
+            >
+              Request Demo
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER SECTION */}
+      <footer className="bg-[var(--color-high-emphasis)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4">
+
+            {/* BRAND COLUMN */}
+            <div className="space-y-6">
+              <Image src="/TLCLogo.svg" alt="TLC Platform" width={75} height={75} className="h-[75px] w-[75px]" />
+              <p className="text-body-medium max-w-[320px] text-[#99a1af]">
+                Modernizing academic workload management through automation and policy-driven systems.
+              </p>
+
+              {/* SOCIAL ICONS */}
+              <div className="flex items-center gap-3">
+                {footerSocialIcons.map((iconName) => {
+                  const socialLinks: Record<string, string> = {
+                    x: "https://x.com",
+                    linkedIn: "https://linkedin.com",
+                    facebook: "https://facebook.com",
+                    email: "mailto:info@tlcplatform.com",
+                  };
+                  return (
+                    <a
+                      key={iconName}
+                      href={socialLinks[iconName] || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-default)]/15 transition-opacity hover:opacity-80"
+                      aria-label={`Visit our ${iconName}`}
+                    >
+                      <AppIcon name={iconName} className="inline-block [&_svg]:h-5 [&_svg]:w-5" title={iconName} />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* PRODUCT COLUMN */}
+            <nav aria-label="Product" className="space-y-4">
+              <h3 className="text-heading-h4 text-white">Product</h3>
+              <ul className="space-y-3">
+                {footerProductLinks.map((label) => {
+                  const productLinks: Record<string, string> = {
+                    "Features": "#features",
+                    "Pricing": "#pricing",
+                  };
+                  return (
+                    <li key={label}>
+                      <a href={productLinks[label] || "#"} className="text-body-medium text-[#99a1af] no-underline hover:text-white">
+                        {label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            {/* COMPANY COLUMN */}
+            <nav aria-label="Company" className="space-y-4">
+              <h3 className="text-heading-h4 text-white">Company</h3>
+              <ul className="space-y-3">
+                {footerCompanyLinks.map((label) => {
+                  const companyLinks: Record<string, string> = {
+                    "About Us": "#about-us",
+                    "Contact": "#contact",
+                  };
+                  return (
+                    <li key={label}>
+                      <a href={companyLinks[label] || "#"} className="text-body-medium text-[#99a1af] no-underline hover:text-white">
+                        {label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            {/* LEGAL COLUMN */}
+            <nav aria-label="Legal" className="space-y-4">
+              <h3 className="text-heading-h4 text-white">Legal</h3>
+              <ul className="space-y-3">
+                {footerLegalLinks.map((label) => {
+                  const legalLinks: Record<string, string> = {
+                    "Privacy Policy": "#privacy",
+                    "Terms of Service": "#terms",
+                    "Cookie Policy": "#cookies",
+                    "Security": "#security",
+                  };
+                  return (
+                    <li key={label}>
+                      <a href={legalLinks[label] || "#"} className="text-body-medium text-[#99a1af] no-underline hover:text-white">
+                        {label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </div>
+
+          <div className="mt-10 border-t border-[#1e2939] pt-6">
+            <p className="text-body-medium text-center text-[#99a1af]">
+              © 2026 TLC Platform. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
