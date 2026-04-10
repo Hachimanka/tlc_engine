@@ -3,8 +3,8 @@
 import { useState } from "react";
 import "../globals.css";
 import Image from "next/image";
-import { AppIcon } from "@/public/ico";
-import type { IconName } from "@/public/ico";
+import { AppIcon } from "@/public/icons";
+import type { IconName } from "@/public/icons";
 import RequestDemoModal from "@/components/LandingPage/DemoModal";
 
 const navItems = [

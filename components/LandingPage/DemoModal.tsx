@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
-import { AppIcon } from "@/public/ico";
+import { AppIcon } from "@/public/icons";
 
 type RequestDemoModalProps = {
 	isOpen: boolean;
