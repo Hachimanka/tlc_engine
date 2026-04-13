@@ -20,7 +20,7 @@ export default function SidePanel() {
   };
 
   return (
-    <aside className="bg-white flex min-h-full w-72 min-w-[18rem] flex-col break-words px-4 overflow-x-hidden">
+    <aside className="bg-white flex h-screen min-h-full w-80 min-w-[20rem] flex-col break-words px-1 overflow-x-hidden">
       {/* Top */}
       <div className="mt-4 relative pb-2">
         <div className="flex flex-col space-y-1">
@@ -80,13 +80,13 @@ export const SideNavItem: React.FC<{
       {isSidebarExpanded ? (
         <Link
           href={path}
-          className={`h-full relative flex items-center whitespace-nowrap rounded-md ${
+          className={`w-full h-14 relative flex items-center whitespace-nowrap rounded-xl ${
             active
-              ? "font-base text-sm bg-neutral-200 shadow-sm text-neutral-700 dark:bg-neutral-800 dark:text-white"
-              : "hover:bg-neutral-200 hover:text-neutral-700 text-neutral-500 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+              ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
+              : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)] hover:hover:[&_svg_path]:stroke-[var(--color-card)]"
           }`}
         >
-          <div className="relative font-base text-sm py-1.5 px-2 flex flex-row items-center space-x-2 rounded-md duration-100">
+          <div className="relative w-full h-full text-body-default px-4 flex items-center space-x-3 rounded-xl duration-100">
             {icon}
             <span>{label}</span>
           </div>
@@ -97,20 +97,20 @@ export const SideNavItem: React.FC<{
             <TooltipTrigger>
               <Link
                 href={path}
-                className={`h-full relative flex items-center whitespace-nowrap rounded-md ${
+                className={`w-full h-14 relative flex items-center justify-center whitespace-nowrap rounded-xl ${
                   active
-                    ? "font-base text-sm bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-white"
-                    : "hover:bg-neutral-200 hover:text-neutral-700 text-neutral-500 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                    ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
+                    : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)]"
                 }`}
               >
-                <div className="relative font-base text-sm p-2 flex flex-row items-center space-x-2 rounded-md duration-100">
+                <div className="relative w-full h-full text-body-default p-2 flex items-center justify-center rounded-xl duration-100">
                   {icon}
                 </div>
               </Link>
             </TooltipTrigger>
             <TooltipContent
               side="left"
-              className="px-3 py-1.5 text-xs"
+              className="px-1 py-1.5 text-xs"
               sideOffset={10}
             >
               <span>{label}</span>
