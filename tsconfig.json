@@ -31,6 +31,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/tenant/roles/Deped/subject&room management"  ],
+, "app/tenant/roles-pages/Deped/subject&room management"  ],
   "exclude": ["node_modules"]
 }
