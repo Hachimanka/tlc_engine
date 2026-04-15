@@ -22,25 +22,20 @@ export function middleware(req: NextRequest) {
   if (url.pathname.startsWith('/_next') || url.pathname.startsWith('/api')) {
     return NextResponse.next()
   }
-  // Custom route for load-manager
-  if (url.pathname === '/load-manager') {
-    return NextResponse.rewrite(
-      new URL('/tenant/roles-pages/Deped/load-manager', req.url)
-    )
+  const depedBasePath = '/tenant/roles-pages/Deped'
+
+  const depedRoutes: Record<string, string> = {
+    '/load-manager': 'load-manager',
+    '/principal': 'principal',
+    '/teacher': 'teacher',
+    '/subject-room-management': 'subject-room-management',
   }
-  if (url.pathname === '/principal') {
+
+  const target = depedRoutes[url.pathname]
+
+  if (target) {
     return NextResponse.rewrite(
-      new URL('/tenant/roles-pages/Deped/principal', req.url)
-    )
-  }
-  if (url.pathname === '/teacher') {
-    return NextResponse.rewrite(
-      new URL('/tenant/roles-pages/Deped/teacher', req.url)
-    )
-  }
-  if (url.pathname === '/subject-room-management') {
-    return NextResponse.rewrite(
-      new URL('/tenant/roles-pages/Deped/subject-room-management', req.url)
+      new URL(`${depedBasePath}/${target}`, req.url)
     )
   }
   const subdomain = hostname.split('.')[0]
