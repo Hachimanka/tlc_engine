@@ -22,7 +22,27 @@ export function middleware(req: NextRequest) {
   if (url.pathname.startsWith('/_next') || url.pathname.startsWith('/api')) {
     return NextResponse.next()
   }
-
+  // Custom route for load-manager
+  if (url.pathname === '/load-manager') {
+    return NextResponse.rewrite(
+      new URL('/tenant/roles-pages/Deped/load-manager', req.url)
+    )
+  }
+  if (url.pathname === '/principal') {
+    return NextResponse.rewrite(
+      new URL('/tenant/roles-pages/Deped/principal', req.url)
+    )
+  }
+  if (url.pathname === '/teacher') {
+    return NextResponse.rewrite(
+      new URL('/tenant/roles-pages/Deped/teacher', req.url)
+    )
+  }
+  if (url.pathname === '/subject-room-management') {
+    return NextResponse.rewrite(
+      new URL('/tenant/roles-pages/Deped/subject-room-management', req.url)
+    )
+  }
   const subdomain = hostname.split('.')[0]
 
   // Option 2: Allow direct access to superadmin and tenant for local testing without subdomains
