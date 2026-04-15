@@ -38,6 +38,25 @@ export function middleware(req: NextRequest) {
       new URL(`${depedBasePath}/${target}`, req.url)
     )
   }
+
+  const collegeBasePath = '/tenant/roles-pages/College'
+
+  const collegeRoutes: Record<string, string> = {
+    '/dean': 'dean',
+    '/loadmanager': 'loadmanager',
+    '/teacher': 'teacher',
+    '/subject-room-management': 'subject-room-management',
+    '/vpaa': 'vpaa',
+  }
+
+  const targetCollege = collegeRoutes[url.pathname] // ✅ FIXED
+
+  if (targetCollege) {
+    return NextResponse.rewrite(
+      new URL(`${collegeBasePath}/${targetCollege}`, req.url)
+    )
+  }
+
   const subdomain = hostname.split('.')[0]
 
   // Option 2: Allow direct access to superadmin and tenant for local testing without subdomains
