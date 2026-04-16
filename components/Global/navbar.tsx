@@ -15,7 +15,7 @@ export default function Navbar() {
       <div className="flex items-center gap-4 mr-16">
         {/* Notification Icon */}
         <div className="relative flex items-center justify-center">
-          <span dangerouslySetInnerHTML={{ __html: ICON_SVGS.bell }} className="w-6 h-6" />
+          <Image src="/navbar/Notification.png" alt="Notification" width={24} height={24} />
           {/* Red dot for notification */}
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
         </div>
