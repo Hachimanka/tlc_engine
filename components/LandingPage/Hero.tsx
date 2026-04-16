@@ -7,6 +7,20 @@ import RequestDemoModal from "@/components/LandingPage/DemoModal";
 
 export default function Hero() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const heroImages = [
+    {
+      src: "/landingpage/teachingload.png",
+      alt: "Teaching load optimization dashboard",
+    },
+    {
+      src: "/landingpage/ensurecompliance.png",
+      alt: "Policy compliance overview",
+    },
+    {
+      src: "/landingpage/empowerinstitutions.png",
+      alt: "Institutional analytics panel",
+    },
+  ];
 
   return (
     <>
@@ -51,21 +65,131 @@ export default function Hero() {
             </div>
 
             <div className="flex flex-[0_0_auto] flex-col items-center justify-center">
-              <div className="relative flex h-[550px] w-[550px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-lg">
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)]">
-                  <Image
-                    src="/ad.png"
-                    alt="Marketing"
-                    width={550}
-                    height={550}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
+              <div className="hero-orbit-shell relative flex h-[550px] w-[550px] flex-col items-center justify-center overflow-visible rounded-2xl">
+                <div className="hero-orbit-ring" />
+                <div className="hero-orbit-ring hero-orbit-ring-inner" />
+
+                {heroImages.map((image, index) => (
+                  <div
+                    key={image.src}
+                    className="hero-orbit-item"
+                    style={{ animationDelay: `-${index * 4}s` }}
+                  >
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      width={330}
+                      height={230}
+                      className="h-full w-full rounded-2xl object-cover"
+                      priority={index === 0}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      <style jsx>{`
+        .hero-orbit-shell {
+          background: transparent;
+          border: none;
+          transform: translateX(24px);
+        }
+
+        .hero-orbit-ring {
+          position: absolute;
+          top: 50%;
+          left: 52%;
+          width: 340px;
+          height: 340px;
+          border-radius: 9999px;
+          border: 1px dashed rgba(5, 150, 105, 0.3);
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+        }
+
+        .hero-orbit-ring-inner {
+          width: 250px;
+          height: 250px;
+          border-style: solid;
+          border-color: rgba(5, 150, 105, 0.12);
+        }
+
+        .hero-orbit-item {
+          position: absolute;
+          width: clamp(180px, 42vw, 320px);
+          aspect-ratio: 1.5;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow:
+            0 14px 30px rgba(7, 34, 24, 0.15),
+            0 0 0 1px rgba(255, 255, 255, 0.45) inset;
+          animation: heroOrbitCounterClockwise 12s cubic-bezier(0.65, 0.05, 0.36, 1)
+            infinite;
+          will-change: top, left, opacity, transform;
+        }
+
+        @keyframes heroOrbitCounterClockwise {
+          0%,
+          25% {
+            top: 16%;
+            left: 58%;
+            opacity: 0.58;
+            z-index: 1;
+            transform: translate(-50%, -50%) scale(0.84);
+          }
+
+          33%,
+          58% {
+            top: 50%;
+            left: 24%;
+            opacity: 1;
+            z-index: 4;
+            transform: translate(-50%, -50%) scale(1.06);
+          }
+
+          66%,
+          91% {
+            top: 84%;
+            left: 58%;
+            opacity: 0.58;
+            z-index: 1;
+            transform: translate(-50%, -50%) scale(0.84);
+          }
+
+          100% {
+            top: 16%;
+            left: 58%;
+            opacity: 0.58;
+            z-index: 1;
+            transform: translate(-50%, -50%) scale(0.84);
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .hero-orbit-shell {
+            width: 460px;
+            height: 460px;
+            transform: translateX(12px);
+          }
+
+          .hero-orbit-ring {
+            width: 290px;
+            height: 290px;
+          }
+
+          .hero-orbit-ring-inner {
+            width: 210px;
+            height: 210px;
+          }
+
+          .hero-orbit-item {
+            width: clamp(150px, 38vw, 250px);
+          }
+        }
+      `}</style>
 
       <RequestDemoModal
         isOpen={isDemoModalOpen}

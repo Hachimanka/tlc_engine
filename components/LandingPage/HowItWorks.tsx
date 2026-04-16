@@ -57,10 +57,15 @@ export default function HowItWorks() {
 
         <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-4">
           {steps.map((step) => (
-            <article key={step.number} className="relative w-full rounded-[10px] p-6 text-center">
-              <p className="text-[56px] font-bold leading-[60px] text-[#6ed3c7] opacity-30">{step.number}</p>
+            <article
+              key={step.number}
+              className="group relative w-full rounded-[10px] p-6 text-center transition-all duration-300 ease-out transform-gpu hover:z-10 hover:scale-[1.04] hover:-translate-y-1"
+            >
+              <p className="text-[56px] font-bold leading-[60px] text-[#6ed3c7] opacity-30 transition-colors duration-300 group-hover:text-[var(--color-primary)] group-hover:opacity-100">
+                {step.number}
+              </p>
 
-              <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)]">
+              <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)] transition-transform duration-300 group-hover:scale-105">
                 <AppIcon
                   name={step.iconName}
                   className="inline-block [&_svg]:h-8 [&_svg]:w-8 [&_svg_path]:stroke-white [&_svg_circle]:stroke-white"

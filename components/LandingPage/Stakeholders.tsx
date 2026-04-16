@@ -1,5 +1,8 @@
+"use client";
+
 import { AppIcon } from "@/public/icons";
 import type { IconName } from "@/public/icons";
+import { useEffect, useRef, useState } from "react";
 
 type StakeholderCard = {
   id: string;
@@ -52,8 +55,54 @@ const stakeholders: StakeholderCard[] = [
 ];
 
 export default function Stakeholders() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [motionStyles, setMotionStyles] = useState({ opacity: 0, translateY: 28 });
+
+  useEffect(() => {
+    const updateMotion = () => {
+      const section = sectionRef.current;
+
+      if (!section) {
+        return;
+      }
+
+      const rect = section.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      const fadeInProgress = Math.max(
+        0,
+        Math.min(1, (viewportHeight - rect.top) / (viewportHeight * 0.38)),
+      );
+      const fadeOutProgress = Math.max(0, Math.min(1, rect.bottom / (viewportHeight * 0.38)));
+      const opacity = Math.min(fadeInProgress, fadeOutProgress);
+
+      // Enter from below, then drift upward as the section leaves the viewport.
+      const translateY = (1 - fadeInProgress) * 28 - (1 - fadeOutProgress) * 28;
+
+      setMotionStyles({ opacity, translateY });
+    };
+
+    updateMotion();
+    window.addEventListener("scroll", updateMotion, { passive: true });
+    window.addEventListener("resize", updateMotion);
+
+    return () => {
+      window.removeEventListener("scroll", updateMotion);
+      window.removeEventListener("resize", updateMotion);
+    };
+  }, []);
+
   return (
-    <section className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+    <section
+      ref={sectionRef}
+      className="bg-[var(--color-background)] px-6 py-8 md:px-10"
+      style={{
+        opacity: motionStyles.opacity,
+        transform: `translateY(${motionStyles.translateY}px)`,
+        transition: "opacity 120ms linear, transform 120ms linear",
+        willChange: "opacity, transform",
+      }}
+    >
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-display-h1 text-[var(--color-primary)]">Built for Every Stakeholder</h2>
@@ -66,7 +115,7 @@ export default function Stakeholders() {
           {stakeholders.map((stakeholder) => (
             <article
               key={stakeholder.id}
-              className="rounded-[14px] bg-white p-8 shadow-[0px_4px_6px_-4px_#0000001a,0px_10px_15px_-3px_#0000001a]"
+              className="rounded-[14px] bg-white p-8 shadow-[0px_4px_6px_-4px_#0000001a,0px_10px_15px_-3px_#0000001a] transition-all duration-300 ease-out transform-gpu hover:z-10 hover:scale-[1.04] hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(7,34,24,0.2)]"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)]">
                 <AppIcon
