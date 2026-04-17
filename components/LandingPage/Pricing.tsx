@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { AppIcon } from "@/public/icons";
 import type { IconName } from "@/public/icons";
 
@@ -68,9 +71,14 @@ const pricingPlans: PricingPlan[] = [
 ];
 
 export default function Pricing() {
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    pricingPlans[1]?.id ?? pricingPlans[0]?.id ?? ""
+  );
+
   return (
     <section id="pricing" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
       <div className="mx-auto max-w-7xl">
+        {/* Header */}
         <div className="mx-auto mb-12 max-w-3xl text-center">
           <h2 className="text-display-h1 text-[var(--color-primary)]">
             Simple, Transparent Pricing
@@ -80,36 +88,67 @@ export default function Pricing() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 justify-items-center gap-5 lg:grid-cols-3 lg:gap-8">
           {pricingPlans.map((plan) => {
-            const isBrand = plan.accent === "brand";
+            const isSelected = plan.id === selectedPlanId;
+            const isExpanded = isSelected;
+
+            const cardClasses = isSelected
+              ? "scale-[1.03] border-[var(--color-light-primary)] bg-[var(--color-light-primary)] text-white shadow-2xl"
+              : "border-transparent bg-[#f3f3f1] text-[var(--color-high-emphasis)] shadow-lg";
+
+            const paragraphClasses = isSelected
+              ? "text-white/90"
+              : "text-[var(--color-low-emphasis)]";
+
+            const featureTextClasses = isSelected
+              ? "text-white"
+              : "text-[#364153]";
+
+            const iconStrokeClasses = isSelected
+              ? "[&_svg_path]:stroke-white"
+              : "";
 
             return (
               <article
                 key={plan.id}
-                className={`flex min-h-[560px] flex-col rounded-2xl p-8 shadow-lg ${
-                  isBrand
-                    ? "bg-[var(--color-light-primary)] text-white"
-                    : "bg-[#f3f3f1] text-[var(--color-high-emphasis)]"
-                }`}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isSelected}
+                onClick={() => setSelectedPlanId(plan.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedPlanId(plan.id);
+                  }
+                }}
+                className={`w-full max-w-sm flex cursor-pointer flex-col rounded-2xl border p-6 transition-all duration-300 ease-out transform-gpu lg:min-h-[560px] lg:p-8 ${
+                  isSelected
+                    ? "z-10 scale-[1.02] -translate-y-1 shadow-[0_24px_60px_rgba(7,34,24,0.25)]"
+                    : "hover:shadow-xl lg:scale-100 lg:translate-y-0"
+                } ${cardClasses} ${
+                  isExpanded ? "min-h-[420px] sm:min-h-[460px]" : "min-h-[170px] sm:min-h-[190px]"
+                } overflow-hidden`}
               >
                 <h3 className="text-heading-h3">{plan.name}</h3>
                 <h4 className="text-heading-h2 mt-2">{plan.price}</h4>
-                <p className={`mt-2 ${isBrand ? "text-white/90" : "text-[var(--color-low-emphasis)]"}`}>
+                <p className={`mt-2 ${paragraphClasses}`}>
                   {plan.description}
                 </p>
 
-                <div className="mt-4 flex flex-1 flex-col gap-4">
+                <div className={`mt-4 flex flex-1 flex-col gap-4 ${isExpanded ? "" : "hidden lg:flex"}`}>
                   {plan.features.map((feature) => (
                     <div key={feature.text} className="flex items-center gap-3">
                       <span className="flex h-5 w-5 items-center justify-center rounded-full">
                         <AppIcon
                           name={feature.iconName}
-                          className={`inline-block [&_svg]:h-4 [&_svg]:w-4 ${isBrand ? "[&_svg_path]:stroke-white" : ""}`}
+                          className={`inline-block [&_svg]:h-4 [&_svg]:w-4 ${iconStrokeClasses}`}
                           title={feature.text}
                         />
                       </span>
-                      <p className={isBrand ? "text-white" : "text-[#364153]"}>{feature.text}</p>
+                      <p className={featureTextClasses}>
+                        {feature.text}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -117,7 +156,9 @@ export default function Pricing() {
                 <a
                   href="#contact"
                   className={`text-label-button mt-4 rounded-lg px-4 py-3 text-center transition-opacity hover:opacity-90 ${
-                    isBrand
+                    isExpanded ? "" : "hidden lg:block"
+                  } ${
+                    isSelected
                       ? "bg-white text-[var(--color-primary)]"
                       : "bg-[var(--color-light-primary)] text-white"
                   }`}
