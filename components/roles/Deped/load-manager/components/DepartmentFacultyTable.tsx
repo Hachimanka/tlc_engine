@@ -214,7 +214,7 @@ export default function DepartmentFacultyTable() {
 			<div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
 				<div className="flex items-center justify-between gap-4 border-b border-[color:var(--color-default)] px-4 py-3 sm:px-5">
 					<div>
-						<h1 className="text-heading-h4 text-[var(--color-high-emphasis)]">
+						<h1 className="text-2xl text-[var(--color-high-emphasis)]">
 							Filipino Department Faculty
 						</h1>
 						<p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
