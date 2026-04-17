@@ -1,3 +1,3 @@
 export default function SubjectRoomPage() {
-  return <div>VPAA</div>
+  return <div>Subject Room</div>
 }
