@@ -19,11 +19,11 @@ const aboutImages = [
 
 export default function About() {
   return (
-    <section id="about" className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+    <section id="about" className="bg-[var(--color-background)] px-6 py-8 md:px-10 lg:py-16">
       <div className="mx-auto max-w-7xl">
-        <div className="flex min-h-[700px] items-center gap-12">
-          <div className="flex flex-1 items-center">
-            <div className="w-full max-w-[700px]">
+        <div className="flex flex-col items-center gap-10 lg:min-h-[700px] lg:flex-row lg:items-center lg:gap-12">
+          <div className="flex w-full flex-1 items-center justify-center lg:justify-start">
+            <div className="w-full max-w-[700px] text-center lg:text-left">
               <h2 className="text-heading-h2 text-[var(--color-primary)]">About</h2>
 
               <div className="mt-6 space-y-6">
@@ -53,7 +53,7 @@ export default function About() {
             </div>
           </div>
 
-          <div className="flex flex-1 items-center justify-center">
+          <div className="about-visual-wrap hidden flex-1 items-center justify-center lg:flex">
             <div className="about-visual-shell relative h-[650px] w-full max-w-[885px] overflow-visible">
 
               {aboutImages.map((image, index) => (
@@ -78,6 +78,10 @@ export default function About() {
       </div>
 
       <style jsx>{`
+        .about-visual-wrap {
+          display: none;
+        }
+
         .about-visual-shell {
           border: none;
           background: transparent;
@@ -131,12 +135,22 @@ export default function About() {
         }
 
         @media (max-width: 1024px) {
+          .about-visual-wrap {
+            display: none !important;
+          }
+
           .about-visual-shell {
             height: 520px;
           }
 
           .about-visual-item {
             width: min(620px, calc(100% - 72px));
+          }
+        }
+
+        @media (min-width: 1025px) {
+          .about-visual-wrap {
+            display: flex;
           }
         }
       `}</style>

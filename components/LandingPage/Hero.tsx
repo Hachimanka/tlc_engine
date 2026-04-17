@@ -24,23 +24,23 @@ export default function Hero() {
 
   return (
     <>
-      <section className="bg-[var(--color-background)] px-6 py-14 md:px-10">
+      <section className="bg-[var(--color-background)] px-6 py-14 md:px-10 lg:py-20">
         <div className="mx-auto max-w-7xl">
-          <div className="flex h-[550px] items-center justify-center gap-[100px]">
-            <div className="flex flex-1 flex-col items-start justify-center gap-6 py-0">
-              <div className="flex w-full items-start gap-2.5">
-                <h1 className="text-display-h1 text-[var(--color-primary)]">
+          <div className="flex flex-col items-center justify-center gap-10 lg:h-[550px] lg:flex-row lg:items-center lg:justify-center lg:gap-[100px]">
+            <div className="flex w-full flex-col items-center justify-center gap-6 py-0 text-center lg:flex-1 lg:items-start lg:text-left">
+              <div className="flex w-full justify-center gap-2.5 lg:justify-start">
+                <h1 className="text-display-h1 max-w-3xl text-[var(--color-primary)]">
                   Streamline Teaching Loads. Ensure Compliance. Empower Institutions.
                 </h1>
               </div>
 
               <div className="w-full">
-                <p className="text-body-large text-[var(--color-low-emphasis)]">
+                <p className="mx-auto max-w-2xl text-body-large text-[var(--color-low-emphasis)] lg:mx-0">
                   Automate faculty workload management, enforce institutional policies, and gain real-time insights with the TLC Platform.
                 </p>
               </div>
 
-              <div className="flex w-full items-start gap-2.5">
+              <div className="flex w-full justify-center gap-2.5 lg:justify-start">
                 <button
                   type="button"
                   onClick={() => setIsDemoModalOpen(true)}
@@ -50,7 +50,7 @@ export default function Hero() {
                 </button>
               </div>
 
-              <div className="flex w-full items-center gap-3 pt-4">
+              <div className="flex w-full items-center justify-center gap-3 pt-4 lg:justify-start">
                 <div className="inline-flex flex-[0_0_auto] items-center justify-center rounded-full px-0 py-0">
                   <AppIcon
                     name="checkMarked"
@@ -64,8 +64,8 @@ export default function Hero() {
               </div>
             </div>
 
-            <div className="flex flex-[0_0_auto] flex-col items-center justify-center">
-              <div className="hero-orbit-shell relative flex h-[550px] w-[550px] flex-col items-center justify-center overflow-visible rounded-2xl">
+            <div className="flex w-full flex-col items-center justify-center lg:w-auto">
+              <div className="hero-orbit-shell relative flex h-[clamp(320px,85vw,550px)] w-[clamp(320px,85vw,550px)] flex-col items-center justify-center overflow-visible rounded-2xl">
                 <div className="hero-orbit-ring" />
                 <div className="hero-orbit-ring hero-orbit-ring-inner" />
 
@@ -95,7 +95,7 @@ export default function Hero() {
         .hero-orbit-shell {
           background: transparent;
           border: none;
-          transform: translateX(24px);
+          transform: translateX(0);
         }
 
         .hero-orbit-ring {
@@ -170,23 +170,44 @@ export default function Hero() {
 
         @media (max-width: 1024px) {
           .hero-orbit-shell {
-            width: 460px;
-            height: 460px;
-            transform: translateX(12px);
+            width: min(92vw, 460px);
+            height: min(92vw, 460px);
+            transform: none;
           }
 
           .hero-orbit-ring {
-            width: 290px;
-            height: 290px;
+            width: min(72vw, 290px);
+            height: min(72vw, 290px);
           }
 
           .hero-orbit-ring-inner {
-            width: 210px;
-            height: 210px;
+            width: min(52vw, 210px);
+            height: min(52vw, 210px);
           }
 
           .hero-orbit-item {
-            width: clamp(150px, 38vw, 250px);
+            width: clamp(140px, 40vw, 250px);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-orbit-shell {
+            width: min(90vw, 360px);
+            height: min(90vw, 360px);
+          }
+
+          .hero-orbit-ring {
+            width: min(76vw, 240px);
+            height: min(76vw, 240px);
+          }
+
+          .hero-orbit-ring-inner {
+            width: min(54vw, 180px);
+            height: min(54vw, 180px);
+          }
+
+          .hero-orbit-item {
+            width: clamp(120px, 52vw, 200px);
           }
         }
       `}</style>

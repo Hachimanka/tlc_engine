@@ -64,12 +64,12 @@ export default function WhatIs() {
   return (
     <section
       ref={sectionRef}
-      className="bg-[var(--color-card)] px-6 py-14 md:px-10"
+      className="bg-[var(--color-card)] px-6 py-14 md:px-10 lg:py-20"
     >
       <div className="mx-auto max-w-7xl">
-        <div className="flex h-[496px] items-center justify-center gap-[50px]">
+        <div className="flex flex-col items-center justify-center gap-10 lg:h-[496px] lg:flex-row lg:gap-[50px]">
           <div
-            className="flex flex-1 flex-col items-start justify-center gap-6 py-0"
+            className="what-is-copy flex w-full flex-col items-center justify-center gap-6 py-0 text-center lg:flex-1 lg:items-start lg:text-left"
             style={{
               opacity: sectionOpacity,
               transform: `translateX(${-Math.round((1 - sectionOpacity) * 56)}px)`,
@@ -78,18 +78,18 @@ export default function WhatIs() {
             }}
           >
             <div className="w-full">
-              <h2 className="text-display-h1 text-[var(--color-primary)]">
+              <h2 className="mx-auto max-w-2xl text-display-h1 text-[var(--color-primary)] lg:mx-0">
                 What is the TLC Platform?
               </h2>
             </div>
 
             <div className="w-full">
-              <p className="text-body-large text-[var(--color-low-emphasis)]">
+              <p className="mx-auto max-w-2xl text-body-large text-[var(--color-low-emphasis)] lg:mx-0">
                 The Teaching Load Compliance Platform is a comprehensive solution designed to modernize academic workload management. Our system helps institutions enforce policies, automate complex calculations, and maintain compliance across all departments.
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-4">
+            <div className="flex w-full flex-col gap-4 text-left">
               {features.map((feature, index) => (
                 <div key={index} className="flex items-center gap-3">
                   <div className="flex-shrink-0">
@@ -108,7 +108,7 @@ export default function WhatIs() {
           </div>
 
           <div
-            className="flex flex-[0_0_auto] flex-col items-center justify-start"
+            className="what-is-visual hidden flex-[0_0_auto] flex-col items-center justify-start lg:flex"
             style={{
               opacity: sectionOpacity,
               transform: `translateX(${Math.round((1 - sectionOpacity) * 56)}px)`,
@@ -145,6 +145,15 @@ export default function WhatIs() {
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 1023px) {
+          .what-is-copy,
+          .what-is-visual {
+            transform: none !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

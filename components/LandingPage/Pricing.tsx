@@ -88,10 +88,10 @@ export default function Pricing() {
           </p>
         </div>
 
-        {/* ✅ FIXED GRID */}
-        <div className="mx-auto grid max-w-6xl grid-cols-1 justify-items-center gap-8 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 justify-items-center gap-5 lg:grid-cols-3 lg:gap-8">
           {pricingPlans.map((plan) => {
             const isSelected = plan.id === selectedPlanId;
+            const isExpanded = isSelected;
 
             const cardClasses = isSelected
               ? "scale-[1.03] border-[var(--color-light-primary)] bg-[var(--color-light-primary)] text-white shadow-2xl"
@@ -122,19 +122,21 @@ export default function Pricing() {
                     setSelectedPlanId(plan.id);
                   }
                 }}
-                className={`w-full max-w-sm flex min-h-[560px] cursor-pointer flex-col rounded-2xl border p-8 transition-all duration-300 ease-out transform-gpu ${
+                className={`w-full max-w-sm flex cursor-pointer flex-col rounded-2xl border p-6 transition-all duration-300 ease-out transform-gpu lg:min-h-[560px] lg:p-8 ${
                   isSelected
-                    ? "z-10 scale-[1.05] -translate-y-2 shadow-[0_24px_60px_rgba(7,34,24,0.25)]"
-                    : "hover:shadow-xl"
-                } ${cardClasses}`}        
-                      >
+                    ? "z-10 scale-[1.02] -translate-y-1 shadow-[0_24px_60px_rgba(7,34,24,0.25)]"
+                    : "hover:shadow-xl lg:scale-100 lg:translate-y-0"
+                } ${cardClasses} ${
+                  isExpanded ? "min-h-[420px] sm:min-h-[460px]" : "min-h-[170px] sm:min-h-[190px]"
+                } overflow-hidden`}
+              >
                 <h3 className="text-heading-h3">{plan.name}</h3>
                 <h4 className="text-heading-h2 mt-2">{plan.price}</h4>
                 <p className={`mt-2 ${paragraphClasses}`}>
                   {plan.description}
                 </p>
 
-                <div className="mt-4 flex flex-1 flex-col gap-4">
+                <div className={`mt-4 flex flex-1 flex-col gap-4 ${isExpanded ? "" : "hidden lg:flex"}`}>
                   {plan.features.map((feature) => (
                     <div key={feature.text} className="flex items-center gap-3">
                       <span className="flex h-5 w-5 items-center justify-center rounded-full">
@@ -154,6 +156,8 @@ export default function Pricing() {
                 <a
                   href="#contact"
                   className={`text-label-button mt-4 rounded-lg px-4 py-3 text-center transition-opacity hover:opacity-90 ${
+                    isExpanded ? "" : "hidden lg:block"
+                  } ${
                     isSelected
                       ? "bg-white text-[var(--color-primary)]"
                       : "bg-[var(--color-light-primary)] text-white"
