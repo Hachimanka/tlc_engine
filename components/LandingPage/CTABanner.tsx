@@ -1,36 +1,38 @@
-import { ArrowRight } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import RequestDemoModal from "@/components/LandingPage/DemoModal";
 
 export default function CTABanner() {
-  return (
-    <section
-      className="py-20 relative overflow-hidden"
-      style={{ background: "var(--teal-primary)" }}
-    >
-      {/* Decorative circles */}
-      <div
-        className="absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-10"
-        style={{ background: "white" }}
-      />
-      <div
-        className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full opacity-10"
-        style={{ background: "white" }}
-      />
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
-      <div className="relative max-w-3xl mx-auto px-6 text-center">
-        <h2 className="text-3xl lg:text-4xl mb-4 text-white">
-          Ready to Transform Your Institution?
-        </h2>
-        <p className="text-base mb-8" style={{ color: "rgba(255,255,255,0.8)" }}>
-          Join hundreds of institutions already streamlining their teaching loads and maintaining compliance with the TLC Platform.
-        </p>
-        <a
-          href="#contact"
-          className="inline-flex items-center gap-2 text-sm font-semibold px-8 py-3.5 rounded-lg transition-all hover:opacity-90 hover:-translate-y-0.5"
-          style={{ background: "white", color: "var(--teal-primary)" }}
-        >
-          Get Started Today <ArrowRight size={16} />
-        </a>
-      </div>
-    </section>
+  return (
+    <>
+      <section className="bg-[var(--color-light-primary)] px-6 py-8 md:px-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-4xl text-center">
+            <h2 className="text-display-h1 text-white">Ready to Transform Your Institution?</h2>
+            <p className="text-body-large mt-4 text-white/90">
+              Join the growing number of institutions streamlining their teaching load management with TLC Platform
+            </p>
+          </div>
+
+          <div className="mt-10 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setIsDemoModalOpen(true)}
+              className="text-label-button flex h-[50px] w-[200px] items-center justify-center gap-2 rounded-lg border border-white bg-[var(--color-card)] px-4 py-3 text-[var(--color-light-primary)] shadow-level-1 transition-opacity hover:opacity-90"
+            >
+              Request Demo
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <RequestDemoModal
+        isOpen={isDemoModalOpen}
+        onClose={() => setIsDemoModalOpen(false)}
+      />
+    </>
   );
 }

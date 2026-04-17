@@ -1,42 +1,51 @@
+import Image from "next/image";
+
 export default function About() {
   return (
-    <section id="about" className="py-20" style={{ background: "var(--bg-off)" }}>
-      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
-        {/* Left copy */}
-        <div>
-          <span
-            className="text-xs font-semibold uppercase tracking-widest mb-3 block"
-            style={{ color: "var(--teal-primary)" }}
-          >
-            About Us
-          </span>
-          <h2 className="text-3xl lg:text-4xl mb-5" style={{ color: "var(--text-dark)" }}>
-            Our Mission: A modern solution for academic workload management to help institutions thrive.
-          </h2>
-          <p className="text-base leading-relaxed mb-4" style={{ color: "var(--text-mid)" }}>
-            The TLC Platform was born from a simple observation: institutions need trustworthy, policy-driven tools that put compliance first, not as an afterthought. We partnered with academic leaders to build something that truly works.
-          </p>
-          <p className="text-base leading-relaxed mb-4" style={{ color: "var(--text-mid)" }}>
-            We believe the product should solve the institutional problem that institutions face from the complexity of faculty schedules, policy updates, and more — establishing a shared vocabulary for collaboration between faculty and administration.
-          </p>
-          <p className="text-base leading-relaxed" style={{ color: "var(--text-mid)" }}>
-            Today, we support numerous institutions around the world, from small colleges to large multi-campus universities, helping them build quality education.
-          </p>
-        </div>
+    <section id="about-us" className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex min-h-[700px] items-center gap-12">
+          <div className="flex flex-1 items-center">
+            <div className="w-full max-w-[700px]">
+              <h2 className="text-heading-h2 text-[var(--color-primary)]">About Us</h2>
 
-        {/* Right image */}
-        <div className="relative">
-          <div
-            className="absolute inset-0 rounded-2xl"
-            style={{ background: "linear-gradient(135deg, var(--teal-light), #c8e8e1)", transform: "rotate(2deg) scale(0.97)" }}
-          />
-          <div className="relative rounded-2xl overflow-hidden shadow-xl">
-            <img
-              src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=700&q=80"
-              alt="Team collaboration"
-              className="w-full object-cover"
-              style={{ height: "400px" }}
-            />
+              <div className="mt-6 space-y-6">
+                <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                  <span className="font-bold text-[var(--color-high-emphasis)]">Our Mission:</span>{" "}
+                  To modernize academic workload management through automation and policy-driven systems.
+                </p>
+
+                <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                  The TLC Platform was born from years of experience working with academic institutions
+                  struggling with manual workload tracking, inconsistent policy enforcement, and limited
+                  visibility into faculty assignments.
+                </p>
+
+                <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                  We believe that education administrators deserve modern tools that match the complexity
+                  of their work. Our platform combines advanced technology with deep understanding of
+                  academic operations to deliver a solution that truly works.
+                </p>
+
+                <p className="text-body-large leading-[1.46] text-[var(--color-low-emphasis)]">
+                  Today, we are proud to serve institutions across the country, helping them streamline
+                  operations, ensure compliance, and focus on what matters most: delivering quality
+                  education.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-1 items-center justify-center">
+            <div className="relative h-[650px] w-full max-w-[885px] overflow-hidden rounded-2xl shadow-lg">
+              <Image
+                src="/lf.png"
+                alt="About TLC Platform"
+                width={885}
+                height={650}
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
         </div>
       </div>

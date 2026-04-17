@@ -1,80 +1,80 @@
-const steps = [
+import { AppIcon } from "@/public/icons";
+import type { IconName } from "@/public/icons";
+
+type StepItem = {
+  number: string;
+  title: string;
+  description: string;
+  iconName: IconName;
+  showConnector: boolean;
+};
+
+const steps: StepItem[] = [
   {
-    num: "01",
-    label: "Setup",
-    title: "Set up your Institution",
-    desc: "Configure your institution's structure, departments, and academic calendars. Define your policies and compliance requirements once.",
+    number: "01",
+    title: "Set up your institution",
+    description:
+      "Configure your institution's basic information, departments, and organizational structure.",
+    iconName: "settings",
+    showConnector: true,
   },
   {
-    num: "02",
-    label: "Configure",
-    title: "Define policies and rules",
-    desc: "Translate your institutional policies into automated rules. Set thresholds, limits, and approval requirements that govern teaching assignments.",
+    number: "02",
+    title: "Define policies and roles",
+    description:
+      "Create custom policies for teaching loads and define user roles with appropriate permissions.",
+    iconName: "file",
+    showConnector: true,
   },
   {
-    num: "03",
-    label: "Assign",
+    number: "03",
     title: "Assign teaching loads",
-    desc: "Assign courses to faculty with confidence, knowing the system validates every decision against your policies in real time.",
+    description:
+      "Assign courses to faculty members and let the system automatically calculate their teaching loads.",
+    iconName: "people",
+    showConnector: true,
   },
   {
-    num: "04",
-    label: "Monitor",
+    number: "04",
     title: "Monitor compliance and approvals",
-    desc: "Track compliance status, manage approval workflows, and generate reports to keep administrators and faculty aligned.",
+    description:
+      "Track compliance in real-time, manage approval workflows, and generate comprehensive reports.",
+    iconName: "analytics",
+    showConnector: false,
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl lg:text-4xl mb-4" style={{ color: "var(--text-dark)" }}>
-            How It Works
-          </h2>
-          <p className="text-base" style={{ color: "var(--text-mid)" }}>
-            Get started with TLC Platform in four easy steps.
+    <section id="how-it-works" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-display-h1 text-[var(--color-primary)]">How It Works</h2>
+          <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+            Get started with TLC Platform in four simple steps
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-          {/* Connector line on desktop */}
-          <div
-            className="hidden lg:block absolute top-8 left-[12.5%] right-[12.5%] h-px"
-            style={{ background: "linear-gradient(90deg, var(--teal-light), var(--teal-primary), var(--teal-light))" }}
-          />
+        <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-4">
+          {steps.map((step) => (
+            <article key={step.number} className="relative w-full rounded-[10px] p-6 text-center">
+              <p className="text-[56px] font-bold leading-[60px] text-[#6ed3c7] opacity-30">{step.number}</p>
 
-          {steps.map(({ num, label, title, desc }, i) => (
-            <div key={num} className="relative flex flex-col items-center text-center lg:items-start lg:text-left">
-              {/* Step number bubble */}
-              <div className="relative z-10 mb-5">
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg mb-1"
-                  style={{
-                    background: i === 0 || i === 3 ? "var(--teal-primary)" : "white",
-                    border: "2px solid var(--teal-primary)",
-                    color: i === 0 || i === 3 ? "white" : "var(--teal-primary)",
-                    fontFamily: "'DM Serif Display', serif",
-                  }}
-                >
-                  {num}
-                </div>
+              <div className="mt-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-light-primary)]">
+                <AppIcon
+                  name={step.iconName}
+                  className="inline-block [&_svg]:h-8 [&_svg]:w-8 [&_svg_path]:stroke-white [&_svg_circle]:stroke-white"
+                  title={step.title}
+                />
               </div>
 
-              <span
-                className="text-xs font-semibold uppercase tracking-widest mb-1"
-                style={{ color: "var(--teal-primary)" }}
-              >
-                {label}
-              </span>
-              <h3 className="text-lg mb-3" style={{ color: "var(--text-dark)", fontFamily: "'DM Serif Display', serif" }}>
-                {title}
-              </h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-mid)" }}>
-                {desc}
-              </p>
-            </div>
+              <h3 className="text-heading-h4 mt-6 text-[var(--color-high-emphasis)]">{step.title}</h3>
+              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">{step.description}</p>
+
+              {step.showConnector && (
+                <div className="absolute right-[-32px] top-[128px] hidden h-0.5 w-8 -translate-y-1/2 bg-[#6ed3c7] lg:block" />
+              )}
+            </article>
           ))}
         </div>
       </div>

@@ -1,78 +1,117 @@
-"use client";
-import { BookOpen, ShieldCheck, Building2, Lock, GitBranch, Activity } from "lucide-react";
+import { AppIcon } from "@/public/icons";
+import type { IconName } from "@/public/icons";
 
-const features = [
+type FeatureCard = {
+  id: number;
+  iconName: IconName;
+  title: string;
+  description: string;
+};
+
+const featureRowOne: FeatureCard[] = [
   {
-    icon: BookOpen,
+    id: 1,
+    iconName: "file",
     title: "Teaching Load Automation",
-    desc: "Automatically calculate and distribute teaching loads across faculty based on institutional policies and contractual requirements.",
+    description:
+      "Automatically calculate faculty teaching loads based on institutional policies and course assignments.",
   },
   {
-    icon: ShieldCheck,
+    id: 2,
+    iconName: "settings",
     title: "Policy Enforcement Engine",
-    desc: "Real-time enforcement of institutional rules and regulations, ensuring every assignment is compliant before approval.",
+    description:
+      "Define and enforce complex institutional policies with our flexible rule-based system.",
   },
   {
-    icon: Building2,
+    id: 3,
+    iconName: "analytics",
     title: "Multi-Tenant Architecture",
-    desc: "Seamlessly manage multiple campuses, colleges, or departments within a single unified platform built for scale.",
+    description:
+      "Secure, scalable platform supporting multiple institutions with complete data isolation.",
   },
+];
+
+const featureRowTwo: FeatureCard[] = [
   {
-    icon: Lock,
+    id: 4,
+    iconName: "shield",
     title: "Role-Based Access Control",
-    desc: "Granular permission settings ensure the right people see the right information at the right time — nothing more.",
+    description:
+      "Granular permissions ensure users only access information relevant to their role.",
   },
   {
-    icon: GitBranch,
+    id: 5,
+    iconName: "flow",
     title: "Approval Workflow System",
-    desc: "Customizable approval chains that streamline decision-making and keep all stakeholders informed throughout the process.",
+    description:
+      "Streamlined approval processes for course assignments and load adjustments.",
   },
   {
-    icon: Activity,
+    id: 6,
+    iconName: "signal",
     title: "Real-Time Compliance Monitoring",
-    desc: "Live dashboards and automated alerts keep your institution ahead of compliance requirements and policy thresholds.",
+    description:
+      "Track compliance status in real-time with alerts for policy violations and exceptions.",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="py-20" style={{ background: "var(--bg-off)" }}>
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl lg:text-4xl mb-4" style={{ color: "var(--text-dark)" }}>
+    <section id="features" className="bg-[var(--color-background)] px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-display-h1 text-[var(--color-primary)]">
             Powerful Features for Modern Institutions
           </h2>
-          <p className="text-base max-w-2xl mx-auto" style={{ color: "var(--text-mid)" }}>
-            Everything you need to manage teaching loads, enforce policies, and maintain compliance.
+          <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+            Everything you need to manage teaching loads, enforce policies, and maintain compliance
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map(({ icon: Icon, title, desc }) => (
-            <div
-              key={title}
-              className="bg-white rounded-xl p-6 border transition-all duration-300 hover:-translate-y-1"
-              style={{ border: "1px solid #e4ece9", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 30px rgba(13,123,107,0.1)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.04)";
-              }}
+        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {featureRowOne.map((feature) => (
+            <article
+              key={feature.id}
+              className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
             >
-              <div
-                className="w-11 h-11 rounded-lg flex items-center justify-center mb-4"
-                style={{ background: "var(--teal-light)" }}
-              >
-                <Icon size={20} style={{ color: "var(--teal-primary)" }} />
+              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+                <AppIcon
+                  name={feature.iconName}
+                  className="inline-block [&_svg]:h-8 [&_svg]:w-8"
+                  title={feature.title}
+                />
               </div>
-              <h3 className="text-lg mb-2" style={{ color: "var(--text-dark)", fontFamily: "'DM Serif Display', serif" }}>
-                {title}
+              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
+                {feature.title}
               </h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-mid)" }}>
-                {desc}
+              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+                {feature.description}
               </p>
-            </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {featureRowTwo.map((feature) => (
+            <article
+              key={feature.id}
+              className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
+            >
+              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+                <AppIcon
+                  name={feature.iconName}
+                  className="inline-block [&_svg]:h-[34px] [&_svg]:w-[34px]"
+                  title={feature.title}
+                />
+              </div>
+              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
+                {feature.title}
+              </h3>
+              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+                {feature.description}
+              </p>
+            </article>
           ))}
         </div>
       </div>

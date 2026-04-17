@@ -3,7 +3,7 @@ import Hero from "@/components/LandingPage/Hero";
 import WhatIs from "@/components/LandingPage/WhatIs";
 import Features from "@/components/LandingPage/Features";
 import HowItWorks from "@/components/LandingPage/HowItWorks";
-import Stakeholders from "@/components/LandingPage/Stakeholders";
+import StakeHolders from "@/components/LandingPage/Stakeholders";
 import Pricing from "@/components/LandingPage/Pricing";
 import About from "@/components/LandingPage/About";
 import Contact from "@/components/LandingPage/Contact";
@@ -18,7 +18,7 @@ export default function Home() {
       <WhatIs />
       <Features />
       <HowItWorks />
-      <Stakeholders />
+      <StakeHolders />
       <Pricing />
       <About />
       <Contact />

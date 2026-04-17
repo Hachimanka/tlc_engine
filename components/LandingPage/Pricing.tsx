@@ -1,126 +1,132 @@
-import { Check } from "lucide-react";
+import { AppIcon } from "@/public/icons";
+import type { IconName } from "@/public/icons";
 
-const plans = [
+type PricingPlan = {
+  id: string;
+  name: string;
+  price: string;
+  description: string;
+  accent: "light" | "brand";
+  iconName: IconName;
+  features: Array<{
+    text: string;
+    iconName: IconName;
+  }>;
+};
+
+const pricingPlans: PricingPlan[] = [
   {
+    id: "basic",
     name: "Basic",
-    price: "Contact Us",
-    tagline: "Perfect for small institutions getting started",
+    price: "0.0",
+    description: "Perfect for small institutions getting started",
+    accent: "light",
+    iconName: "file",
     features: [
-      "Up to 50 faculty members",
-      "Core load management",
-      "Basic policy engine",
-      "Email support",
-      "Standard reports",
+      { text: "Up to 100 faculty members", iconName: "people" },
+      { text: "Core teaching load features", iconName: "file" },
+      { text: "Basic policy enforcement", iconName: "settings" },
+      { text: "Email support", iconName: "email" },
+      { text: "Monthly reports", iconName: "analytics" },
     ],
-    featured: false,
-    cta: "Get Started",
   },
   {
+    id: "professional",
     name: "Professional",
-    price: "Contact Us",
-    tagline: "Ideal for mid-sized institutions requiring advanced tools",
+    price: "0.0",
+    description: "Ideal for growing institutions",
+    accent: "brand",
+    iconName: "subscription",
     features: [
-      "Unlimited faculty members",
-      "Advanced policy engine",
-      "Multi-department support",
-      "Approval workflows",
-      "Priority support",
-      "Custom reports",
+      { text: "Up to 500 faculty members", iconName: "people" },
+      { text: "Full feature access", iconName: "menu" },
+      { text: "Advanced workflow automation", iconName: "flow" },
+      { text: "Custom policy rules", iconName: "settings" },
+      { text: "Priority support", iconName: "bell" },
+      { text: "Real-time analytics", iconName: "analytics" },
+      { text: "API access", iconName: "lock" },
     ],
-    featured: true,
-    cta: "Get Started",
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    tagline: "For large university systems with complex requirements",
+    id: "enterprise",
+    name: "Enterprise (Custom)",
+    price: "0.0",
+    description: "For large institutions and multi-campus systems",
+    accent: "light",
+    iconName: "shield",
     features: [
-      "Multi-campus architecture",
-      "Custom integrations",
-      "SLA guarantee",
-      "Dedicated account manager",
-      "Advanced analytics",
-      "Training & onboarding",
+      { text: "Unlimited faculty members", iconName: "people" },
+      { text: "Multi-campus support", iconName: "location" },
+      { text: "Custom policy engine", iconName: "settings" },
+      { text: "Dedicated support team", iconName: "bell" },
+      { text: "Advanced security features", iconName: "shield" },
+      { text: "Custom integrations", iconName: "flow" },
+      { text: "Training & onboarding", iconName: "hat" },
+      { text: "SLA guarantee", iconName: "subscription" },
     ],
-    featured: false,
-    cta: "Contact Sales",
   },
 ];
 
 export default function Pricing() {
   return (
-    <section id="pricing" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl lg:text-4xl mb-4" style={{ color: "var(--text-dark)" }}>
+    <section id="pricing" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <h2 className="text-display-h1 text-[var(--color-primary)]">
             Simple, Transparent Pricing
           </h2>
-          <p className="text-base" style={{ color: "var(--text-mid)" }}>
-            Choose a plan built for your institution's needs.
+          <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
+            Choose the plan that best fits your institution's needs
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 items-start">
-          {plans.map(({ name, price, tagline, features, featured, cta }) => (
-            <div
-              key={name}
-              className={`rounded-2xl p-8 border ${featured ? "shadow-2xl" : "shadow-sm"}`}
-              style={{
-                background: featured ? "var(--teal-primary)" : "white",
-                border: featured ? "2px solid var(--teal-primary)" : "1px solid #e4ece9",
-                transform: featured ? "scale(1.03)" : "scale(1)",
-              }}
-            >
-              {featured && (
-                <div
-                  className="inline-flex text-xs font-semibold px-3 py-1 rounded-full mb-4 uppercase tracking-wider"
-                  style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
-                >
-                  Most Popular
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {pricingPlans.map((plan) => {
+            const isBrand = plan.accent === "brand";
+
+            return (
+              <article
+                key={plan.id}
+                className={`flex min-h-[560px] flex-col rounded-2xl p-8 shadow-lg ${
+                  isBrand
+                    ? "bg-[var(--color-light-primary)] text-white"
+                    : "bg-[#f3f3f1] text-[var(--color-high-emphasis)]"
+                }`}
+              >
+                <h3 className="text-heading-h3">{plan.name}</h3>
+                <h4 className="text-heading-h2 mt-2">{plan.price}</h4>
+                <p className={`mt-2 ${isBrand ? "text-white/90" : "text-[var(--color-low-emphasis)]"}`}>
+                  {plan.description}
+                </p>
+
+                <div className="mt-4 flex flex-1 flex-col gap-4">
+                  {plan.features.map((feature) => (
+                    <div key={feature.text} className="flex items-center gap-3">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full">
+                        <AppIcon
+                          name={feature.iconName}
+                          className={`inline-block [&_svg]:h-4 [&_svg]:w-4 ${isBrand ? "[&_svg_path]:stroke-white" : ""}`}
+                          title={feature.text}
+                        />
+                      </span>
+                      <p className={isBrand ? "text-white" : "text-[#364153]"}>{feature.text}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
 
-              <h3
-                className="text-xl mb-1"
-                style={{ color: featured ? "white" : "var(--text-dark)", fontFamily: "'DM Serif Display', serif" }}
-              >
-                {name}
-              </h3>
-              <div
-                className="text-2xl font-bold mb-2"
-                style={{ color: featured ? "white" : "var(--teal-primary)", fontFamily: "'DM Serif Display', serif" }}
-              >
-                {price}
-              </div>
-              <p className="text-sm mb-6" style={{ color: featured ? "rgba(255,255,255,0.75)" : "var(--text-light)" }}>
-                {tagline}
-              </p>
-
-              <ul className="space-y-3 mb-8">
-                {features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm">
-                    <Check
-                      size={15}
-                      style={{ color: featured ? "rgba(255,255,255,0.9)" : "var(--teal-primary)", marginTop: 2, flexShrink: 0 }}
-                    />
-                    <span style={{ color: featured ? "rgba(255,255,255,0.85)" : "var(--text-mid)" }}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <a
-                href="#contact"
-                className="block text-center text-sm font-semibold py-3 px-6 rounded-lg transition-all hover:opacity-90"
-                style={
-                  featured
-                    ? { background: "white", color: "var(--teal-primary)" }
-                    : { background: "var(--teal-primary)", color: "white" }
-                }
-              >
-                {cta}
-              </a>
-            </div>
-          ))}
+                <a
+                  href="#contact"
+                  className={`text-label-button mt-4 rounded-lg px-4 py-3 text-center transition-opacity hover:opacity-90 ${
+                    isBrand
+                      ? "bg-white text-[var(--color-primary)]"
+                      : "bg-[var(--color-light-primary)] text-white"
+                  }`}
+                >
+                  Get Started
+                </a>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
