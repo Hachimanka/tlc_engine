@@ -69,46 +69,46 @@ export default function Features() {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-6 overflow-visible lg:grid-cols-3">
           {featureRowOne.map((feature) => (
             <article
               key={feature.id}
-              className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
+              className="group min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg transition-all duration-300 ease-out transform-gpu hover:z-10 hover:scale-[1.04] hover:-translate-y-1 hover:bg-[var(--color-light-primary)] hover:shadow-[0_24px_60px_rgba(7,34,24,0.18)]"
             >
-              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10 transition-colors duration-300 group-hover:bg-[var(--color-primary)]/70">
                 <AppIcon
                   name={feature.iconName}
-                  className="inline-block [&_svg]:h-8 [&_svg]:w-8"
+                  className="inline-block transition-colors duration-300 [&_svg]:h-8 [&_svg]:w-8 group-hover:[&_svg_path]:stroke-[var(--color-card)] group-hover:[&_svg_rect]:stroke-[var(--color-card)] group-hover:[&_svg_circle]:stroke-[var(--color-card)] group-hover:[&_svg_line]:stroke-[var(--color-card)] group-hover:[&_svg_polyline]:stroke-[var(--color-card)]"
                   title={feature.title}
                 />
               </div>
-              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
+              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)] transition-colors duration-300 group-hover:text-[var(--color-card)]">
                 {feature.title}
               </h3>
-              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)] transition-colors duration-300 group-hover:text-[var(--color-card)]/90">
                 {feature.description}
               </p>
             </article>
           ))}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-6 overflow-visible lg:grid-cols-3">
           {featureRowTwo.map((feature) => (
             <article
               key={feature.id}
-              className="min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg"
+              className="group min-h-[250px] rounded-[10px] bg-[var(--color-card)] p-6 shadow-lg transition-all duration-300 ease-out transform-gpu hover:z-10 hover:scale-[1.04] hover:-translate-y-1 hover:bg-[var(--color-light-primary)] hover:shadow-[0_24px_60px_rgba(7,34,24,0.18)]"
             >
-              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10">
+              <div className="flex h-[75px] w-[75px] items-center justify-center rounded-2xl bg-[var(--color-primary)]/10 transition-colors duration-300 group-hover:bg-[var(--color-primary)]/70">
                 <AppIcon
                   name={feature.iconName}
-                  className="inline-block [&_svg]:h-[34px] [&_svg]:w-[34px]"
+                  className="inline-block transition-colors duration-300 [&_svg]:h-[34px] [&_svg]:w-[34px] group-hover:[&_svg_path]:stroke-[var(--color-card)] group-hover:[&_svg_rect]:stroke-[var(--color-card)] group-hover:[&_svg_circle]:stroke-[var(--color-card)] group-hover:[&_svg_line]:stroke-[var(--color-card)] group-hover:[&_svg_polyline]:stroke-[var(--color-card)]"
                   title={feature.title}
                 />
               </div>
-              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)]">
+              <h3 className="text-heading-h4 mt-4 text-[var(--color-high-emphasis)] transition-colors duration-300 group-hover:text-[var(--color-card)]">
                 {feature.title}
               </h3>
-              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)]">
+              <p className="text-body-small mt-3 leading-7 text-[var(--color-low-emphasis)] transition-colors duration-300 group-hover:text-[var(--color-card)]/90">
                 {feature.description}
               </p>
             </article>

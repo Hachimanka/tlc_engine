@@ -1,6 +1,17 @@
 import { redirect } from "next/navigation";
+import Navbar from "@/components/Global/navbar";
+import Sidebar from "@/components/Global/sidebar";
 
 export default function SuperAdminPage() {
-  redirect("/superadmin/dashboard");
-  return null;
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      <div className="flex flex-1">
+        <Sidebar />
+        <div className="flex-1 flex flex-col">
+          {/* ...existing content or routes... */}
+        </div>
+      </div>
+    </div>
+  );
 }
