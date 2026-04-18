@@ -81,7 +81,7 @@ function HeaderPlaceholder() {
 function PrintablePage({ children }: { children: ReactNode }) {
 	return (
 		<section
-			className="teacher-export-page mx-auto mb-6 flex h-[297mm] w-[210mm] flex-col bg-white px-[25.4mm] pt-[31mm] pb-[22mm] text-[12pt] text-black shadow-[0_10px_30px_rgba(0,0,0,0.12)] print:mb-0 print:h-[297mm] print:w-[210mm] print:shadow-none print:break-after-page"
+			className="teacher-export-page mb-6 flex h-[297mm] w-[210mm] flex-col bg-white px-[25.4mm] py-[25.4mm] text-[12pt] text-black shadow-[0_10px_30px_rgba(0,0,0,0.12)] print:mb-0 print:h-[297mm] print:w-[210mm] print:shadow-none print:break-after-page"
 			style={{ fontFamily: '"Times New Roman", Times, serif' }}
 		>
 			{children}
@@ -173,15 +173,15 @@ export default function ExportFrom({
 					</div>
 
 					<div className="flex-1 overflow-auto p-4">
-						<div className="teacher-export-print-root mx-auto flex w-[210mm] flex-col gap-6">
+						<div className="teacher-export-print-root mx-auto flex w-full max-w-[210mm] flex-col gap-6">
 							<PrintablePage>
 								<div className="space-y-4">
 									<div className="grid grid-cols-[64px_1fr_64px] items-center gap-4">
 										<HeaderPlaceholder />
 										<div className="space-y-1 text-center">
-											<p className="text-[11px]">{region}</p>
-											<p className="text-[11px] font-semibold uppercase">{division}</p>
-											<p className="text-[11px] underline decoration-[rgba(0,0,0,0.4)] underline-offset-2">{district}</p>
+											<p className="text-[12px]">{region}</p>
+											<p className="text-[12px] font-semibold uppercase">{division}</p>
+											<p className="text-[12px] underline decoration-[rgba(0,0,0,0.4)] underline-offset-2">{district}</p>
 											<p className="text-[12px] font-bold uppercase tracking-[0.02em]">{schoolName}</p>
 										</div>
 										<HeaderPlaceholder />
@@ -266,6 +266,7 @@ export default function ExportFrom({
 					}
 
 					body {
+							margin: 0 !important;
 						background: white !important;
 						-webkit-print-color-adjust: exact;
 						print-color-adjust: exact;
@@ -281,9 +282,13 @@ export default function ExportFrom({
 					}
 
 					.teacher-export-print-root {
-						position: static;
-						display: block;
-						width: 100%;
+						position: fixed;
+						inset: 0;
+						display: flex;
+						justify-content: center;
+						align-items: flex-start;
+						padding-top: 8mm;
+						width: 100vw;
 						max-width: none;
 						margin: 0;
 						padding: 0;
