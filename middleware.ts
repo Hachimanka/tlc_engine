@@ -44,9 +44,9 @@ export function middleware(req: NextRequest) {
 
   const collegeRoutes: Record<string, string> = {
     '/dean': 'dean',
-    '/loadmanager': 'loadmanager',
+    '/college/loadmanager': 'loadmanager',
     '/teacher': 'teacher',
-    '/subject-room-management': 'subject-room-management',
+    '/college/subject-room-management': 'subject-room-management',
     '/vpaa': 'vpaa',
   }
 

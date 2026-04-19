@@ -1,3 +1,5 @@
-export default function SubjectRoomPage() {
-  return <div>Subject Room</div>
+import SubjectRoomManagerPage from "@/components/roles/College/subject&roommanager/SubjectRoomManagerPage";
+
+export default function Page() {
+  return <SubjectRoomManagerPage />;
 }
