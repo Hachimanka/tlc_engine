@@ -26,14 +26,16 @@ export default function TenantPage() {
       <div className="flex min-h-0 flex-1 w-full overflow-hidden">
         <Sidebar title="Deped Menu" items={sidebarItems} />
 
-        <section className="min-w-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8">
-          <div className="rounded-3xl px-5 py-4">
-            <h1 className="text-heading-h3 text-[var(--color-primary)]">
-              Teaching Load Assignment
-            </h1>
-          </div>
+        <section className="min-w-0 flex-1 overflow-y-auto px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-none space-y-4">
+            <div>
+              <h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
+                Subject Management
+              </h1>
+            </div>
 
-          <DepartmentFacultyTable />
+            <DepartmentFacultyTable />
+          </div>
         </section>
       </div>
     </main>
