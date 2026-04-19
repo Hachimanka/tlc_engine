@@ -7,6 +7,7 @@ export type RoleSidebarItem = {
 	href: string;
 	label: string;
 	icon: string;
+	onClick?: () => void;
 };
 
 type RoleSidebarProps = {
@@ -28,24 +29,41 @@ export default function Sidebar({ title, items }: RoleSidebarProps) {
 			<nav className="flex flex-col gap-1">
 				{items.map((item) => {
 					const isActive = item.href !== "#" && pathname === item.href;
+					const isButton = typeof item.onClick === "function";
+					const sharedClassName = `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+						isActive
+							? "bg-[var(--color-primary)] text-white"
+							: "text-[var(--color-primary)] hover:bg-[rgba(0,107,95,0.08)]"
+					}`;
 
 					return (
-						<Link
-							key={item.label}
-							href={item.href}
-							aria-disabled={item.href === "#"}
-							className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
-								isActive
-									? "bg-[var(--color-primary)] text-white"
-									: "text-[var(--color-primary)] hover:bg-[rgba(0,107,95,0.08)]"
-							}`}
-						>
-							<span
-								className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(2,147,131,0.10)]"
-								dangerouslySetInnerHTML={{ __html: item.icon }}
-							/>
-							<span>{item.label}</span>
-						</Link>
+						isButton ? (
+							<button
+								key={item.label}
+								type="button"
+								onClick={item.onClick}
+								className={sharedClassName}
+							>
+								<span
+									className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(2,147,131,0.10)]"
+									dangerouslySetInnerHTML={{ __html: item.icon }}
+								/>
+								<span>{item.label}</span>
+							</button>
+						) : (
+							<Link
+								key={item.label}
+								href={item.href}
+								aria-disabled={item.href === "#"}
+								className={sharedClassName}
+							>
+								<span
+									className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(2,147,131,0.10)]"
+									dangerouslySetInnerHTML={{ __html: item.icon }}
+								/>
+								<span>{item.label}</span>
+							</Link>
+						)
 					);
 				})}
 			</nav>

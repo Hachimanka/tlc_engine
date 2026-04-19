@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Navbar from "@/components/Global/navbar";
 import ExportFrom from "@/components/roles/Deped/teacher/components/ExportFrom";
+import RequestForm from "@/components/roles/Deped/teacher/components/RequestForm";
 import TeachingLoadTable from "@/components/roles/Deped/teacher/components/TeachingLoadTable";
 import Sidebar, { type RoleSidebarItem } from "@/components/roles/sidebar";
 import { ICON_SVGS } from "@/public/icons";
@@ -15,11 +16,6 @@ const sidebarItems: RoleSidebarItem[] = [
   },
   {
     href: "#",
-    label: "Send Request",
-    icon: ICON_SVGS.menu,
-  },
-  {
-    href: "#",
     label: "Settings",
     icon: ICON_SVGS.settings,
   },
@@ -27,13 +23,17 @@ const sidebarItems: RoleSidebarItem[] = [
 
 export default function TenantPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isRequestOpen, setIsRequestOpen] = useState(false);
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
       <Navbar />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar title="Deped Menu" items={sidebarItems} />
+        <Sidebar
+          title="Deped Menu"
+          items={sidebarItems}
+        />
 
         <section className="min-w-0 flex-1 overflow-y-auto px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-[1120px] space-y-3">
@@ -57,11 +57,26 @@ export default function TenantPage() {
             </div>
 
             <TeachingLoadTable />
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRequestOpen(true)}
+                className="group relative inline-flex min-w-[150px] items-center justify-center overflow-visible rounded-[18px] bg-[var(--color-primary)] px-6 py-3 text-[13px] font-semibold text-white shadow-none transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[var(--color-light-primary)] sm:min-w-[180px]"
+              >
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[rgba(2,147,131,0.30)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
+                />
+                <span className="relative z-10 text-center">Send Request</span>
+              </button>
+            </div>
           </div>
         </section>
       </div>
 
-        <ExportFrom isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
+      <ExportFrom isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
+      <RequestForm isOpen={isRequestOpen} onClose={() => setIsRequestOpen(false)} />
     </main>
   );
 }
