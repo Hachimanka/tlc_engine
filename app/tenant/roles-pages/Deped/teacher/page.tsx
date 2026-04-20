@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Navbar from "@/components/Global/navbar";
+import Navbar from "@/components/Global/HeaderTenant";
 import ExportFrom from "@/components/roles/Deped/teacher/components/ExportFrom";
 import RequestForm from "@/components/roles/Deped/teacher/components/RequestForm";
 import TeachingLoadTable from "@/components/roles/Deped/teacher/components/TeachingLoadTable";

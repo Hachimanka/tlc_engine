@@ -1,5 +1,5 @@
 import SubjectTable from "@/components/roles/Deped/subject-room-management/components/SubjectTable";
-import Navbar from "@/components/Global/navbar";
+import Navbar from "@/components/Global/HeaderTenant";
 import Sidebar, { type RoleSidebarItem } from "@/components/roles/sidebar";
 import { ICON_SVGS } from "@/public/icons";
 
