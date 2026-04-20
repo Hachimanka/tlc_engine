@@ -150,12 +150,6 @@ export default function RoomsTable({
 								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
 									Year Level
 								</th>
-								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
-									Description
-								</th>
-								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
-									Subject Title
-								</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
@@ -190,12 +184,6 @@ export default function RoomsTable({
 										</td>
 										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
 											{room.yearLevel}
-										</td>
-										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
-											{room.description}
-										</td>
-										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
-											{room.subjectTitle}
 										</td>
 									</tr>
 								);
