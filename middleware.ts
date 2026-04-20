@@ -30,6 +30,8 @@ export function middleware(req: NextRequest) {
     '/principal': 'principal',
     '/teacher': 'teacher',
     '/subject-room-management': 'subject-room-management',
+    '/roomPage': 'subject-room-management/room',
+    '/room-page': 'subject-room-management/room',
   }
 
   const target = depedRoutes[url.pathname]
