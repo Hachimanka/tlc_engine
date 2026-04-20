@@ -43,7 +43,7 @@ function HeaderPlaceholder() {
 function PrintablePage({ children }: { children: ReactNode }) {
   return (
     <section
-      className="teacher-export-page mb-6 flex h-[220mm] w-[297mm] flex-col bg-white px-[15mm] py-[15mm] text-[11pt] text-black shadow-lg print:mb-0 print:h-[210mm] print:w-[297mm] print:shadow-none print:break-after-page"
+      className="teacher-export-page mb-6 flex h-[212mm] w-[297mm] flex-col bg-white px-[15mm] py-[15mm] text-[11pt] text-black shadow-lg print:mb-0 print:h-[210mm] print:w-[297mm] print:shadow-none print:break-after-page"
       style={{ fontFamily: '"Times New Roman", Times, serif' }}
     >
       {children}
@@ -144,40 +144,83 @@ export default function ExportFrom({
                         ))}
                       </tr>
                     </thead>
+                    {/* code for schedule table nga naay time blocks */}
                     <tbody>
                       {scheduleTimes.map((time) => (
                         <tr key={time} className="h-12">
+                          {/* Time Column */}
                           <td className="border border-black p-1 font-semibold bg-gray-50">
                             {time}
                           </td>
 
-                          {[1, 2, 3, 4, 5].map((i) => (
-                            <td
-                              key={i}
-                              className="border border-black p-1 text-[9pt]"
-                            >
-                              {/* {scheduleData[time]?.[i] || (
-                                <span className="text-gray-500">-</span>
-                              )} */}
-                            </td>
-                          ))}
+                          {/* Monday to Friday Columns */}
+                          {[1, 2, 3, 4, 5].map((i) => {
+                            const dayName = days[i];
+
+                            const dayMap: { [key: string]: string } = {
+                              Monday: "M",
+                              Tuesday: "T",
+                              Wednesday: "W",
+                              Thursday: "Th",
+                              Friday: "F",
+                            };
+                            const dayAbbr = dayMap[dayName];
+
+                            const matchedRow = teacherLoadRows.find((row) => {
+                              const [daysPart, timePart] =
+                                row.schedule.split(" ");
+                              return (
+                                daysPart.includes(dayAbbr) && timePart === time
+                              );
+                            });
+
+                            return (
+                              <td
+                                key={i}
+                                className={`border border-black p-1 text-[8pt] ${
+                                  matchedRow
+                                    ? "bg-[var(--color-primary)] text-[var(--color-card)]"
+                                    : ""
+                                }`}
+                                style={
+                                  matchedRow
+                                    ? {
+                                        backgroundColor: "var(--color-primary)",
+                                      }
+                                    : {}
+                                }
+                              >
+                                {matchedRow && (
+                                  <div className="flex flex-col leading-tight">
+                                    <span className="font-bold">
+                                      {matchedRow.subjectCode}
+                                    </span>
+                                    <span>{matchedRow.section}</span>
+                                    <span className="text-[7pt] italic">
+                                      {matchedRow.room}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
                   </table>
 
                   {/* Signature sa mga higher position */}
-                  <div className="mt-8 grid grid-cols-2 gap-20 text-sm">
+                  <div className="mt-3 grid grid-cols-2 gap-20 text-sm">
                     <div>
                       <p className="font-bold">Reviewed by:</p>
-                      <div className="mt-8 border-t border-black pt-1">
+                      <div className="mt-3 border-t border-black pt-1">
                         <p className="font-bold uppercase">{reviewedBy}</p>
                         <p>{reviewedPosition}</p>
                       </div>
                     </div>
                     <div>
                       <p className="font-bold">Approved by:</p>
-                      <div className="mt-8 border-t border-black pt-1">
+                      <div className="mt-3 border-t border-black pt-1">
                         <p className="font-bold uppercase">{approvedBy}</p>
                         <p>{approvedPosition}</p>
                         <p className="text-[9pt] italic">{address}</p>
