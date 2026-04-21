@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-type SubjectRow = {
+export type SubjectRow = {
 	id: string;
 	subjectTitle: string;
 	department: string;
@@ -13,7 +13,15 @@ type SubjectRow = {
 	description: string;
 };
 
-const subjectRows: SubjectRow[] = [
+type SubjectTableProps = {
+	subjectRows: SubjectRow[];
+	onCreateSubjectClick: () => void;
+};
+
+const departmentOptions = ["All Department"];
+const yearLevelOptions = ["All Level"];
+
+export const initialSubjectRows: SubjectRow[] = [
 	{
 		id: "sub-1",
 		subjectTitle: "Filipino",
@@ -66,8 +74,8 @@ const subjectRows: SubjectRow[] = [
 	},
 ];
 
-const departmentOptions = ["All Department", ...new Set(subjectRows.map((row) => row.department))];
-const yearLevelOptions = ["All Level", ...new Set(subjectRows.map((row) => row.yearLevel))];
+const initialDepartmentOptions = ["All Department", ...new Set(initialSubjectRows.map((row) => row.department))];
+const initialYearLevelOptions = ["All Level", ...new Set(initialSubjectRows.map((row) => row.yearLevel))];
 
 function getStatusClass(status: SubjectRow["status"]) {
 	switch (status) {
@@ -81,10 +89,13 @@ function getStatusClass(status: SubjectRow["status"]) {
 	}
 }
 
-export default function SubjectTable() {
+export default function SubjectTable({ subjectRows, onCreateSubjectClick }: SubjectTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [departmentFilter, setDepartmentFilter] = useState("All Department");
 	const [yearLevelFilter, setYearLevelFilter] = useState("All Level");
+
+	const departmentOptions = initialDepartmentOptions;
+	const yearLevelOptions = initialYearLevelOptions;
 
 	const filteredRows = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -197,6 +208,7 @@ export default function SubjectTable() {
 
 						<button
 							type="button"
+							onClick={onCreateSubjectClick}
 							className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)]"
 						>
 							<svg

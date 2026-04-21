@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Global/navbar";
+import Navbar from "@/components/Global/HeaderTenant";
 import DepartmentFacultyTable from "@/components/roles/Deped/load-manager/components/DepartmentFacultyTable";
 import Sidebar, { type RoleSidebarItem } from "@/components/roles/sidebar";
 import { ICON_SVGS } from "@/public/icons";
