@@ -82,6 +82,11 @@
   --color-medium-dark: #6b7280;
   --color-low-emphasis: #4A5565;
 
+  /* Legacy aliases used by Deped modals */
+  --teal-primary: var(--color-primary);
+  --text-dark: var(--color-high-emphasis);
+  --text-mid: var(--color-low-emphasis);
+
   /* Gradient */
   --gradient-primary: linear-gradient(90deg, #c5eeea 0%, #029383 100%);
 
