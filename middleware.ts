@@ -48,7 +48,7 @@ export function middleware(req: NextRequest) {
     '/dean': 'dean',
     '/loadmanager': 'loadmanager',
     '/teacher': 'teacher',
-    '/subject-room-management': 'subject-room-management',
+    '/college/subject-room-management': 'subject-room-management',
     '/vpaa': 'vpaa',
   }
 
