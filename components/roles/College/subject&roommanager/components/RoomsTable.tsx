@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 type Room = {
   id: number;
@@ -30,13 +30,14 @@ const timeSlots = [
 export default function RoomsTable() {
   const [search, setSearch] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("All Buildings");
-  const [rooms] = useState<Room[]>(mockRooms);
+  const [rooms, setRooms] = useState<Room[]>(mockRooms);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showAddRoom, setShowAddRoom] = useState(false);
-  const [newRoom, setNewRoom] = useState({ name: "", building: "", type: "Lecture Room", capacity: 30 });
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [newRoom, setNewRoom] = useState({ name: "", building: "", type: "Lecture Room", capacity: "" });
+  const [assignForm, setAssignForm] = useState({ subject: "", subjectCode: "", room: "", startTime: "", endTime: "" });
 
   const buildings = ["All Buildings", ...Array.from(new Set(rooms.map((r) => r.building)))];
-
   const filtered = rooms.filter((r) => {
     const matchSearch = r.name.toLowerCase().includes(search.toLowerCase());
     const matchBuilding = buildingFilter === "All Buildings" || r.building === buildingFilter;
@@ -44,145 +45,209 @@ export default function RoomsTable() {
   });
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-[#1F2125] mb-6">Room Management</h1>
+    <div className="space-y-6">
+      <h1 className="text-[28px] font-bold text-[#1F2125]">Room Management</h1>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
-        <select
-          value={buildingFilter}
-          onChange={(e) => setBuildingFilter(e.target.value)}
-          className="border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-white text-[#1F2125] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30"
-        >
-          {buildings.map((b) => <option key={b}>{b}</option>)}
-        </select>
+      <div className="flex items-center gap-3">
+        {/* Building filter */}
+        <div className="relative flex items-center rounded-lg border border-gray-200 bg-white px-3 h-10">
+          <select value={buildingFilter} onChange={(e) => setBuildingFilter(e.target.value)}
+            className="appearance-none bg-transparent pr-6 text-sm font-medium text-[#1F2125] outline-none">
+            {buildings.map((b) => <option key={b}>{b}</option>)}
+          </select>
+          <svg viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute right-2 h-4 w-4 text-gray-400" stroke="currentColor" strokeWidth={1.8}>
+            <path d="M6 9L12 15L18 9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
 
-        <div className="relative flex-1 max-w-[400px]">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#717182]" />
-          <input
-            type="text"
-            placeholder="Search room...."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-md border border-[#C5EEEA] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30"
-          />
+        {/* Search */}
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 min-w-[240px]">
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-gray-400" stroke="currentColor" strokeWidth={1.8}>
+            <path d="M21 21L16.65 16.65M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <input type="search" placeholder="Search room...." value={search} onChange={(e) => setSearch(e.target.value)}
+            className="h-full w-full bg-transparent text-sm text-[#1F2125] outline-none placeholder:text-gray-400" />
         </div>
       </div>
 
-      {/* Rooms count + Add button */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-[#1F2125] font-medium">Rooms ({filtered.length})</p>
-        <button
-          onClick={() => setShowAddRoom(true)}
-          className="bg-[#006B5F] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#005a4f] transition-colors"
-        >
+      {/* Rooms count + Add */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-[#1F2125]">Rooms ({filtered.length})</p>
+        <button onClick={() => setShowAddRoom(true)}
+          className="bg-[#006B5F] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#005a4f] transition-colors">
           Add Room
         </button>
       </div>
 
-      {/* Add Room Form */}
-      {showAddRoom && (
-        <div className="bg-white rounded-xl border border-[#C5EEEA] p-5 mb-4">
-          <h3 className="font-semibold text-[#1F2125] mb-4">Add New Room</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1F2125] mb-1">Room Name</label>
-              <input value={newRoom.name} onChange={(e) => setNewRoom((p) => ({ ...p, name: e.target.value }))}
-                placeholder="e.g. Room 703"
-                className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1F2125] mb-1">Building</label>
-              <input value={newRoom.building} onChange={(e) => setNewRoom((p) => ({ ...p, building: e.target.value }))}
-                placeholder="e.g. GLE Building"
-                className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1F2125] mb-1">Room Type</label>
-              <select value={newRoom.type} onChange={(e) => setNewRoom((p) => ({ ...p, type: e.target.value }))}
-                className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30">
-                <option>Lecture Room</option>
-                <option>Laboratory</option>
-                <option>Seminar Room</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1F2125] mb-1">Capacity</label>
-              <input type="number" value={newRoom.capacity} onChange={(e) => setNewRoom((p) => ({ ...p, capacity: Number(e.target.value) }))}
-                className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 mt-4">
-            <button onClick={() => setShowAddRoom(false)}
-              className="px-4 py-2 rounded-lg text-sm border border-[#C5EEEA] text-[#717182] hover:bg-white transition-colors">
-              Cancel
-            </button>
-            <button onClick={() => setShowAddRoom(false)}
-              className="px-4 py-2 rounded-lg text-sm bg-[#006B5F] text-white hover:bg-[#005a4f] transition-colors">
-              Add Room
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Rooms Table */}
-      <div className="bg-white rounded-xl border border-[#C5EEEA] overflow-hidden mb-6">
-        <div className="grid grid-cols-[2fr_2fr_2fr_1fr_1fr] bg-[#006B5F] text-white text-sm font-semibold px-4 py-3">
-          <span>Room Name</span>
-          <span>Building</span>
-          <span>Room Type</span>
-          <span>Capacity</span>
-          <span>Status</span>
-        </div>
-        {filtered.map((room, i) => (
-          <div
-            key={room.id}
-            onClick={() => setSelectedRoom(room.id === selectedRoom?.id ? null : room)}
-            className={`grid grid-cols-[2fr_2fr_2fr_1fr_1fr] px-4 py-3 text-sm text-[#1F2125] border-b border-[#C5EEEA]/60 items-center cursor-pointer transition-colors
-              ${room.id === selectedRoom?.id ? "bg-[#C5EEEA]/40" : i % 2 === 1 ? "bg-[#C5EEEA]/10" : "bg-white"} hover:bg-[#C5EEEA]/25`}
-          >
-            <span className="font-medium">{room.name}</span>
-            <span>{room.building}</span>
-            <span>{room.type}</span>
-            <span>{room.capacity}</span>
-            <span className="text-[#006B5F] font-medium">{room.status}</span>
-          </div>
-        ))}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table className="min-w-full border-collapse text-left">
+          <thead>
+            <tr className="bg-[#006B5F] text-white">
+              {["Room Name", "Building", "Room Type", "Capacity", "Status"].map((col) => (
+                <th key={col} className="px-4 py-3 text-xs font-semibold">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map((room) => {
+              const isSelected = selectedRoom?.id === room.id;
+              return (
+                <tr key={room.id} onClick={() => setSelectedRoom(isSelected ? null : room)}
+                  className={`cursor-pointer transition-colors hover:bg-[#f0faf9] ${isSelected ? "bg-[#e6f4f2]" : ""}`}>
+                  <td className="px-4 py-3 text-xs font-semibold text-[#1F2125]">{room.name}</td>
+                  <td className="px-4 py-3 text-xs text-[#1F2125]">{room.building}</td>
+                  <td className="px-4 py-3 text-xs text-[#1F2125]">{room.type}</td>
+                  <td className="px-4 py-3 text-xs text-[#1F2125]">Capacity</td>
+                  <td className="px-4 py-3 text-xs font-medium text-[#006B5F]">{room.status}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {/* Selected Room Schedule */}
+      {/* Selected Room + Schedule — matches Figma */}
       {selectedRoom && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold text-[#1F2125]">Selected Room</h2>
-            <button className="bg-[#006B5F] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#005a4f] transition-colors">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[22px] font-bold text-[#1F2125]">Selected Room</h2>
+            <button onClick={() => setShowAssignModal(true)}
+              className="bg-[#006B5F] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#005a4f] transition-colors">
               Assign
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-[#C5EEEA] overflow-auto">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-auto">
             <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="bg-[#006B5F] text-white">
-                  <th className="px-4 py-3 text-left font-semibold w-[140px]">Time</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-left w-[140px]">Time</th>
                   {days.map((day) => (
-                    <th key={day} className="px-4 py-3 text-left font-semibold">{day}</th>
+                    <th key={day} className="px-4 py-3 text-xs font-semibold text-left">{day}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {timeSlots.map((slot, i) => (
-                  <tr key={slot} className={`border-b border-[#C5EEEA]/60 ${i % 2 === 1 ? "bg-[#C5EEEA]/10" : "bg-white"}`}>
-                    <td className="px-4 py-3 text-[#717182] text-xs whitespace-nowrap">{slot}</td>
+                {timeSlots.map((slot) => (
+                  <tr key={slot} className="border-b border-[#C5EEEA]/50">
+                    <td className="px-4 py-4 text-xs text-gray-500 whitespace-nowrap">{slot}</td>
                     {days.map((day) => (
-                      <td key={day} className="px-2 py-3 border-l border-[#C5EEEA]/40">
-                        <div className="h-6" />
+                      <td key={day} className="border-l border-[#C5EEEA]/50 px-4 py-4">
+                        <div className="h-5" />
                       </td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Add Room Modal — matches Frame 92 */}
+      {showAddRoom && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-[#1F2125]">Add Room</h2>
+            <p className="text-sm text-gray-400 mb-5">Adding new rooms</p>
+
+            <div className="space-y-4">
+              {[
+                { label: "Room Name", key: "name", placeholder: "e.g., GLE 301" },
+                { label: "Building Name", key: "building", placeholder: "e.g., GLE Building" },
+                { label: "Room Type", key: "type", placeholder: "e.g., Lecture" },
+                { label: "Capacity", key: "capacity", placeholder: "e.g., 45" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-[#1F2125] mb-1">{label}</label>
+                  <input value={(newRoom as any)[key]} onChange={(e) => setNewRoom((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:border-[#006B5F]" />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowAddRoom(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium border border-gray-300 text-[#1F2125] hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={() => {
+                if (newRoom.name && newRoom.building) {
+                  setRooms((p) => [...p, { id: Date.now(), name: newRoom.name, building: newRoom.building, type: newRoom.type, capacity: Number(newRoom.capacity) || 0, status: "Available" }]);
+                  setNewRoom({ name: "", building: "", type: "Lecture Room", capacity: "" });
+                  setShowAddRoom(false);
+                }
+              }} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-[#006B5F] text-white hover:bg-[#005a4f]">
+                Assign Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Class to Room Modal — matches Frame 93 */}
+      {showAssignModal && selectedRoom && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-[#1F2125]">Assign Class to Room</h2>
+            <p className="text-sm text-gray-400 mb-5">Schedule a class for {selectedRoom.name} in {selectedRoom.building}</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#1F2125] mb-1">Subject <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <select value={assignForm.subject} onChange={(e) => setAssignForm((p) => ({ ...p, subject: e.target.value }))}
+                    className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2.5 text-sm bg-white appearance-none focus:outline-none focus:border-[#006B5F]">
+                    <option value="">Select Subject</option>
+                    {mockRooms.map((_, i) => <option key={i}>CS10{i + 1}</option>)}
+                  </select>
+                  <svg viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" stroke="currentColor" strokeWidth={1.8}>
+                    <path d="M6 9L12 15L18 9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#1F2125] mb-1">Subject Code <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input value={assignForm.subjectCode} onChange={(e) => setAssignForm((p) => ({ ...p, subjectCode: e.target.value }))}
+                    placeholder="Subject Code e.g. CPE264"
+                    className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#006B5F]" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#1F2125] mb-1">Room <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input value={selectedRoom.name} readOnly
+                    className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#1F2125] mb-1">Start Time <span className="text-red-500">*</span></label>
+                  <input type="time" value={assignForm.startTime} onChange={(e) => setAssignForm((p) => ({ ...p, startTime: e.target.value }))}
+                    className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#006B5F]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#1F2125] mb-1">End Time <span className="text-red-500">*</span></label>
+                  <input type="time" value={assignForm.endTime} onChange={(e) => setAssignForm((p) => ({ ...p, endTime: e.target.value }))}
+                    className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#006B5F]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowAssignModal(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium border border-gray-300 text-[#1F2125] hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={() => setShowAssignModal(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-medium bg-[#006B5F] text-white hover:bg-[#005a4f]">
+                Assign Schedule
+              </button>
+            </div>
           </div>
         </div>
       )}
