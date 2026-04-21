@@ -9,15 +9,15 @@ export default function Hero() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const heroImages = [
     {
-      src: "/landingpage/teachingload.png",
+      src: "/landingpage/Hero/teachingload.png",
       alt: "Teaching load optimization dashboard",
     },
     {
-      src: "/landingpage/ensurecompliance.png",
+      src: "/landingpage/Hero/ensurecompliance.png",
       alt: "Policy compliance overview",
     },
     {
-      src: "/landingpage/empowerinstitutions.png",
+      src: "/landingpage/Hero/empowerinstitutions.png",
       alt: "Institutional analytics panel",
     },
   ];
