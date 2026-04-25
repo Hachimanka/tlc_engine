@@ -1,5 +1,5 @@
 import HeaderTenant from "@/components/Global/HeaderTenant";
-import SidePanel from "@/components/tenant-page/SidePanel";
+import SidePanel from "@/components/Features/Tenant/SidePanel";
 
 export default function Dashboard() {
   return (

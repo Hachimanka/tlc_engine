@@ -1,7 +1,6 @@
 "use client";
 
-import App from "next/app";
-import LogoContainer from "../tenant-page/LogoContainer";
+import LogoContainer from "@/components/Features/Tenant/LogoContainer";
 import NotificationBadge from "./NotificationBadge";
 import ProfileBadge from "../Global/ProfileBadge";
 import { useState } from "react";

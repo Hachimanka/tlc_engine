@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar from "@/components/Global/sidebar";
 

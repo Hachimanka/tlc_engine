@@ -1,7 +1,6 @@
 
 
 import Image from "next/image";
-import { ICON_SVGS } from "@/public/icons";
 
 export default function Navbar() {
 
