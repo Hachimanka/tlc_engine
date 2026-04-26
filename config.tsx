@@ -10,31 +10,24 @@ export const NavItems = () => {
 
   return [
     {
-      name: "Teaching Load",
-      href: "/",
-      icon: <AppIcon name="menu" className="w-5 h-5" />, // Use existing 'menu' or add 'home' to ICON_SVGS
-      active: pathname === "/",
+      name: "Manage Users",
+      href: "/tenant/dashboard",
+      icon: <AppIcon name="people" className="w-5 h-5" />,
+      active: pathname === "/tenant/dashboard",
       position: "top",
     },
     {
-      name: "Send Request",
-      href: "/request",
+      name: "Manage Policies",
+      href: "/tenant/policies",
       icon: <AppIcon name="file" className="w-5 h-5 " />,
-      active: isNavItemActive(pathname, "/request"),
+      active: isNavItemActive(pathname, "/tenant/policies"),
       position: "top",
     },
     {
-      name: "Settings",
-      href: "/settings",
-      icon: <AppIcon name="settings" className="w-5 h-5" />,
-      active: isNavItemActive(pathname, "/settings"),
-      position: "top",
-    },
-    {
-      name: "Projects",
-      href: "/projects",
-      icon: <AppIcon name="files" className="w-5 h-5" />, // Use 'files' as proxy for projects
-      active: isNavItemActive(pathname, "/projects"),
+      name: "Employees",
+      href: "/tenant/employees",
+      icon: <AppIcon name="files" className="w-5 h-5" />,
+      active: isNavItemActive(pathname, "/tenant/employees"),
       position: "top",
     },
   ];

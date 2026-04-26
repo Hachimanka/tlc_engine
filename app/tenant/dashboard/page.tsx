@@ -1,13 +1,16 @@
 import HeaderTenant from "@/components/Global/HeaderTenant";
 import SidePanel from "@/components/Features/Tenant/SidePanel";
+import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
 
 export default function Dashboard() {
   return (
-    <main className="min-h-screen flex flex-col bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+    <main className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
       <HeaderTenant />
-      <div className="flex flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <SidePanel />
-        <div className="flex-1 bg-[var(--color-background)]" />
+        <section className="min-w-0 flex-1 overflow-hidden bg-[var(--color-background)] p-6">
+          <TenantRolePermissionsPanel />
+        </section>
       </div>
     </main>
   );
