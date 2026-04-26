@@ -2,12 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-
-type Employee = {
-  idNo: string;
-  fullName: string;
-  schoolEmail: string;
-};
+import { tenantEmployees } from "./employeeData";
 
 export type CreatedRole = {
   idNo: string;
@@ -23,29 +18,6 @@ type CreateRoleModalProps = {
   onCreateRole: (role: CreatedRole) => void;
 };
 
-const employees: Employee[] = [
-  {
-    idNo: "TLC-2015",
-    fullName: "Isabella Grace Tan",
-    schoolEmail: "isabella.tan@tlc.edu",
-  },
-  {
-    idNo: "TLC-2016",
-    fullName: "Nathaniel Cruz",
-    schoolEmail: "nathaniel.cruz@tlc.edu",
-  },
-  {
-    idNo: "TLC-2017",
-    fullName: "Camille Fernandez",
-    schoolEmail: "camille.fernandez@tlc.edu",
-  },
-  {
-    idNo: "TLC-2018",
-    fullName: "Gabriel Mendoza",
-    schoolEmail: "gabriel.mendoza@tlc.edu",
-  },
-];
-
 export default function CreateRoleModal({
   isOpen,
   onClose,
@@ -55,7 +27,7 @@ export default function CreateRoleModal({
   const [roleName, setRoleName] = useState("");
 
   const selectedEmployee = useMemo(
-    () => employees.find((employee) => employee.idNo === selectedEmployeeId) ?? null,
+    () => tenantEmployees.find((employee) => employee.id === selectedEmployeeId) ?? null,
     [selectedEmployeeId],
   );
 
@@ -105,9 +77,9 @@ export default function CreateRoleModal({
     }
 
     onCreateRole({
-      idNo: selectedEmployee.idNo,
-      fullName: selectedEmployee.fullName,
-      schoolEmail: selectedEmployee.schoolEmail,
+      idNo: selectedEmployee.id,
+      fullName: selectedEmployee.name,
+      schoolEmail: selectedEmployee.email,
       role: roleName.trim(),
       description: "Custom tenant role assignment",
     });
@@ -147,9 +119,9 @@ export default function CreateRoleModal({
                 className="h-11 w-full appearance-none rounded-lg border border-[#d0d5dd] bg-white px-3 pr-10 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
               >
                 <option value="">Select employee</option>
-                {employees.map((employee) => (
-                  <option key={employee.idNo} value={employee.idNo}>
-                    {employee.fullName}
+                {tenantEmployees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name}
                   </option>
                 ))}
               </select>
@@ -179,7 +151,7 @@ export default function CreateRoleModal({
             </label>
             <input
               id="school-email"
-              value={selectedEmployee?.schoolEmail ?? ""}
+              value={selectedEmployee?.email ?? ""}
               placeholder="Select an employee first"
               disabled
               className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f2f4f7] px-3 text-sm text-[#667085] outline-none placeholder:text-[#a8afb9] disabled:cursor-not-allowed"
@@ -192,7 +164,7 @@ export default function CreateRoleModal({
             </label>
             <input
               id="id-number"
-              value={selectedEmployee?.idNo ?? ""}
+              value={selectedEmployee?.id ?? ""}
               placeholder="Select an employee first"
               disabled
               className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f2f4f7] px-3 text-sm text-[#667085] outline-none placeholder:text-[#a8afb9] disabled:cursor-not-allowed"

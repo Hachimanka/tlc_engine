@@ -21,106 +21,7 @@ const roleOptions = [
   "Teacher",
 ] as const;
 
-export const initialRoleUsers: TenantRoleUser[] = [
-  {
-    idNo: "TLC-1001",
-    fullName: "Andrea Mae Santos",
-    schoolEmail: "andrea.santos@email.edu",
-    role: "Dean",
-    description: "College Dean with full department oversight",
-  },
-  {
-    idNo: "TLC-1002",
-    fullName: "Miguel Rafael Dizon",
-    schoolEmail: "miguel.dizon@email.edu",
-    role: "Dean",
-    description: "College Dean for academic operations",
-  },
-  {
-    idNo: "TLC-1003",
-    fullName: "Patricia Anne Mercado",
-    schoolEmail: "patricia.mercado@email.edu",
-    role: "VPAA",
-    description: "Vice President for Academic Affairs",
-  },
-  {
-    idNo: "TLC-1004",
-    fullName: "Leonardo Cruz",
-    schoolEmail: "leonardo.cruz@email.edu",
-    role: "VPAA",
-    description: "Academic affairs reviewer and approver",
-  },
-  {
-    idNo: "TLC-1005",
-    fullName: "Carlo Mateo Reyes",
-    schoolEmail: "carlo.reyes@email.edu",
-    role: "Coordinator",
-    description: "Program Coordinator",
-  },
-  {
-    idNo: "TLC-1006",
-    fullName: "Elaine Joy Navarro",
-    schoolEmail: "elaine.navarro@email.edu",
-    role: "Coordinator",
-    description: "Coordinates program schedules and subject loads",
-  },
-  {
-    idNo: "TLC-1007",
-    fullName: "Francesca Lim",
-    schoolEmail: "francesca.lim@email.edu",
-    role: "Department Head",
-    description: "Department Head with faculty management",
-  },
-  {
-    idNo: "TLC-1008",
-    fullName: "Jonathan dela Pena",
-    schoolEmail: "jonathan.pena@email.edu",
-    role: "Department Head",
-    description: "Department Head for subject assignment review",
-  },
-  {
-    idNo: "TLC-1009",
-    fullName: "Maria Lourdes Bautista",
-    schoolEmail: "maria.bautista@email.edu",
-    role: "Department Head",
-    description: "Department Head for curriculum load planning",
-  },
-  {
-    idNo: "TLC-1010",
-    fullName: "Josephine Bracken",
-    schoolEmail: "josephine.bracken@email.edu",
-    role: "Teacher",
-    description: "Faculty member with assigned teaching loads",
-  },
-  {
-    idNo: "TLC-1011",
-    fullName: "Jose Antonio Reyes",
-    schoolEmail: "jose.reyes@email.edu",
-    role: "Teacher",
-    description: "Faculty member for lecture and laboratory classes",
-  },
-  {
-    idNo: "TLC-1012",
-    fullName: "Maria Clara Santos",
-    schoolEmail: "maria.santos@email.edu",
-    role: "Teacher",
-    description: "Faculty member for academic instruction",
-  },
-  {
-    idNo: "TLC-1013",
-    fullName: "Juan Carlos dela Cruz",
-    schoolEmail: "juan.cruz@email.edu",
-    role: "Teacher",
-    description: "Faculty member with active class assignments",
-  },
-  {
-    idNo: "TLC-1014",
-    fullName: "Sofia Beatriz Ramos",
-    schoolEmail: "sofia.ramos@email.edu",
-    role: "Teacher",
-    description: "Faculty member for departmental teaching loads",
-  },
-];
+export const initialRoleUsers: TenantRoleUser[] = [];
 
 type UserRolesProps = {
   roleUsers: TenantRoleUser[];
@@ -296,7 +197,7 @@ export default function UserRoles({
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {filteredUsers.length === 0 ? (
               <div className="rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
-                No roles found.
+                No users assigned yet. Create a role to add an employee here.
               </div>
             ) : (
               filteredUsers.map((user) => {

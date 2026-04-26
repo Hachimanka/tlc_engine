@@ -64,7 +64,7 @@ export default function TenantRolePermissionsPanel() {
     setRoleUsers((currentUsers) => [newRoleUser, ...currentUsers]);
     setPermissionsByRole((currentPermissions) => ({
       ...currentPermissions,
-      [newRoleUser.idNo]: createDefaultPermissions(newRoleUser.role),
+      [newRoleUser.idNo]: createDefaultPermissions(""),
     }));
     setSelectedRoleId(newRoleUser.idNo);
   };
