@@ -1,3 +1,4 @@
+import React from "react";
 import Navbar from "@/components/LandingPage/Navbar";
 import Hero from "@/components/LandingPage/Hero";
 import WhatIs from "@/components/LandingPage/WhatIs";
