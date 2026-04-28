@@ -1,6 +1,6 @@
 "use client";
 // import { cn } from "@/lib/utils";
-import { NavItems, type TenantAdminView } from "@/config";
+import { NavItems } from "@/config";
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { Fragment } from "react";
@@ -11,17 +11,9 @@ import {
   TooltipProvider,
 } from "@radix-ui/react-tooltip";
 
-type SidePanelProps = {
-  activeView?: TenantAdminView;
-  onViewChange?: (view: TenantAdminView) => void;
-};
-
-export default function SidePanel({
-  activeView = "policies",
-  onViewChange,
-}: SidePanelProps) {
+export default function SidePanel() {
   const isSidebarExpanded = true;
-  const navItems = NavItems(activeView);
+  const navItems = NavItems();
 
   return (
     <aside className="bg-white flex h-screen min-h-full w-80 min-w-[20rem] flex-col break-words px-1 overflow-x-hidden">
@@ -37,10 +29,8 @@ export default function SidePanel({
                       label={item.name}
                       icon={item.icon}
                       path={item.href}
-                      view={item.view}
                       active={item.active}
                       isSidebarExpanded={isSidebarExpanded}
-                      onViewChange={onViewChange}
                     />
                   </div>
                 </Fragment>
@@ -61,10 +51,8 @@ export default function SidePanel({
                     label={item.name}
                     icon={item.icon}
                     path={item.href}
-                    view={item.view}
                     active={item.active}
                     isSidebarExpanded={isSidebarExpanded}
-                    onViewChange={onViewChange}
                   />
                 </div>
               </Fragment>
@@ -80,80 +68,41 @@ export const SideNavItem: React.FC<{
   label: string;
   icon: ReactNode;
   path: string;
-  view: TenantAdminView;
   active: boolean;
   isSidebarExpanded: boolean;
-  onViewChange?: (view: TenantAdminView) => void;
-}> = ({ label, icon, path, view, active, isSidebarExpanded, onViewChange }) => {
-  const handleClick = () => {
-    onViewChange?.(view);
-  };
-
+}> = ({ label, icon, path, active, isSidebarExpanded }) => {
   return (
     <>
       {isSidebarExpanded ? (
-        onViewChange ? (
-          <button
-            type="button"
-            onClick={handleClick}
-            className={`w-full h-14 relative flex items-center whitespace-nowrap rounded-xl ${
-              active
-                ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
-                : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)] hover:hover:[&_svg_path]:stroke-[var(--color-card)]"
-            }`}
-          >
-            <div className="relative w-full h-full text-body-default px-4 flex items-center space-x-3 rounded-xl duration-100">
-              {icon}
-              <span>{label}</span>
-            </div>
-          </button>
-        ) : (
-          <Link
-            href={path}
-            className={`w-full h-14 relative flex items-center whitespace-nowrap rounded-xl ${
-              active
-                ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
-                : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)] hover:hover:[&_svg_path]:stroke-[var(--color-card)]"
-            }`}
-          >
-            <div className="relative w-full h-full text-body-default px-4 flex items-center space-x-3 rounded-xl duration-100">
-              {icon}
-              <span>{label}</span>
-            </div>
-          </Link>
-        )
+        <Link
+          href={path}
+          className={`w-full h-14 relative flex items-center whitespace-nowrap rounded-xl ${
+            active
+              ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
+              : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)] hover:hover:[&_svg_path]:stroke-[var(--color-card)]"
+          }`}
+        >
+          <div className="relative w-full h-full text-body-default px-4 flex items-center space-x-3 rounded-xl duration-100">
+            {icon}
+            <span>{label}</span>
+          </div>
+        </Link>
       ) : (
         <TooltipProvider delayDuration={70}>
           <Tooltip>
-            <TooltipTrigger asChild>
-              {onViewChange ? (
-                <button
-                  type="button"
-                  onClick={handleClick}
-                  className={`w-full h-14 relative flex items-center justify-center whitespace-nowrap rounded-xl ${
-                    active
-                      ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
-                      : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)]"
-                  }`}
-                >
-                  <div className="relative w-full h-full text-body-default p-2 flex items-center justify-center rounded-xl duration-100">
-                    {icon}
-                  </div>
-                </button>
-              ) : (
-                <Link
-                  href={path}
-                  className={`w-full h-14 relative flex items-center justify-center whitespace-nowrap rounded-xl ${
-                    active
-                      ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
-                      : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)]"
-                  }`}
-                >
-                  <div className="relative w-full h-full text-body-default p-2 flex items-center justify-center rounded-xl duration-100">
-                    {icon}
-                  </div>
-                </Link>
-              )}
+            <TooltipTrigger>
+              <Link
+                href={path}
+                className={`w-full h-14 relative flex items-center justify-center whitespace-nowrap rounded-xl ${
+                  active
+                    ? "text-body-default text-[var(--color-card)] bg-[var(--color-primary)]"
+                    : "text-body-default text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-[var(--color-card)]"
+                }`}
+              >
+                <div className="relative w-full h-full text-body-default p-2 flex items-center justify-center rounded-xl duration-100">
+                  {icon}
+                </div>
+              </Link>
             </TooltipTrigger>
             <TooltipContent
               side="left"

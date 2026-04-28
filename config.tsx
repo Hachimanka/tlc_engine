@@ -1,31 +1,33 @@
+import { usePathname } from "next/navigation";
 import { AppIcon } from "@/public/icons";
 
-export type TenantAdminView = "policies" | "manage-users" | "employees";
+export const NavItems = () => {
+  const pathname = usePathname();
 
-export const NavItems = (activeView: TenantAdminView = "policies") => {
+  function isNavItemActive(pathname: string, nav: string) {
+    return pathname.includes(nav);
+  }
+
   return [
     {
       name: "Manage Users",
-      href: "/tenant/tenant-admin",
-      view: "manage-users" as TenantAdminView,
+      href: "/tenant/dashboard",
       icon: <AppIcon name="people" className="w-5 h-5" />,
-      active: activeView === "manage-users",
+      active: pathname === "/tenant/dashboard",
       position: "top",
     },
     {
       name: "Manage Policies",
-      href: "/tenant/tenant-admin",
-      view: "policies" as TenantAdminView,
+      href: "/tenant/policies",
       icon: <AppIcon name="file" className="w-5 h-5 " />,
-      active: activeView === "policies",
+      active: isNavItemActive(pathname, "/tenant/policies"),
       position: "top",
     },
     {
       name: "Employees",
-      href: "/tenant/tenant-admin",
-      view: "employees" as TenantAdminView,
+      href: "/tenant/employees",
       icon: <AppIcon name="files" className="w-5 h-5" />,
-      active: activeView === "employees",
+      active: isNavItemActive(pathname, "/tenant/employees"),
       position: "top",
     },
   ];
