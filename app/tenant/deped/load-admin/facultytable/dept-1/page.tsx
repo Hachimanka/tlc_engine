@@ -25,7 +25,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
             {/* 2. Back Button Section */}
             <div className="mb-2">
               <Link
-                href="/tenant/features/Deped/load-admin"
+                href="/tenant/deped/load-admin"
                 className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-light-primary)] transition-colors"
               >
                 <span className="text-lg">←</span> Back to Departments

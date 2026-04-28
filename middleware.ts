@@ -23,7 +23,33 @@ export function middleware(req: NextRequest) {
   if (url.pathname.startsWith('/_next') || url.pathname.startsWith('/api')) {
     return NextResponse.next()
   }
-  const depedBasePath = '/tenant/features/Deped'
+
+  const tenantAdminAliases = new Set([
+    '/tenant/dashboard',
+    '/tenant/employees',
+    '/tenant/policies',
+    '/tenant/tenant-page',
+    '/dashboard',
+    '/employees',
+    '/policies',
+  ])
+
+  if (tenantAdminAliases.has(url.pathname)) {
+    return NextResponse.redirect(new URL('/tenant/tenant-admin', req.url))
+  }
+
+  if (url.pathname.startsWith('/tenant/features/College')) {
+    return NextResponse.redirect(
+      new URL(url.pathname.replace('/tenant/features/College', '/tenant/college'), req.url)
+    )
+  }
+
+  if (url.pathname.startsWith('/tenant/features/Deped')) {
+    return NextResponse.redirect(
+      new URL(url.pathname.replace('/tenant/features/Deped', '/tenant/deped'), req.url)
+    )
+  }
+  const depedBasePath = '/tenant/deped'
 
   const depedRoutes: Record<string, string> = {
     '/load-manager': 'manage-load',
@@ -42,7 +68,7 @@ export function middleware(req: NextRequest) {
     )
   }
 
-  const collegeBasePath = '/tenant/features/College'
+  const collegeBasePath = '/tenant/college'
 
   const collegeRoutes: Record<string, string> = {
     '/dean': 'dean',

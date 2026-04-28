@@ -78,7 +78,7 @@ export default function DepartmentFacultyTable() {
                   >
                     <td className="p-0" colSpan={2}>
                       <a
-                        href={`/tenant/features/Deped/load-admin/facultytable/${dept.id}`}
+                        href={`/tenant/deped/load-admin/facultytable/${dept.id}`}
                         className="grid grid-cols-2 w-full px-4 py-3 no-underline"
                       >
                         <span className="text-body-small font-semibold text-[var(--color-high-emphasis)]">

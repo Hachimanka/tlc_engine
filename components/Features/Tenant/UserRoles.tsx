@@ -56,7 +56,7 @@ export default function UserRoles({
         user.fullName.toLowerCase().includes(normalizedSearch) ||
         user.role.toLowerCase().includes(normalizedSearch) ||
         user.idNo.toLowerCase().includes(normalizedSearch) ||
-        Boolean(user.schoolEmail?.toLowerCase().includes(normalizedSearch));
+        user.schoolEmail.toLowerCase().includes(normalizedSearch);
 
       return matchesRole && matchesSearch;
     });
@@ -158,7 +158,7 @@ export default function UserRoles({
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
-                        No roles found.
+                        No users assigned yet. Create a role to add an employee here.
                       </td>
                     </tr>
                   ) : (
@@ -166,26 +166,26 @@ export default function UserRoles({
                       const isSelected = selectedRoleId === user.idNo;
 
                       return (
-                      <tr
-                        key={user.idNo}
-                        onClick={() => onSelectRole(user.idNo)}
-                        className={`cursor-pointer transition hover:bg-[#ecf8f6] ${
-                          isSelected ? "bg-[#e0f4f1]" : ""
-                        }`}
-                      >
-                        <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
-                          {user.idNo}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                          {user.fullName}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                          {user.schoolEmail}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-medium text-[var(--color-primary)]">
-                          {user.role}
-                        </td>
-                      </tr>
+                        <tr
+                          key={user.idNo}
+                          onClick={() => onSelectRole(user.idNo)}
+                          className={`cursor-pointer transition hover:bg-[#ecf8f6] ${
+                            isSelected ? "bg-[#e0f4f1]" : ""
+                          }`}
+                        >
+                          <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
+                            {user.idNo}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                            {user.fullName}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                            {user.schoolEmail}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium text-[var(--color-primary)]">
+                            {user.role}
+                          </td>
+                        </tr>
                       );
                     })
                   )}
