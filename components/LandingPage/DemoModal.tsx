@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
+import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
 import { AppIcon } from "@/public/icons";
 
 type RequestDemoModalProps = {
@@ -40,16 +42,19 @@ export default function RequestDemoModal({
 	isOpen,
 	onClose,
 }: RequestDemoModalProps): ReactElement | null {
+	// All hooks must be called unconditionally at the top
 	const [formData, setFormData] = useState(initialFormData);
-
+	const [submitError, setSubmitError] = useState("");
+	const [submitSuccess, setSubmitSuccess] = useState(false);
+	const [submitting, setSubmitting] = useState(false);
+	const [showSuccessModal, setShowSuccessModal] = useState(false);
+	const [showWarningModal, setShowWarningModal] = useState(false);
 	useEffect(() => {
 		if (!isOpen) {
 			return;
 		}
-
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
-
 		return () => {
 			document.body.style.overflow = previousOverflow;
 		};
@@ -73,19 +78,67 @@ export default function RequestDemoModal({
 		onClose();
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		onClose();
+		setSubmitError("");
+		setSubmitSuccess(false);
+
+		// Validate required fields (all except message)
+		if (
+			!formData.fullName.trim() ||
+			!formData.emailAddress.trim() ||
+			!formData.institutionName.trim() ||
+			!formData.rolePosition.trim() ||
+			!formData.institutionSize.trim() ||
+			!formData.preferredDemoDate.trim() ||
+			!formData.preferredDemoTime.trim()
+		) {
+			setShowWarningModal(true);
+			return;
+		}
+
+		setSubmitting(true);
+		// Send to Supabase
+		const { error } = await supabase.from("demo_requests").insert([
+			{
+				full_name: formData.fullName,
+				email: formData.emailAddress,
+				institution_name: formData.institutionName,
+				role_position: formData.rolePosition,
+				institution_size: formData.institutionSize,
+				preferred_demo_date: formData.preferredDemoDate || null,
+				preferred_demo_time: formData.preferredDemoTime || null,
+				message: formData.message,
+				// status and created_at are handled by defaults
+			},
+		]);
+		setSubmitting(false);
+		if (error) {
+			setSubmitError("Failed to send request. Please try again.");
+			return;
+		}
+		setSubmitSuccess(true);
+		setShowSuccessModal(true);
 		setFormData(initialFormData);
 	};
 
-	return (
-		<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-			<div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2">
-				<form
-					onSubmit={handleSubmit}
-					className="max-h-[90vh] overflow-y-auto"
-				>
+	 return (
+		 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+			 <div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2">
+				 <form
+					 onSubmit={handleSubmit}
+					 className="max-h-[90vh] overflow-y-auto"
+				 >
+					 {submitError && (
+						 <div className="mb-2 rounded bg-red-100 px-4 py-2 text-red-700">
+							 {submitError}
+						 </div>
+					 )}
+					 {submitSuccess && (
+						 <div className="mb-2 rounded bg-green-100 px-4 py-2 text-green-700">
+							 Demo request sent successfully!
+						 </div>
+					 )}
 					<div className="flex items-center gap-4 border-b border-[var(--color-default)] px-6 py-5">
 						<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-default)]">
 							<AppIcon
@@ -158,7 +211,7 @@ export default function RequestDemoModal({
 
 								<div className="space-y-2">
 									<label htmlFor="institutionName" className="text-label-input text-[#364153]">
-										Institution Name
+										Institution/Organization Name
 									</label>
 									<input
 										id="institutionName"
@@ -269,15 +322,55 @@ export default function RequestDemoModal({
 							Cancel
 						</button>
 
-						<button
-							type="submit"
-							className="text-label-button h-10 rounded-lg bg-[var(--color-primary)] px-6 text-white shadow-level-1"
-						>
-							Schedule Demo
-						</button>
+						 <button
+							 type="submit"
+							 className="text-label-button h-10 rounded-lg bg-[var(--color-primary)] px-6 text-white shadow-level-1 flex items-center justify-center gap-2"
+							 disabled={submitting}
+						 >
+							 {submitting ? (
+								 <>
+									 <span className="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+									 Sending...
+								 </>
+							 ) : (
+								 "Schedule Demo"
+							 )}
+						 </button>
 					</div>
 				</form>
+				{/* Warning Modal for required fields */}
+				{showWarningModal && (
+					<div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40">
+						<div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center max-w-sm w-full">
+							<Image src="/landingpage/Hero/ensurecompliance.png" alt="Warning" width={80} height={80} className="mb-4 rounded-full" />
+							<h2 className="text-xl font-bold text-red-700 mb-2">Missing Required Fields</h2>
+							<p className="text-gray-700 mb-4 text-center">Please fill in all required fields before submitting your demo request.</p>
+							<button
+								className="mt-2 px-6 py-2 bg-red-600 text-white rounded-lg text-label-button"
+								onClick={() => setShowWarningModal(false)}
+							>
+								Close
+							</button>
+						</div>
+					</div>
+				)}
+				{/* Success Modal */}
+				{showSuccessModal && (
+					<div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+						<div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center max-w-sm w-full">
+							<Image src="/landingpage/Hero/teachingload.png" alt="Success" width={80} height={80} className="mb-4 rounded-full" />
+							<h2 className="text-xl font-bold text-green-700 mb-2">Demo Request Sent!</h2>
+							<p className="text-gray-700 mb-4 text-center">Thank you for your interest. Our team will contact you soon to schedule your demo.</p>
+							<button
+								className="mt-2 px-6 py-2 bg-[var(--color-primary)] text-white rounded-lg text-label-button"
+								onClick={() => { setShowSuccessModal(false); onClose(); }}
+							>
+								Close
+							</button>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
-	);
+		);
 }
