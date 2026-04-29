@@ -18,11 +18,11 @@ export default function TenantPage() {
   }[activeView];
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
       <HeaderTenant />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1">
         <SidePanel activeView={activeView} onViewChange={setActiveView} />
-        <section className="min-w-0 flex-1 overflow-hidden bg-[var(--color-background)] p-6">
+        <section className="min-w-0 flex-1 bg-[var(--color-background)] p-6">
           {content}
         </section>
       </div>
