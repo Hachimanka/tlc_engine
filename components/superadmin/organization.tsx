@@ -37,6 +37,9 @@ const planStyle: Record<string, string> = {
 	enterprise: "text-emerald-600",
 };
 
+const PLAN_OPTIONS = ["starter", "basic", "premium", "diamond"];
+const STATUS_OPTIONS = ["active", "suspended", "inactive"];
+
 function StatusBadge({ status }: { status: string }) {
 	const key = status?.toLowerCase();
 	const cls = statusStyle[key] || "bg-gray-100 text-gray-600 border border-gray-300";
@@ -64,7 +67,6 @@ const Icons = {
 	search: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/><path d="M20 20L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
 	chevron: <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 	close: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
-	institution: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M3 21h18M6 21V10m12 11V10M2 10l10-7 10 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 	email: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M2 8l10 7 10-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	contact: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	plan: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
@@ -77,6 +79,258 @@ const Icons = {
 	x: <svg width="13" height="13" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
 };
 
+// ─── Add Organization Modal ───────────────────────────────────────────────────
+function AddOrgModal({ onClose, onAdded }: {
+	onClose: () => void;
+	onAdded: (org: Organization) => void;
+}) {
+	const [form, setForm] = useState({
+		name: "",
+		admin_email: "",
+		contact_email: "",
+		subscription_plan: "basic",
+		subscription_status: "active",
+		subscription_start: "",
+		subscription_end: "",
+		status: "active",
+		address: "",
+	});
+	const [saving, setSaving] = useState(false);
+	const [errors, setErrors] = useState<Record<string, string>>({});
+
+	// Auto-generate slug and admin_email when name changes
+	const handleNameChange = (name: string) => {
+		const slug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
+		const acronym = name.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
+		const namePart = form.admin_email.split("@")[0]; // preserve existing name part if set
+		setForm(f => ({
+			...f,
+			name,
+			admin_email: acronym ? `${namePart || "admin"}@${acronym}.edu` : f.admin_email,
+		}));
+	};
+
+	const validate = () => {
+		const e: Record<string, string> = {};
+		if (!form.name.trim()) e.name = "Organization name is required.";
+		if (!form.admin_email.trim()) e.admin_email = "Admin email is required.";
+		if (!form.contact_email.trim()) e.contact_email = "Contact email is required.";
+		if (!form.subscription_start) e.subscription_start = "Start date is required.";
+		if (!form.subscription_end) e.subscription_end = "End date is required.";
+		return e;
+	};
+
+	const handleSave = async () => {
+		const e = validate();
+		if (Object.keys(e).length > 0) { setErrors(e); return; }
+		setSaving(true);
+
+		const now = new Date().toISOString();
+		const slug = form.name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
+		const acronym = form.name.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
+
+		const payload = {
+			name: form.name,
+			slug,
+			admin_email: form.admin_email,
+			contact_email: form.contact_email,
+			subscription_plan: form.subscription_plan,
+			subscription_status: form.subscription_status,
+			subscription_start: form.subscription_start || null,
+			subscription_end: form.subscription_end || null,
+			status: form.status,
+			address: form.address || null,
+			created_at: now,
+			updated_at: now,
+		};
+
+		const { data, error } = await supabase
+			.from("organizations")
+			.insert([payload])
+			.select()
+			.single();
+
+		setSaving(false);
+		if (error) { setErrors({ general: error.message }); return; }
+		onAdded(data);
+	};
+
+	const inputCls = (key: string) =>
+		`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 ${errors[key] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+
+	const Label = ({ label, required, error }: { label: string; required?: boolean; error?: string }) => (
+		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+			{label} {required && <span className="text-red-400">*</span>}
+			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
+		</label>
+	);
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center">
+			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
+			<div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 z-10 flex flex-col max-h-[90vh]">
+				{/* Header */}
+				<div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+					<div>
+						<h2 className="text-lg font-bold text-teal-800">Add Organization</h2>
+						<p className="text-xs text-gray-400 mt-0.5">Manually register a new organization</p>
+					</div>
+					<button className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors" onClick={onClose}>
+						{Icons.close}
+					</button>
+				</div>
+
+				{/* Form */}
+				<div className="overflow-y-auto px-6 py-5 flex flex-col gap-4">
+
+					{/* Org Name */}
+					<div>
+						<Label label="Organization Name" required error={errors.name} />
+						<input
+							type="text"
+							className={inputCls("name")}
+							placeholder="e.g. Cebu Institute of Technology"
+							value={form.name}
+							onChange={e => handleNameChange(e.target.value)}
+						/>
+					</div>
+
+					{/* Emails */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Admin Email" required error={errors.admin_email} />
+							<input
+								type="email"
+								className={inputCls("admin_email")}
+								placeholder="admin@org.edu"
+								value={form.admin_email}
+								onChange={e => setForm(f => ({ ...f, admin_email: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label label="Contact Email" required error={errors.contact_email} />
+							<input
+								type="email"
+								className={inputCls("contact_email")}
+								placeholder="contact@org.edu"
+								value={form.contact_email}
+								onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
+							/>
+						</div>
+					</div>
+
+					{/* Plan + Status */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Subscription Plan" />
+							<select
+								className={inputCls("subscription_plan")}
+								value={form.subscription_plan}
+								onChange={e => setForm(f => ({ ...f, subscription_plan: e.target.value }))}
+							>
+								{PLAN_OPTIONS.map(p => (
+									<option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+								))}
+							</select>
+						</div>
+						<div>
+							<Label label="Status" />
+							<select
+								className={inputCls("status")}
+								value={form.status}
+								onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+							>
+								{STATUS_OPTIONS.map(s => (
+									<option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+								))}
+							</select>
+						</div>
+					</div>
+
+					{/* Subscription Status */}
+					<div>
+						<Label label="Subscription Status" />
+						<select
+							className={inputCls("subscription_status")}
+							value={form.subscription_status}
+							onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value }))}
+						>
+							{STATUS_OPTIONS.map(s => (
+								<option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+							))}
+						</select>
+					</div>
+
+					{/* Subscription Dates */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Subscription Start" required error={errors.subscription_start} />
+							<input
+								type="date"
+								className={inputCls("subscription_start")}
+								value={form.subscription_start}
+								onChange={e => setForm(f => ({ ...f, subscription_start: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label label="Subscription End" required error={errors.subscription_end} />
+							<input
+								type="date"
+								className={inputCls("subscription_end")}
+								value={form.subscription_end}
+								onChange={e => setForm(f => ({ ...f, subscription_end: e.target.value }))}
+							/>
+						</div>
+					</div>
+
+					{/* Address */}
+					<div>
+						<Label label="Address" />
+						<textarea
+							className={`${inputCls("address")} resize-none`}
+							rows={2}
+							placeholder="Street, City, Province"
+							value={form.address}
+							onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+						/>
+					</div>
+
+					{errors.general && (
+						<p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errors.general}</p>
+					)}
+				</div>
+
+				{/* Footer */}
+				<div className="flex gap-2 justify-end px-6 py-4 border-t border-gray-100">
+					<button
+						className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 transition-colors"
+						onClick={onClose}
+						disabled={saving}
+					>
+						Cancel
+					</button>
+					<button
+						className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+						onClick={handleSave}
+						disabled={saving}
+					>
+						{saving ? (
+							<>
+								<svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+								</svg>
+								Saving...
+							</>
+						) : "Add Organization"}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function OrganizationTable() {
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState("");
@@ -86,6 +340,7 @@ export default function OrganizationTable() {
 	const [error, setError] = useState("");
 	const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
 	const [panelOpen, setPanelOpen] = useState(false);
+	const [addModalOpen, setAddModalOpen] = useState(false);
 
 	// Address edit state
 	const [editingAddress, setEditingAddress] = useState(false);
@@ -145,11 +400,7 @@ export default function OrganizationTable() {
 			.update({ address: addressValue, updated_at: new Date().toISOString() })
 			.eq("id", selectedOrg.id);
 		setAddressLoading(false);
-		if (error) {
-			setAddressError("Failed to save address.");
-			return;
-		}
-		// Update local state
+		if (error) { setAddressError("Failed to save address."); return; }
 		const updated = { ...selectedOrg, address: addressValue };
 		setSelectedOrg(updated);
 		setOrganizations(prev => prev.map(o => o.id === selectedOrg.id ? updated : o));
@@ -160,6 +411,11 @@ export default function OrganizationTable() {
 		setAddressValue(selectedOrg?.address || "");
 		setEditingAddress(false);
 		setAddressError("");
+	};
+
+	const handleOrgAdded = (org: Organization) => {
+		setOrganizations(prev => [org, ...prev]);
+		setAddModalOpen(false);
 	};
 
 	const selectedLabel = statusFilter
@@ -175,9 +431,7 @@ export default function OrganizationTable() {
 			{/* Search + Filter row */}
 			<div className="flex items-center gap-3 mb-5 w-full">
 				<div className="relative flex-1">
-					<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-						{Icons.search}
-					</span>
+					<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{Icons.search}</span>
 					<input
 						type="text"
 						className="w-full border border-gray-200 rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white shadow-sm text-gray-700 placeholder-gray-400"
@@ -223,7 +477,10 @@ export default function OrganizationTable() {
 					)}
 				</div>
 
-				<button className="flex-shrink-0 bg-teal-800 text-white rounded-lg px-4 py-2.5 text-sm shadow hover:bg-teal-700 transition-colors flex items-center gap-1 font-medium">
+				<button
+					className="flex-shrink-0 bg-teal-800 text-white rounded-lg px-4 py-2.5 text-sm shadow hover:bg-teal-700 transition-colors flex items-center gap-1 font-medium"
+					onClick={() => setAddModalOpen(true)}
+				>
 					+ Add
 				</button>
 			</div>
@@ -277,28 +534,19 @@ export default function OrganizationTable() {
 
 			{/* Overlay */}
 			{panelOpen && (
-				<div
-					className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
-					onClick={closePanel}
-				/>
+				<div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" onClick={closePanel} />
 			)}
 
 			{/* Side Panel */}
-			<div
-				className={`fixed top-0 right-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out
-					${panelOpen ? "translate-x-0" : "translate-x-full"}`}
+			<div className={`fixed top-0 right-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out
+				${panelOpen ? "translate-x-0" : "translate-x-full"}`}
 			>
 				{selectedOrg && (
 					<>
-						{/* Panel Header */}
 						<div className="px-6 pt-6 pb-4 border-b border-gray-100">
 							<div className="flex items-start justify-between mb-1">
 								<StatusBadge status={selectedOrg.status} />
-								<button
-									className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
-									onClick={closePanel}
-									aria-label="Close"
-								>
+								<button className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors" onClick={closePanel} aria-label="Close">
 									{Icons.close}
 								</button>
 							</div>
@@ -306,7 +554,6 @@ export default function OrganizationTable() {
 							<p className="text-sm text-gray-500 mt-0.5 capitalize">{selectedOrg.subscription_plan} Plan</p>
 						</div>
 
-						{/* Fields */}
 						<div className="flex-1 overflow-y-auto px-6 py-2">
 							<FieldRow icon={Icons.slug} label="Slug" value={
 								<span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{selectedOrg.slug}</span>
@@ -347,12 +594,10 @@ export default function OrganizationTable() {
 												className="flex items-center gap-1 text-[11px] text-teal-600 hover:text-teal-800 font-medium transition-colors"
 												onClick={() => { setEditingAddress(true); setAddressValue(selectedOrg.address || ""); }}
 											>
-												{Icons.edit}
-												Edit
+												{Icons.edit} Edit
 											</button>
 										)}
 									</div>
-
 									{editingAddress ? (
 										<div className="flex flex-col gap-2 mt-1">
 											<textarea
@@ -370,16 +615,14 @@ export default function OrganizationTable() {
 													onClick={handleAddressSave}
 													disabled={addressLoading}
 												>
-													{Icons.check}
-													{addressLoading ? "Saving..." : "Save"}
+													{Icons.check} {addressLoading ? "Saving..." : "Save"}
 												</button>
 												<button
 													className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-xs font-medium hover:bg-gray-50 transition-colors"
 													onClick={handleAddressCancel}
 													disabled={addressLoading}
 												>
-													{Icons.x}
-													Cancel
+													{Icons.x} Cancel
 												</button>
 											</div>
 										</div>
@@ -392,7 +635,6 @@ export default function OrganizationTable() {
 							</div>
 						</div>
 
-						{/* Footer timestamp */}
 						<div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
 							<p className="text-[11px] text-gray-400">
 								Created {new Date(selectedOrg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {new Date(selectedOrg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
@@ -401,6 +643,14 @@ export default function OrganizationTable() {
 					</>
 				)}
 			</div>
+
+			{/* Add Organization Modal */}
+			{addModalOpen && (
+				<AddOrgModal
+					onClose={() => setAddModalOpen(false)}
+					onAdded={handleOrgAdded}
+				/>
+			)}
 		</div>
 	);
 }

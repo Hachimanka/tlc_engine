@@ -29,7 +29,7 @@ export default function SuperAdminPage() {
   }, [router]);
 
   let ContentComponent = null;
-  if (activeKey === "dashboard") ContentComponent = <Dashboard />;
+  if (activeKey === "dashboard") ContentComponent = <Dashboard onNavigate={setActiveKey} />;
   else if (activeKey === "organizations") ContentComponent = <OrganizationTable />;
   else if (activeKey === "subscription") ContentComponent = <SubscriptionCards />;
   else if (activeKey === "demorequests") ContentComponent = <DemoRequestTable />;

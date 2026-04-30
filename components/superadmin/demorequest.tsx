@@ -24,6 +24,15 @@ const STATUS_OPTIONS = [
 	{ label: "Converted", value: "converted" },
 ];
 
+const INSTITUTION_SIZES = [
+	"1-50",
+	"51-200",
+	"201-500",
+	"501-1000",
+	"1001-5000",
+	"5000+",
+];
+
 const statusStyle: Record<string, string> = {
 	pending: "bg-yellow-100 text-yellow-700 border border-yellow-300",
 	contacted: "bg-blue-100 text-blue-700 border border-blue-300",
@@ -87,6 +96,236 @@ const PLAN_OPTIONS = [
 	{ label: "Diamond", value: "diamond" },
 ];
 
+// ─── Add Demo Request Modal ───────────────────────────────────────────────────
+function AddDemoModal({ onClose, onAdded }: {
+	onClose: () => void;
+	onAdded: (req: DemoRequest) => void;
+}) {
+	const [form, setForm] = useState({
+		full_name: "",
+		email: "",
+		institution_name: "",
+		role_position: "",
+		institution_size: "51-200",
+		preferred_demo_date: "",
+		preferred_demo_time: "",
+		message: "",
+		status: "pending",
+	});
+	const [saving, setSaving] = useState(false);
+	const [errors, setErrors] = useState<Record<string, string>>({});
+
+	const validate = () => {
+		const e: Record<string, string> = {};
+		if (!form.full_name.trim()) e.full_name = "Required";
+		if (!form.email.trim()) e.email = "Required";
+		if (!form.institution_name.trim()) e.institution_name = "Required";
+		if (!form.role_position.trim()) e.role_position = "Required";
+		return e;
+	};
+
+	const handleSave = async () => {
+		const e = validate();
+		if (Object.keys(e).length > 0) { setErrors(e); return; }
+		setSaving(true);
+
+		const payload = {
+			full_name: form.full_name,
+			email: form.email,
+			institution_name: form.institution_name,
+			role_position: form.role_position,
+			institution_size: form.institution_size,
+			preferred_demo_date: form.preferred_demo_date || null,
+			preferred_demo_time: form.preferred_demo_time || null,
+			message: form.message || null,
+			status: form.status,
+		};
+
+		const { data, error } = await supabase
+			.from("demo_requests")
+			.insert([payload])
+			.select()
+			.single();
+
+		setSaving(false);
+		if (error) { setErrors({ general: error.message }); return; }
+		onAdded(data);
+	};
+
+	const inputCls = (key: string) =>
+		`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white ${errors[key] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+
+	const Label = ({ label, required, error }: { label: string; required?: boolean; error?: string }) => (
+		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+			{label} {required && <span className="text-red-400">*</span>}
+			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
+		</label>
+	);
+
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center">
+			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
+			<div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 z-10 flex flex-col max-h-[90vh]">
+				{/* Header */}
+				<div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+					<div>
+						<h2 className="text-lg font-bold text-teal-800">Add Demo Request</h2>
+						<p className="text-xs text-gray-400 mt-0.5">Manually register a new demo request</p>
+					</div>
+					<button className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors" onClick={onClose}>
+						{Icons.close}
+					</button>
+				</div>
+
+				{/* Form */}
+				<div className="overflow-y-auto px-6 py-5 flex flex-col gap-4">
+
+					{/* Name + Email */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Full Name" required error={errors.full_name} />
+							<input
+								type="text"
+								className={inputCls("full_name")}
+								placeholder="e.g. Juan Dela Cruz"
+								value={form.full_name}
+								onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label label="Email" required error={errors.email} />
+							<input
+								type="email"
+								className={inputCls("email")}
+								placeholder="email@institution.edu"
+								value={form.email}
+								onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+							/>
+						</div>
+					</div>
+
+					{/* Institution */}
+					<div>
+						<Label label="Institution Name" required error={errors.institution_name} />
+						<input
+							type="text"
+							className={inputCls("institution_name")}
+							placeholder="e.g. Cebu Institute of Technology"
+							value={form.institution_name}
+							onChange={e => setForm(f => ({ ...f, institution_name: e.target.value }))}
+						/>
+					</div>
+
+					{/* Role + Size */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Role / Position" required error={errors.role_position} />
+							<input
+								type="text"
+								className={inputCls("role_position")}
+								placeholder="e.g. IT Director"
+								value={form.role_position}
+								onChange={e => setForm(f => ({ ...f, role_position: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label label="Institution Size" />
+							<select
+								className={inputCls("institution_size")}
+								value={form.institution_size}
+								onChange={e => setForm(f => ({ ...f, institution_size: e.target.value }))}
+							>
+								{INSTITUTION_SIZES.map(s => (
+									<option key={s} value={s}>{s} employees</option>
+								))}
+							</select>
+						</div>
+					</div>
+
+					{/* Date + Time */}
+					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label label="Preferred Date" />
+							<input
+								type="date"
+								className={inputCls("preferred_demo_date")}
+								value={form.preferred_demo_date}
+								onChange={e => setForm(f => ({ ...f, preferred_demo_date: e.target.value }))}
+							/>
+						</div>
+						<div>
+							<Label label="Preferred Time" />
+							<input
+								type="time"
+								className={inputCls("preferred_demo_time")}
+								value={form.preferred_demo_time}
+								onChange={e => setForm(f => ({ ...f, preferred_demo_time: e.target.value }))}
+							/>
+						</div>
+					</div>
+
+					{/* Status */}
+					<div>
+						<Label label="Status" />
+						<select
+							className={inputCls("status")}
+							value={form.status}
+							onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+						>
+							{STATUS_OPTIONS.filter(o => o.value !== "").map(opt => (
+								<option key={opt.value} value={opt.value}>{opt.label}</option>
+							))}
+						</select>
+					</div>
+
+					{/* Message */}
+					<div>
+						<Label label="Message" />
+						<textarea
+							className={`${inputCls("message")} resize-none`}
+							rows={3}
+							placeholder="Any specific requirements or questions..."
+							value={form.message}
+							onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+						/>
+					</div>
+
+					{errors.general && (
+						<p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errors.general}</p>
+					)}
+				</div>
+
+				{/* Footer */}
+				<div className="flex gap-2 justify-end px-6 py-4 border-t border-gray-100">
+					<button
+						className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 transition-colors"
+						onClick={onClose}
+						disabled={saving}
+					>
+						Cancel
+					</button>
+					<button
+						className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+						onClick={handleSave}
+						disabled={saving}
+					>
+						{saving ? (
+							<>
+								<svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+								</svg>
+								Saving...
+							</>
+						) : "Add Request"}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function DemoRequestTable() {
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState("");
@@ -102,6 +341,7 @@ export default function DemoRequestTable() {
 	const [selectedPlan, setSelectedPlan] = useState("");
 	const [subscriptionStart, setSubscriptionStart] = useState("");
 	const [subscriptionEnd, setSubscriptionEnd] = useState("");
+	const [addModalOpen, setAddModalOpen] = useState(false);
 
 	useEffect(() => {
 		fetchData();
@@ -170,7 +410,6 @@ export default function DemoRequestTable() {
 		setActionLoading(true);
 		setActionError("");
 
-		// 1. Update demo_requests — only status
 		const { error: updateError } = await supabase
 			.from("demo_requests")
 			.update({ status: "converted" })
@@ -182,64 +421,36 @@ export default function DemoRequestTable() {
 			return;
 		}
 
-        // 2. Build org row
-        const now = new Date().toISOString();
-        const orgName = selectedRequest.institution_name;
-        const requesterName = selectedRequest.full_name;
+		const now = new Date().toISOString();
+		const orgName = selectedRequest.institution_name;
+		const requesterName = selectedRequest.full_name;
 
-        // Slug: "Cebu Institute of Technology" → "cebu-institute-of-technology"
-        const slug = orgName
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9\s-]/g, "")
-            .replace(/\s+/g, "-");
+		const slug = orgName.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
+		const acronym = orgName.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
+		const namePart = requesterName.toLowerCase().trim().replace(/[^a-z\s]/g, "").replace(/\s+/g, ".");
+		const adminEmail = `${namePart}@${acronym}.edu`;
 
-        // Acronym: "Cebu Institute of Technology" → "cit"
-        const acronym = orgName
-            .split(" ")
-            .filter(w => w.length > 2) // skip short words like "of", "the", "and"
-            .map(w => w[0].toLowerCase())
-            .join("");
+		const orgRow = {
+			name: orgName,
+			slug,
+			admin_email: adminEmail,
+			contact_email: selectedRequest.email,
+			subscription_plan: selectedPlan,
+			subscription_status: "active",
+			subscription_start: subscriptionStart,
+			subscription_end: subscriptionEnd,
+			status: "active",
+			created_at: now,
+			updated_at: now,
+		};
 
-        // Admin email: "Leonard Forrosuelo" + "cit" → "leonard.forrosuelo@cit.edu"
-        const namePart = requesterName
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z\s]/g, "")
-            .replace(/\s+/g, ".");
-
-        const adminEmail = `${namePart}@${acronym}.edu`;
-
-        const orgRow = {
-            name: orgName,
-            slug,                              // "cebu-institute-of-technology"
-            admin_email: adminEmail,           // "leonard.forrosuelo@cit.edu"
-            contact_email: selectedRequest.email,
-            subscription_plan: selectedPlan,
-            subscription_status: "active",
-            subscription_start: subscriptionStart,
-            subscription_end: subscriptionEnd,
-            status: "active",
-            created_at: now,
-            updated_at: now,
-        };
-
-		console.log("Inserting org row:", orgRow);
-
-		const { data: insertData, error: insertError } = await supabase
-			.from("organizations")
-			.insert([orgRow])
-			.select();
-
+		const { error: insertError } = await supabase.from("organizations").insert([orgRow]).select();
 		setActionLoading(false);
 
 		if (insertError) {
-			setActionError(`Insert failed: ${insertError.message} | Code: ${insertError.code} | Hint: ${insertError.hint}`);
-			console.error("Insert error:", insertError);
+			setActionError(`Insert failed: ${insertError.message} | Hint: ${insertError.hint}`);
 			return;
 		}
-
-		console.log("Inserted successfully:", insertData);
 
 		setShowPlanPanel(false);
 		setSelectedPlan("");
@@ -247,6 +458,11 @@ export default function DemoRequestTable() {
 		setSubscriptionEnd("");
 		await fetchData();
 		setSelectedRequest(prev => prev ? { ...prev, status: "converted" } : null);
+	};
+
+	const handleRequestAdded = (req: DemoRequest) => {
+		setDemoRequests(prev => [req, ...prev]);
+		setAddModalOpen(false);
 	};
 
 	const selectedLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
@@ -258,7 +474,7 @@ export default function DemoRequestTable() {
 				<h1 className="text-2xl font-bold text-teal-800 pb-2">DEMO REQUESTS</h1>
 			</div>
 
-			{/* Search + Filter row */}
+			{/* Search + Filter + Add row */}
 			<div className="flex items-center gap-3 mb-5 w-full">
 				<div className="relative flex-1">
 					<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -304,6 +520,14 @@ export default function DemoRequestTable() {
 						</>
 					)}
 				</div>
+
+				{/* Add Button */}
+				<button
+					className="flex-shrink-0 bg-teal-800 text-white rounded-lg px-4 py-2.5 text-sm shadow hover:bg-teal-700 transition-colors flex items-center gap-1 font-medium"
+					onClick={() => setAddModalOpen(true)}
+				>
+					+ Add
+				</button>
 			</div>
 
 			{/* Table */}
@@ -360,28 +584,19 @@ export default function DemoRequestTable() {
 
 			{/* Overlay */}
 			{panelOpen && (
-				<div
-					className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
-					onClick={closePanel}
-				/>
+				<div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" onClick={closePanel} />
 			)}
 
 			{/* Side Panel */}
-			<div
-				className={`fixed top-0 right-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out
-					${panelOpen ? "translate-x-0" : "translate-x-full"}`}
+			<div className={`fixed top-0 right-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out
+				${panelOpen ? "translate-x-0" : "translate-x-full"}`}
 			>
 				{selectedRequest && (
 					<>
-						{/* Panel Header */}
 						<div className="px-6 pt-6 pb-4 border-b border-gray-100">
 							<div className="flex items-start justify-between mb-1">
 								<StatusBadge status={selectedRequest.status} />
-								<button
-									className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
-									onClick={closePanel}
-									aria-label="Close"
-								>
+								<button className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors" onClick={closePanel} aria-label="Close">
 									{Icons.close}
 								</button>
 							</div>
@@ -389,7 +604,6 @@ export default function DemoRequestTable() {
 							<p className="text-sm text-gray-500 mt-0.5">{selectedRequest.institution_name}</p>
 						</div>
 
-						{/* Fields */}
 						<div className="flex-1 overflow-y-auto px-6 py-2">
 							<FieldRow icon={Icons.email} label="Email Address" value={
 								<a href={`mailto:${selectedRequest.email}`} className="text-teal-600 hover:underline">{selectedRequest.email}</a>
@@ -406,7 +620,6 @@ export default function DemoRequestTable() {
 							<FieldRow icon={Icons.message} label="Message" value={selectedRequest.message} />
 						</div>
 
-						{/* Actions */}
 						<div className="px-6 py-4 border-t border-gray-100">
 							<p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3">Actions</p>
 							{actionError && <p className="text-red-500 text-xs mb-2">{actionError}</p>}
@@ -416,26 +629,21 @@ export default function DemoRequestTable() {
 									disabled={actionLoading || selectedRequest.status === "contacted" || selectedRequest.status === "converted"}
 									onClick={() => handleStatusUpdate("contacted")}
 								>
-									{Icons.phone}
-									Mark Contacted
+									{Icons.phone} Mark Contacted
 								</button>
 								<button
 									className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors disabled:opacity-40"
 									disabled={actionLoading || selectedRequest.status === "scheduled" || selectedRequest.status === "converted"}
 									onClick={() => handleStatusUpdate("scheduled")}
 								>
-									{Icons.calendar}
-									Schedule Demo
+									{Icons.calendar} Schedule Demo
 								</button>
 								<button
 									className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors disabled:opacity-40"
 									disabled={actionLoading || selectedRequest.status === "rejected" || selectedRequest.status === "converted"}
 									onClick={() => handleStatusUpdate("rejected")}
 								>
-									<svg width="15" height="15" fill="none" viewBox="0 0 24 24">
-										<circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
-										<path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-									</svg>
+									<svg width="15" height="15" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 									Reject
 								</button>
 								<button
@@ -443,14 +651,12 @@ export default function DemoRequestTable() {
 									disabled={actionLoading || selectedRequest.status === "converted"}
 									onClick={() => handleStatusUpdate("converted")}
 								>
-									{Icons.star}
-									Convert to Customer
+									{Icons.star} Convert to Customer
 								</button>
 							</div>
 							{actionLoading && <p className="text-teal-600 text-xs text-center mt-2">Updating...</p>}
 						</div>
 
-						{/* Footer timestamp */}
 						<div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
 							<p className="text-[11px] text-gray-400">
 								Submitted {new Date(selectedRequest.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {new Date(selectedRequest.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
@@ -467,62 +673,34 @@ export default function DemoRequestTable() {
 					<div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm z-10">
 						<h3 className="text-lg font-bold text-teal-800 mb-1">Convert to Customer</h3>
 						<p className="text-sm text-gray-500 mb-4">Select a plan and subscription period for <span className="font-semibold text-gray-700">{selectedRequest?.institution_name}</span>.</p>
-
-						{/* Plan selection */}
 						<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Plan</p>
 						<div className="grid grid-cols-2 gap-2 mb-4">
 							{PLAN_OPTIONS.map(opt => (
 								<button
 									key={opt.value}
 									className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors duration-150
-										${selectedPlan === opt.value
-											? "bg-teal-600 text-white border-teal-600"
-											: "bg-white text-teal-700 border-teal-300 hover:bg-teal-50"}`}
+										${selectedPlan === opt.value ? "bg-teal-600 text-white border-teal-600" : "bg-white text-teal-700 border-teal-300 hover:bg-teal-50"}`}
 									onClick={() => setSelectedPlan(opt.value)}
 								>
 									{opt.label}
 								</button>
 							))}
 						</div>
-
-						{/* Date inputs */}
 						<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Subscription Period</p>
 						<div className="flex flex-col gap-2 mb-5">
 							<div>
 								<label className="text-xs text-gray-500 mb-1 block">Start Date</label>
-								<input
-									type="date"
-									className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
-									value={subscriptionStart}
-									onChange={e => setSubscriptionStart(e.target.value)}
-								/>
+								<input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" value={subscriptionStart} onChange={e => setSubscriptionStart(e.target.value)} />
 							</div>
 							<div>
 								<label className="text-xs text-gray-500 mb-1 block">End Date</label>
-								<input
-									type="date"
-									className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
-									value={subscriptionEnd}
-									onChange={e => setSubscriptionEnd(e.target.value)}
-								/>
+								<input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" value={subscriptionEnd} onChange={e => setSubscriptionEnd(e.target.value)} />
 							</div>
 						</div>
-
 						{actionError && <p className="text-red-500 text-xs mb-3">{actionError}</p>}
-
 						<div className="flex gap-2 justify-end">
-							<button
-								className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 text-sm"
-								onClick={() => setShowPlanPanel(false)}
-								disabled={actionLoading}
-							>
-								Cancel
-							</button>
-							<button
-								className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 transition-colors disabled:opacity-50"
-								onClick={handleConvertConfirm}
-								disabled={!selectedPlan || !subscriptionStart || !subscriptionEnd || actionLoading}
-							>
+							<button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 text-sm" onClick={() => setShowPlanPanel(false)} disabled={actionLoading}>Cancel</button>
+							<button className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 transition-colors disabled:opacity-50" onClick={handleConvertConfirm} disabled={!selectedPlan || !subscriptionStart || !subscriptionEnd || actionLoading}>
 								{actionLoading ? "Converting..." : "Confirm Conversion"}
 							</button>
 						</div>
@@ -530,9 +708,12 @@ export default function DemoRequestTable() {
 				</div>
 			)}
 
-			{/* Close filter dropdown on outside click */}
-			{filterOpen && (
-				<div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
+			{/* Add Demo Request Modal */}
+			{addModalOpen && (
+				<AddDemoModal
+					onClose={() => setAddModalOpen(false)}
+					onAdded={handleRequestAdded}
+				/>
 			)}
 		</div>
 	);
