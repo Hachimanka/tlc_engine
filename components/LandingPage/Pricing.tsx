@@ -84,7 +84,7 @@ export default function Pricing() {
             Simple, Transparent Pricing
           </h2>
           <p className="text-body-large mt-4 text-[var(--color-low-emphasis)]">
-            Choose the plan that best fits your institution's needs
+            Choose the plan that best fits your institution&apos;s needs
           </p>
         </div>
 

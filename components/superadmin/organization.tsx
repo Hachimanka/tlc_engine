@@ -348,11 +348,7 @@ export default function OrganizationTable() {
 	const [addressLoading, setAddressLoading] = useState(false);
 	const [addressError, setAddressError] = useState("");
 
-	useEffect(() => {
-		fetchData();
-	}, []);
-
-	const fetchData = async () => {
+	async function fetchData() {
 		setLoading(true);
 		setError("");
 		const { data, error } = await supabase
@@ -366,7 +362,12 @@ export default function OrganizationTable() {
 			setOrganizations(data || []);
 		}
 		setLoading(false);
-	};
+	}
+
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		fetchData();
+	}, []);
 
 	const filtered = organizations.filter(org => {
 		const matchesSearch =

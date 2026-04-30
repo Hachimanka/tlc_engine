@@ -1,40 +1,31 @@
-import { usePathname } from "next/navigation";
 import { AppIcon } from "@/public/icons";
 
-export const NavItems = () => {
-  const pathname = usePathname();
+export type TenantAdminView = "policies" | "manage-users" | "employees";
 
-  function isNavItemActive(pathname: string, nav: string) {
-    return pathname.includes(nav);
-  }
-
+export const NavItems = (activeView: TenantAdminView = "policies") => {
   return [
     {
-      name: "Teaching Load",
-      href: "/",
-      icon: <AppIcon name="menu" className="w-5 h-5" />, // Use existing 'menu' or add 'home' to ICON_SVGS
-      active: pathname === "/",
+      name: "Manage Users",
+      href: "/tenant/tenant-admin",
+      view: "manage-users" as TenantAdminView,
+      icon: <AppIcon name="people" className="w-5 h-5" />,
+      active: activeView === "manage-users",
       position: "top",
     },
     {
-      name: "Send Request",
-      href: "/request",
+      name: "Manage Policies",
+      href: "/tenant/tenant-admin",
+      view: "policies" as TenantAdminView,
       icon: <AppIcon name="file" className="w-5 h-5 " />,
-      active: isNavItemActive(pathname, "/request"),
+      active: activeView === "policies",
       position: "top",
     },
     {
-      name: "Settings",
-      href: "/settings",
-      icon: <AppIcon name="settings" className="w-5 h-5" />,
-      active: isNavItemActive(pathname, "/settings"),
-      position: "top",
-    },
-    {
-      name: "Projects",
-      href: "/projects",
-      icon: <AppIcon name="files" className="w-5 h-5" />, // Use 'files' as proxy for projects
-      active: isNavItemActive(pathname, "/projects"),
+      name: "Employees",
+      href: "/tenant/tenant-admin",
+      view: "employees" as TenantAdminView,
+      icon: <AppIcon name="files" className="w-5 h-5" />,
+      active: activeView === "employees",
       position: "top",
     },
   ];

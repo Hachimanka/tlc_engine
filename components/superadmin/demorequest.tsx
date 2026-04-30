@@ -343,11 +343,7 @@ export default function DemoRequestTable() {
 	const [subscriptionEnd, setSubscriptionEnd] = useState("");
 	const [addModalOpen, setAddModalOpen] = useState(false);
 
-	useEffect(() => {
-		fetchData();
-	}, []);
-
-	const fetchData = async () => {
+	async function fetchData() {
 		setLoading(true);
 		setError("");
 		const { data, error } = await supabase
@@ -361,7 +357,12 @@ export default function DemoRequestTable() {
 			setDemoRequests(data || []);
 		}
 		setLoading(false);
-	};
+	}
+
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		fetchData();
+	}, []);
 
 	const filtered = demoRequests.filter(req => {
 		const matchesSearch =
