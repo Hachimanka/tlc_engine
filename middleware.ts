@@ -23,15 +23,41 @@ export function middleware(req: NextRequest) {
   if (url.pathname.startsWith('/_next') || url.pathname.startsWith('/api')) {
     return NextResponse.next()
   }
-  const depedBasePath = '/tenant/roles-pages/Deped'
+
+  const tenantAdminAliases = new Set([
+    '/tenant/dashboard',
+    '/tenant/employees',
+    '/tenant/policies',
+    '/tenant/tenant-page',
+    '/dashboard',
+    '/employees',
+    '/policies',
+  ])
+
+  if (tenantAdminAliases.has(url.pathname)) {
+    return NextResponse.redirect(new URL('/tenant/tenant-admin', req.url))
+  }
+
+  if (url.pathname.startsWith('/tenant/features/College')) {
+    return NextResponse.redirect(
+      new URL(url.pathname.replace('/tenant/features/College', '/tenant/college'), req.url)
+    )
+  }
+
+  if (url.pathname.startsWith('/tenant/features/Deped')) {
+    return NextResponse.redirect(
+      new URL(url.pathname.replace('/tenant/features/Deped', '/tenant/deped'), req.url)
+    )
+  }
+  const depedBasePath = '/tenant/deped'
 
   const depedRoutes: Record<string, string> = {
-    '/load-manager': 'load-manager',
-    '/principal': 'principal',
-    '/teacher': 'teacher',
-    '/subject-room-management': 'subject-room-management',
-    '/roomPage': 'subject-room-management/room',
-    '/room-page': 'subject-room-management/room',
+    '/load-manager': 'manage-load',
+    '/principal': 'load-admin',
+    '/teacher': 'view-teaching-load',
+    '/subject-room-management': 'manage-subject',
+    '/roomPage': 'manage-room',
+    '/room-page': 'manage-room',
   }
 
   const target = depedRoutes[url.pathname]
@@ -42,13 +68,14 @@ export function middleware(req: NextRequest) {
     )
   }
 
-  const collegeBasePath = '/tenant/roles-pages/College'
+  const collegeBasePath = '/tenant/college'
 
   const collegeRoutes: Record<string, string> = {
     '/dean': 'dean',
-    '/loadmanager': 'loadmanager',
-    '/teacher': 'teacher',
-    '/college/subject-room-management': 'subject-room-management',
+    '/loadmanager': 'manage-load',
+    '/teacher': 'view-teaching-load',
+    '/college/teacher': 'view-teaching-load',
+    '/college/subject-room-management': 'manage-subject',
     '/vpaa': 'vpaa',
   }
 
