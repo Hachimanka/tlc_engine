@@ -152,7 +152,6 @@ function GrowthChart() {
 // ─── Donut Chart ──────────────────────────────────────────────────────────────
 function DonutChart() {
 	const total = planDistribution.reduce((s, d) => s + d.value, 0);
-	let offset = 0;
 	const r = 54;
 	const cx = 70;
 	const cy = 70;
@@ -162,12 +161,12 @@ function DonutChart() {
 		<div className="flex items-center gap-6">
 			<svg width={140} height={140} viewBox="0 0 140 140">
 				<circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={18} />
-				{planDistribution.map((d) => {
+				{planDistribution.map((d, index) => {
+					const offset = planDistribution.slice(0, index).reduce((sum, item) => sum + item.value, 0);
 					const pct = d.value / total;
 					const dash = pct * circumference;
 					const gap = circumference - dash;
 					const rotate = (offset / total) * 360 - 90;
-					offset += d.value;
 					return (
 						<circle
 							key={d.label}

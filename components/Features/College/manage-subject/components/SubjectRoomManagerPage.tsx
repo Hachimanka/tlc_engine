@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LayoutGrid, Building2, Settings } from "lucide-react";
-import Navbar from "@/components/Global/navbar";
+import Navbar from "@/components/superadmin/navbar";
 import SubjectManagementTable from "./SubjectManagementTable";
 import RoomsTable from "@/components/Features/College/manage-room/components/RoomsTable";
 import SettingsPage from "./settings";

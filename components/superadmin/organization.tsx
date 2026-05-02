@@ -63,6 +63,15 @@ function FieldRow({ icon, label, value }: { icon: React.ReactNode; label: string
 	);
 }
 
+function FormLabel({ label, required, error }: { label: string; required?: boolean; error?: string }) {
+	return (
+		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+			{label} {required && <span className="text-red-400">*</span>}
+			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
+		</label>
+	);
+}
+
 const Icons = {
 	search: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/><path d="M20 20L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
 	chevron: <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
@@ -100,7 +109,6 @@ function AddOrgModal({ onClose, onAdded }: {
 
 	// Auto-generate slug and admin_email when name changes
 	const handleNameChange = (name: string) => {
-		const slug = name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
 		const acronym = name.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
 		const namePart = form.admin_email.split("@")[0]; // preserve existing name part if set
 		setForm(f => ({
@@ -127,7 +135,6 @@ function AddOrgModal({ onClose, onAdded }: {
 
 		const now = new Date().toISOString();
 		const slug = form.name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
-		const acronym = form.name.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
 
 		const payload = {
 			name: form.name,
@@ -158,13 +165,6 @@ function AddOrgModal({ onClose, onAdded }: {
 	const inputCls = (key: string) =>
 		`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 ${errors[key] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
 
-	const Label = ({ label, required, error }: { label: string; required?: boolean; error?: string }) => (
-		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
-			{label} {required && <span className="text-red-400">*</span>}
-			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
-		</label>
-	);
-
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -185,7 +185,7 @@ function AddOrgModal({ onClose, onAdded }: {
 
 					{/* Org Name */}
 					<div>
-						<Label label="Organization Name" required error={errors.name} />
+						<FormLabel label="Organization Name" required error={errors.name} />
 						<input
 							type="text"
 							className={inputCls("name")}
@@ -198,7 +198,7 @@ function AddOrgModal({ onClose, onAdded }: {
 					{/* Emails */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Admin Email" required error={errors.admin_email} />
+							<FormLabel label="Admin Email" required error={errors.admin_email} />
 							<input
 								type="email"
 								className={inputCls("admin_email")}
@@ -208,7 +208,7 @@ function AddOrgModal({ onClose, onAdded }: {
 							/>
 						</div>
 						<div>
-							<Label label="Contact Email" required error={errors.contact_email} />
+							<FormLabel label="Contact Email" required error={errors.contact_email} />
 							<input
 								type="email"
 								className={inputCls("contact_email")}
@@ -222,7 +222,7 @@ function AddOrgModal({ onClose, onAdded }: {
 					{/* Plan + Status */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Subscription Plan" />
+							<FormLabel label="Subscription Plan" />
 							<select
 								className={inputCls("subscription_plan")}
 								value={form.subscription_plan}
@@ -234,7 +234,7 @@ function AddOrgModal({ onClose, onAdded }: {
 							</select>
 						</div>
 						<div>
-							<Label label="Status" />
+							<FormLabel label="Status" />
 							<select
 								className={inputCls("status")}
 								value={form.status}
@@ -249,7 +249,7 @@ function AddOrgModal({ onClose, onAdded }: {
 
 					{/* Subscription Status */}
 					<div>
-						<Label label="Subscription Status" />
+						<FormLabel label="Subscription Status" />
 						<select
 							className={inputCls("subscription_status")}
 							value={form.subscription_status}
@@ -264,7 +264,7 @@ function AddOrgModal({ onClose, onAdded }: {
 					{/* Subscription Dates */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Subscription Start" required error={errors.subscription_start} />
+							<FormLabel label="Subscription Start" required error={errors.subscription_start} />
 							<input
 								type="date"
 								className={inputCls("subscription_start")}
@@ -273,7 +273,7 @@ function AddOrgModal({ onClose, onAdded }: {
 							/>
 						</div>
 						<div>
-							<Label label="Subscription End" required error={errors.subscription_end} />
+							<FormLabel label="Subscription End" required error={errors.subscription_end} />
 							<input
 								type="date"
 								className={inputCls("subscription_end")}
@@ -285,7 +285,7 @@ function AddOrgModal({ onClose, onAdded }: {
 
 					{/* Address */}
 					<div>
-						<Label label="Address" />
+						<FormLabel label="Address" />
 						<textarea
 							className={`${inputCls("address")} resize-none`}
 							rows={2}

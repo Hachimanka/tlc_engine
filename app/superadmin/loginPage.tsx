@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -36,11 +37,12 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 			<div className="min-h-screen flex items-center justify-center bg-gray-50">
 				<div className="flex flex-col items-center gap-4">
 					<div className="w-20 h-20 flex items-center justify-center rounded-xl bg-teal-100 shadow animate-bounce" style={{ animationDuration: '0.7s' }}>
-						<img
+						<Image
 							src="/navbar/tlclogo.png"
 							alt="TLC Logo"
-							className="w-14 h-14"
-							style={{ objectFit: 'contain' }}
+							width={56}
+							height={56}
+							className="w-14 h-14 object-contain"
 						/>
 					</div>
 					<div className="text-teal-700 font-semibold text-lg">Logging in...</div>

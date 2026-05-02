@@ -6,7 +6,7 @@ import ActivityLogsTable from "@/components/superadmin/activitylogs";
 import AnalyticsDashboard from "@/components/superadmin/analytics";
 import Dashboard from "@/components/superadmin/dashboard";
 import DemoRequestTable from "@/components/superadmin/demorequest";
-import Navbar from "@/components/superadmin/navbar";
+import Navbar from "@/components/Global/navbar";
 import OrganizationTable from "@/components/superadmin/organization";
 import Sidebar from "@/components/superadmin/sidebar";
 import SuperAdminSettings from "@/components/superadmin/settings";
@@ -25,7 +25,7 @@ export default function SuperAdminPage() {
   }, [router]);
 
   let ContentComponent = null;
-  if (activeKey === "dashboard") ContentComponent = <Dashboard />;
+  if (activeKey === "dashboard") ContentComponent = <Dashboard onNavigate={setActiveKey} />;
   else if (activeKey === "organizations") ContentComponent = <OrganizationTable />;
   else if (activeKey === "subscription") ContentComponent = <SubscriptionCards />;
   else if (activeKey === "demorequests") ContentComponent = <DemoRequestTable />;
@@ -44,7 +44,7 @@ export default function SuperAdminPage() {
       />
       <div className="flex flex-1">
         <Sidebar activeKey={activeKey} setActiveKey={setActiveKey} />
-        <div className="flex-1 bg-gray-50">{contentComponent}</div>
+        <div className="flex-1 bg-gray-50">{ContentComponent}</div>
       </div>
     </div>
   );

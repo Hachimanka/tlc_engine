@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Global/navbar";
+import Navbar from "@/components/superadmin/navbar";
 import Sidebar from "@/components/Features/sidebar";
 import { use } from "react";
 import Link from "next/link"; // 1. Import Link

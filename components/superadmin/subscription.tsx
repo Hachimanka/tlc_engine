@@ -234,13 +234,7 @@ function TenantsPanel({ plan, onClose }: {
 	const [search, setSearch] = useState("");
 	const isOpen = !!plan;
 
-	useEffect(() => {
-		if (!plan) return;
-		setSearch("");
-		fetchTenants(plan.name);
-	}, [plan]);
-
-	const fetchTenants = async (planName: string) => {
+	async function fetchTenants(planName: string) {
 		setLoading(true);
 		const { data, error } = await supabase
 			.from("organizations")
@@ -249,7 +243,13 @@ function TenantsPanel({ plan, onClose }: {
 			.order("created_at", { ascending: false });
 		setLoading(false);
 		if (!error) setTenants(data || []);
-	};
+	}
+
+	useEffect(() => {
+		if (!plan) return;
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		fetchTenants(plan.name);
+	}, [plan]);
 
 	const filtered = tenants.filter(t =>
 		t.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -374,11 +374,7 @@ export default function SubscriptionCards() {
 	const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
 	const [viewingPlan, setViewingPlan] = useState<Plan | null>(null);
 
-	useEffect(() => {
-		fetchPlans();
-	}, []);
-
-	const fetchPlans = async () => {
+	async function fetchPlans() {
 		setLoading(true);
 		setError("");
 		const { data, error } = await supabase
@@ -392,7 +388,12 @@ export default function SubscriptionCards() {
 			setPlans(data || []);
 		}
 		setLoading(false);
-	};
+	}
+
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		fetchPlans();
+	}, []);
 
 	const handleSaved = (updated: Plan) => {
 		setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));

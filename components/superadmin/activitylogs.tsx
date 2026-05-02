@@ -9,7 +9,7 @@ type ActivityLog = {
 	target: string | null;
 	target_type: string | null;
 	status: string;
-	metadata: Record<string, any> | null;
+	metadata: Record<string, unknown> | null;
 	created_at: string;
 };
 
@@ -103,74 +103,22 @@ const Icons = {
 	metadata: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 };
 
-export default function ActivityLogsTable() {
-	const [search, setSearch] = useState("");
-	const [statusFilter, setStatusFilter] = useState("");
-	const [actionFilter, setActionFilter] = useState("");
-	const [statusOpen, setStatusOpen] = useState(false);
-	const [actionOpen, setActionOpen] = useState(false);
-	const [logs, setLogs] = useState<ActivityLog[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-	const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
-	const [panelOpen, setPanelOpen] = useState(false);
-
-	useEffect(() => {
-		fetchLogs();
-	}, []);
-
-	const fetchLogs = async () => {
-		setLoading(true);
-		setError("");
-		const { data, error } = await supabase
-			.from("activity_logs")
-			.select("*")
-			.order("created_at", { ascending: false });
-		if (error) {
-			setError("Failed to load activity logs.");
-			setLogs([]);
-		} else {
-			setLogs(data || []);
-		}
-		setLoading(false);
-	};
-
-	const filtered = logs.filter(log => {
-		const matchesSearch =
-			log.user_name?.toLowerCase().includes(search.toLowerCase()) ||
-			log.action?.toLowerCase().includes(search.toLowerCase()) ||
-			log.target?.toLowerCase().includes(search.toLowerCase()) ||
-			log.user_email?.toLowerCase().includes(search.toLowerCase());
-		const matchesStatus = statusFilter ? log.status?.toLowerCase() === statusFilter : true;
-		const matchesAction = actionFilter
-			? log.action?.toLowerCase().includes(actionFilter.toLowerCase())
-			: true;
-		return matchesSearch && matchesStatus && matchesAction;
-	});
-
-	const openPanel = (log: ActivityLog) => {
-		setSelectedLog(log);
-		setPanelOpen(true);
-	};
-
-	const closePanel = () => {
-		setPanelOpen(false);
-		setTimeout(() => setSelectedLog(null), 300);
-	};
-
-	const statusLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
-	const actionLabel = ACTION_OPTIONS.find(o => o.value === actionFilter)?.label || "All Actions";
-
-	const Dropdown = ({
-		open, setOpen, label, options, value, onChange
-	}: {
-		open: boolean;
-		setOpen: (v: boolean) => void;
-		label: string;
-		options: { label: string; value: string }[];
-		value: string;
-		onChange: (v: string) => void;
-	}) => (
+function FilterDropdown({
+	open,
+	setOpen,
+	label,
+	options,
+	value,
+	onChange,
+}: {
+	open: boolean;
+	setOpen: (v: boolean) => void;
+	label: string;
+	options: { label: string; value: string }[];
+	value: string;
+	onChange: (v: string) => void;
+}) {
+	return (
 		<div className="relative shrink-0">
 			<button
 				className="flex items-center gap-2 border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white shadow-sm hover:border-teal-400 transition-colors w-40 justify-between text-gray-700"
@@ -203,6 +151,66 @@ export default function ActivityLogsTable() {
 			)}
 		</div>
 	);
+}
+
+export default function ActivityLogsTable() {
+	const [search, setSearch] = useState("");
+	const [statusFilter, setStatusFilter] = useState("");
+	const [actionFilter, setActionFilter] = useState("");
+	const [statusOpen, setStatusOpen] = useState(false);
+	const [actionOpen, setActionOpen] = useState(false);
+	const [logs, setLogs] = useState<ActivityLog[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
+	const [panelOpen, setPanelOpen] = useState(false);
+
+	async function fetchLogs() {
+		setLoading(true);
+		setError("");
+		const { data, error } = await supabase
+			.from("activity_logs")
+			.select("*")
+			.order("created_at", { ascending: false });
+		if (error) {
+			setError("Failed to load activity logs.");
+			setLogs([]);
+		} else {
+			setLogs(data || []);
+		}
+		setLoading(false);
+	}
+
+	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		fetchLogs();
+	}, []);
+
+	const filtered = logs.filter(log => {
+		const matchesSearch =
+			log.user_name?.toLowerCase().includes(search.toLowerCase()) ||
+			log.action?.toLowerCase().includes(search.toLowerCase()) ||
+			log.target?.toLowerCase().includes(search.toLowerCase()) ||
+			log.user_email?.toLowerCase().includes(search.toLowerCase());
+		const matchesStatus = statusFilter ? log.status?.toLowerCase() === statusFilter : true;
+		const matchesAction = actionFilter
+			? log.action?.toLowerCase().includes(actionFilter.toLowerCase())
+			: true;
+		return matchesSearch && matchesStatus && matchesAction;
+	});
+
+	const openPanel = (log: ActivityLog) => {
+		setSelectedLog(log);
+		setPanelOpen(true);
+	};
+
+	const closePanel = () => {
+		setPanelOpen(false);
+		setTimeout(() => setSelectedLog(null), 300);
+	};
+
+	const statusLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
+	const actionLabel = ACTION_OPTIONS.find(o => o.value === actionFilter)?.label || "All Actions";
 
 	return (
 		<div className="w-full px-8 py-6 relative">
@@ -225,12 +233,12 @@ export default function ActivityLogsTable() {
 						onChange={e => setSearch(e.target.value)}
 					/>
 				</div>
-				<Dropdown
+				<FilterDropdown
 					open={statusOpen} setOpen={setStatusOpen}
 					label={statusLabel} options={STATUS_OPTIONS}
 					value={statusFilter} onChange={setStatusFilter}
 				/>
-				<Dropdown
+				<FilterDropdown
 					open={actionOpen} setOpen={setActionOpen}
 					label={actionLabel} options={ACTION_OPTIONS}
 					value={actionFilter} onChange={setActionFilter}

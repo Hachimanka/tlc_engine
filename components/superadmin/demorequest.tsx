@@ -73,6 +73,15 @@ function FieldRow({ icon, label, value }: { icon: React.ReactNode; label: string
 	);
 }
 
+function FormLabel({ label, required, error }: { label: string; required?: boolean; error?: string }) {
+	return (
+		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
+			{label} {required && <span className="text-red-400">*</span>}
+			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
+		</label>
+	);
+}
+
 const Icons = {
 	email: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M2 8l10 7 10-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	institution: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M3 21h18M6 21V10m12 11V10M2 10l10-7 10 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
@@ -155,13 +164,6 @@ function AddDemoModal({ onClose, onAdded }: {
 	const inputCls = (key: string) =>
 		`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white ${errors[key] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
 
-	const Label = ({ label, required, error }: { label: string; required?: boolean; error?: string }) => (
-		<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">
-			{label} {required && <span className="text-red-400">*</span>}
-			{error && <span className="ml-2 normal-case font-normal text-red-400">{error}</span>}
-		</label>
-	);
-
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -183,7 +185,7 @@ function AddDemoModal({ onClose, onAdded }: {
 					{/* Name + Email */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Full Name" required error={errors.full_name} />
+							<FormLabel label="Full Name" required error={errors.full_name} />
 							<input
 								type="text"
 								className={inputCls("full_name")}
@@ -193,7 +195,7 @@ function AddDemoModal({ onClose, onAdded }: {
 							/>
 						</div>
 						<div>
-							<Label label="Email" required error={errors.email} />
+							<FormLabel label="Email" required error={errors.email} />
 							<input
 								type="email"
 								className={inputCls("email")}
@@ -206,7 +208,7 @@ function AddDemoModal({ onClose, onAdded }: {
 
 					{/* Institution */}
 					<div>
-						<Label label="Institution Name" required error={errors.institution_name} />
+						<FormLabel label="Institution Name" required error={errors.institution_name} />
 						<input
 							type="text"
 							className={inputCls("institution_name")}
@@ -219,7 +221,7 @@ function AddDemoModal({ onClose, onAdded }: {
 					{/* Role + Size */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Role / Position" required error={errors.role_position} />
+							<FormLabel label="Role / Position" required error={errors.role_position} />
 							<input
 								type="text"
 								className={inputCls("role_position")}
@@ -229,7 +231,7 @@ function AddDemoModal({ onClose, onAdded }: {
 							/>
 						</div>
 						<div>
-							<Label label="Institution Size" />
+							<FormLabel label="Institution Size" />
 							<select
 								className={inputCls("institution_size")}
 								value={form.institution_size}
@@ -245,7 +247,7 @@ function AddDemoModal({ onClose, onAdded }: {
 					{/* Date + Time */}
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<Label label="Preferred Date" />
+							<FormLabel label="Preferred Date" />
 							<input
 								type="date"
 								className={inputCls("preferred_demo_date")}
@@ -254,7 +256,7 @@ function AddDemoModal({ onClose, onAdded }: {
 							/>
 						</div>
 						<div>
-							<Label label="Preferred Time" />
+							<FormLabel label="Preferred Time" />
 							<input
 								type="time"
 								className={inputCls("preferred_demo_time")}
@@ -266,7 +268,7 @@ function AddDemoModal({ onClose, onAdded }: {
 
 					{/* Status */}
 					<div>
-						<Label label="Status" />
+						<FormLabel label="Status" />
 						<select
 							className={inputCls("status")}
 							value={form.status}
@@ -280,7 +282,7 @@ function AddDemoModal({ onClose, onAdded }: {
 
 					{/* Message */}
 					<div>
-						<Label label="Message" />
+						<FormLabel label="Message" />
 						<textarea
 							className={`${inputCls("message")} resize-none`}
 							rows={3}

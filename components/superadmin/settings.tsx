@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabaseClient";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Section = "profile" | "security" | "notifications" | "system" | "danger";
 
+const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white";
+
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const Icons = {
 	profile: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
@@ -70,6 +72,57 @@ function Field({ label, children, hint }: { label: string; children: React.React
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+function PasswordInput({ value, onChange, show, onToggle, placeholder }: {
+	value: string;
+	onChange: (v: string) => void;
+	show: boolean;
+	onToggle: () => void;
+	placeholder?: string;
+}) {
+	return (
+		<div className="relative">
+			<input
+				type={show ? "text" : "password"}
+				className={INPUT_CLASS + " pr-10"}
+				value={value}
+				onChange={e => onChange(e.target.value)}
+				placeholder={placeholder}
+			/>
+			<button
+				type="button"
+				className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+				onClick={onToggle}
+			>
+				{show ? Icons.eyeOff : Icons.eye}
+			</button>
+		</div>
+	);
+}
+
+function SaveButton({ onClick, saving, success, label = "Save Changes" }: {
+	onClick: () => void;
+	saving: boolean;
+	success: boolean;
+	label?: string;
+}) {
+	return (
+		<button
+			className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm
+				${success ? "bg-green-600 text-white" : "bg-teal-700 hover:bg-teal-800 text-white"} disabled:opacity-50`}
+			onClick={onClick}
+			disabled={saving}
+		>
+			{saving ? (
+				<><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Saving...</>
+			) : success ? (
+				<>{Icons.check} Saved!</>
+			) : (
+				<>{Icons.save} {label}</>
+			)}
+		</button>
+	);
+}
+
 export default function SuperAdminSettings() {
 	const [activeSection, setActiveSection] = useState<Section>("profile");
 
@@ -159,55 +212,6 @@ export default function SuperAdminSettings() {
 		setTimeout(() => setSystemSuccess(false), 3000);
 	};
 
-	const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white";
-
-	const PasswordInput = ({ value, onChange, show, onToggle, placeholder }: {
-		value: string;
-		onChange: (v: string) => void;
-		show: boolean;
-		onToggle: () => void;
-		placeholder?: string;
-	}) => (
-		<div className="relative">
-			<input
-				type={show ? "text" : "password"}
-				className={inputCls + " pr-10"}
-				value={value}
-				onChange={e => onChange(e.target.value)}
-				placeholder={placeholder}
-			/>
-			<button
-				type="button"
-				className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-				onClick={onToggle}
-			>
-				{show ? Icons.eyeOff : Icons.eye}
-			</button>
-		</div>
-	);
-
-	const SaveButton = ({ onClick, saving, success, label = "Save Changes" }: {
-		onClick: () => void;
-		saving: boolean;
-		success: boolean;
-		label?: string;
-	}) => (
-		<button
-			className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm
-				${success ? "bg-green-600 text-white" : "bg-teal-700 hover:bg-teal-800 text-white"} disabled:opacity-50`}
-			onClick={onClick}
-			disabled={saving}
-		>
-			{saving ? (
-				<><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Saving...</>
-			) : success ? (
-				<>{Icons.check} Saved!</>
-			) : (
-				<>{Icons.save} {label}</>
-			)}
-		</button>
-	);
-
 	return (
 		<div className="w-full px-8 py-6">
 			{/* Header */}
@@ -260,14 +264,14 @@ export default function SuperAdminSettings() {
 
 								<div className="grid grid-cols-2 gap-4">
 									<Field label="Full Name">
-										<input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
+										<input className={INPUT_CLASS} value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
 									</Field>
 									<Field label="Phone Number" hint="Optional — for account recovery">
-										<input className={inputCls} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+63 912 345 6789" />
+										<input className={INPUT_CLASS} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+63 912 345 6789" />
 									</Field>
 								</div>
 								<Field label="Email Address" hint="Used for login and system notifications">
-									<input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} />
+									<input className={INPUT_CLASS} type="email" value={email} onChange={e => setEmail(e.target.value)} />
 								</Field>
 
 								<div className="flex justify-end pt-2">
@@ -389,19 +393,33 @@ export default function SuperAdminSettings() {
 								<div className="flex flex-col gap-4">
 									<div className="grid grid-cols-2 gap-4">
 										<Field label="Platform Name">
-											<input className={inputCls} value={platformName} onChange={e => setPlatformName(e.target.value)} />
+											<input className={INPUT_CLASS} value={platformName} onChange={e => setPlatformName(e.target.value)} />
 										</Field>
 										<Field label="Support Email">
-											<input className={inputCls} type="email" value={supportEmail} onChange={e => setSupportEmail(e.target.value)} />
+											<input className={INPUT_CLASS} type="email" value={supportEmail} onChange={e => setSupportEmail(e.target.value)} />
 										</Field>
 									</div>
 									<div className="grid grid-cols-2 gap-4">
 										<Field label="Max Orgs per Plan (override)" hint="0 = use plan default">
-											<input className={inputCls} type="number" value={maxOrgsPerPlan} onChange={e => setMaxOrgsPerPlan(e.target.value)} />
+											<input className={INPUT_CLASS} type="number" value={maxOrgsPerPlan} onChange={e => setMaxOrgsPerPlan(e.target.value)} />
+										</Field>
+										<Field label="Default Plan">
+											<select className={INPUT_CLASS} value={defaultPlan} onChange={e => setDefaultPlan(e.target.value)}>
+												<option value="starter">Starter</option>
+												<option value="basic">Basic</option>
+												<option value="premium">Premium</option>
+												<option value="diamond">Diamond</option>
+											</select>
 										</Field>
 									</div>
 
 									<div className="flex flex-col gap-1 pt-2 border-t border-gray-100">
+										<Toggle
+											value={allowRegistrations}
+											onChange={setAllowRegistrations}
+											label="Allow New Registrations"
+											description="Let new tenant organizations enter the setup flow"
+										/>
 										<Toggle
 											value={maintenanceMode}
 											onChange={setMaintenanceMode}
