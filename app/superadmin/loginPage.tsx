@@ -54,7 +54,7 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-gray-50">
 			<form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md flex flex-col gap-6">
-				<h1 className="text-2xl font-bold text-teal-800 text-center">Super Admin Login</h1>
+				<h1 className="text-2xl font-bold text-teal-800 text-center"> Login</h1>
 				{/* <div className="text-xs text-gray-400 text-center mb-2">Demo: superadmin@demo.com / password123</div> */}
 				{error && <div className="text-red-600 text-sm text-center">{error}</div>}
 				<div>

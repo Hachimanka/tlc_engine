@@ -34,6 +34,10 @@ export function middleware(req: NextRequest) {
     '/policies',
   ])
 
+  if (url.pathname === '/tenant' || url.pathname === '/tenant/') {
+    return NextResponse.redirect(new URL('/tenant/login', req.url))
+  }
+
   if (tenantAdminAliases.has(url.pathname)) {
     return NextResponse.redirect(new URL('/tenant/tenant-admin', req.url))
   }
@@ -109,7 +113,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (subdomain !== 'www' && subdomain !== 'yourapp' && subdomain !== 'localhost') {
-    const newPath = url.pathname === '/' ? '/tenant' : `/tenant${url.pathname}`
+    const newPath = url.pathname === '/' ? '/tenant/login' : `/tenant${url.pathname}`
     return NextResponse.rewrite(new URL(newPath, req.url))
   }
 

@@ -1,17 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Navbar from "@/components/Global/HeaderTenant";
+import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import RoomsTable, {
 	type RoomRow,
 } from "@/components/Features/Deped/manage-room/components/RoomsTable";
 import ScheduleTable, {
 	type ScheduleRow,
 } from "@/components/Features/Deped/manage-room/components/ScheduleTable";
-import Sidebar from "@/components/Features/sidebar";
-import { getFeatureSidebarItems } from "@/features.config";
-
-const sidebarItems = getFeatureSidebarItems("Deped", "subject-room-manager");
+import { ICON_SVGS } from "@/public/icons";
 
 const roomRows: RoomRow[] = [
 	{
@@ -121,34 +118,32 @@ export default function RoomManagementPage() {
 	const selectedScheduleRows = scheduleRowsByRoom[selectedRoom.roomNo] ?? scheduleRowsByRoom[roomRows[0].roomNo];
 
 	return (
-		<main className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
-			<Navbar />
+		<TenantRoleLayout
+			tenantType="Deped"
+			role="subject-room-manager"
+			title="Deped Menu"
+			iconSvg={ICON_SVGS.menu}
+			contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
+		>
+			<div className="mx-auto w-full max-w-none space-y-4">
+				<div>
+					<h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
+						Room Management
+					</h1>
+				</div>
 
-			<div className="flex min-h-0 flex-1 overflow-hidden">
-				<Sidebar title="Deped Menu" items={sidebarItems} />
+				<RoomsTable
+					rooms={roomRows}
+					selectedRoomNo={selectedRoomNo}
+					onRoomSelect={(room) => setSelectedRoomNo(room.roomNo)}
+					onAddRoomClick={() => {}}
+				/>
 
-				<section className="min-w-0 flex-1 overflow-y-auto px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8">
-					<div className="mx-auto w-full max-w-none space-y-4">
-						<div>
-							<h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
-								Room Management
-							</h1>
-						</div>
-
-						<RoomsTable
-							rooms={roomRows}
-							selectedRoomNo={selectedRoomNo}
-							onRoomSelect={(room) => setSelectedRoomNo(room.roomNo)}
-							onAddRoomClick={() => {}}
-						/>
-
-						<ScheduleTable
-							roomName={selectedRoom.roomNo}
-							scheduleRows={selectedScheduleRows}
-						/>
-					</div>
-				</section>
+				<ScheduleTable
+					roomName={selectedRoom.roomNo}
+					scheduleRows={selectedScheduleRows}
+				/>
 			</div>
-		</main>
+		</TenantRoleLayout>
 	);
 }

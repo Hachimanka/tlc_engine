@@ -1,15 +1,34 @@
- "use client";
+"use client";
 
-import { useState } from "react";
-import HeaderTenant from "@/components/Global/HeaderTenant";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/Global/navbar";
+import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
 import Employee from "@/components/Features/Tenant/Employee";
 import Policies from "@/components/Features/Tenant/Policies";
-import SidePanel from "@/components/Features/Tenant/SidePanel";
 import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
-import { type TenantAdminView } from "@/config";
+import { NavItems, type TenantAdminView } from "@/config";
+import { ICON_SVGS } from "@/public/icons";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function TenantPage() {
+  const router = useRouter();
   const [activeView, setActiveView] = useState<TenantAdminView>("policies");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const sidebarItems = useMemo<SidebarItem[]>(() => {
+    const iconMap: Record<TenantAdminView, string> = {
+      "manage-users": ICON_SVGS.people,
+      policies: ICON_SVGS.file,
+      employees: ICON_SVGS.files,
+    };
+
+    return NavItems(activeView).map((item) => ({
+      key: item.view,
+      label: item.name,
+      icon: iconMap[item.view],
+    }));
+  }, [activeView]);
 
   const content = {
     policies: <Policies />,
@@ -17,15 +36,54 @@ export default function TenantPage() {
     employees: <Employee />,
   }[activeView];
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
+      if (!user) {
+        router.replace("/tenant/login?redirect=/tenant/tenant-admin");
+        return;
+      }
+
+      const metadata = user.user_metadata as {
+        first_login?: boolean;
+        onboarding_complete?: boolean;
+      };
+
+      if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
+        router.replace("/tenant/onboarding");
+        return;
+      }
+
+      setCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">Checking session...</div>
+      </div>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
-      <HeaderTenant />
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+      <Navbar />
       <div className="flex min-h-0 flex-1">
-        <SidePanel activeView={activeView} onViewChange={setActiveView} />
-        <section className="min-w-0 flex-1 bg-[var(--color-background)] p-6">
+        <Sidebar
+          activeKey={activeView}
+          setActiveKey={(key) => setActiveView(key as TenantAdminView)}
+          items={sidebarItems}
+          title="Tenant Admin"
+          iconSvg={ICON_SVGS.people}
+        />
+        <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
           {content}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

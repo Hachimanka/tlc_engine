@@ -15,6 +15,14 @@ type DemoRequest = {
 	created_at: string;
 };
 
+type ConversionResult = {
+	orgId: string;
+	adminEmail: string;
+	tempPassword: string;
+	slug: string;
+	warning?: string;
+};
+
 const STATUS_OPTIONS = [
 	{ label: "All Status", value: "" },
 	{ label: "Pending", value: "pending" },
@@ -344,6 +352,9 @@ export default function DemoRequestTable() {
 	const [subscriptionStart, setSubscriptionStart] = useState("");
 	const [subscriptionEnd, setSubscriptionEnd] = useState("");
 	const [addModalOpen, setAddModalOpen] = useState(false);
+	const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
+	const [copiedField, setCopiedField] = useState("");
+	const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "yourapp.com";
 
 	async function fetchData() {
 		setLoading(true);
@@ -390,6 +401,8 @@ export default function DemoRequestTable() {
 	const handleStatusUpdate = async (status: string) => {
 		if (!selectedRequest) return;
 		if (status === "converted") {
+			setActionError("");
+			setConversionResult(null);
 			setShowPlanPanel(true);
 			return;
 		}
@@ -408,59 +421,62 @@ export default function DemoRequestTable() {
 		setSelectedRequest(prev => prev ? { ...prev, status } : null);
 	};
 
+	const handleCopy = async (label: string, value: string) => {
+		try {
+			await navigator.clipboard.writeText(value);
+			setCopiedField(label);
+			setTimeout(() => setCopiedField(""), 1500);
+		} catch {
+			setCopiedField("Copy failed");
+			setTimeout(() => setCopiedField(""), 1500);
+		}
+	};
+
 	const handleConvertConfirm = async () => {
 		if (!selectedRequest || !selectedPlan || !subscriptionStart || !subscriptionEnd) return;
 		setActionLoading(true);
 		setActionError("");
+		setConversionResult(null);
 
-		const { error: updateError } = await supabase
-			.from("demo_requests")
-			.update({ status: "converted" })
-			.eq("id", selectedRequest.id);
+		try {
+			const res = await fetch("/api/superadmin/convert", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					demoRequestId: selectedRequest.id,
+					plan: selectedPlan,
+					subscriptionStart,
+					subscriptionEnd,
+				}),
+			});
 
-		if (updateError) {
+			const payload = await res.json().catch(() => ({}));
+
+			if (!res.ok) {
+				setActionError(payload?.error || "Conversion failed. Please try again.");
+				setActionLoading(false);
+				return;
+			}
+
+			setConversionResult({
+				orgId: payload.orgId,
+				adminEmail: payload.adminEmail,
+				tempPassword: payload.tempPassword,
+				slug: payload.slug,
+				warning: payload.warning,
+			});
+
+			setShowPlanPanel(false);
+			setSelectedPlan("");
+			setSubscriptionStart("");
+			setSubscriptionEnd("");
+			await fetchData();
+			setSelectedRequest(prev => prev ? { ...prev, status: "converted" } : null);
 			setActionLoading(false);
-			setActionError(`Update failed: ${updateError.message}`);
-			return;
+		} catch {
+			setActionError("Conversion failed. Please try again.");
+			setActionLoading(false);
 		}
-
-		const now = new Date().toISOString();
-		const orgName = selectedRequest.institution_name;
-		const requesterName = selectedRequest.full_name;
-
-		const slug = orgName.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
-		const acronym = orgName.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
-		const namePart = requesterName.toLowerCase().trim().replace(/[^a-z\s]/g, "").replace(/\s+/g, ".");
-		const adminEmail = `${namePart}@${acronym}.edu`;
-
-		const orgRow = {
-			name: orgName,
-			slug,
-			admin_email: adminEmail,
-			contact_email: selectedRequest.email,
-			subscription_plan: selectedPlan,
-			subscription_status: "active",
-			subscription_start: subscriptionStart,
-			subscription_end: subscriptionEnd,
-			status: "active",
-			created_at: now,
-			updated_at: now,
-		};
-
-		const { error: insertError } = await supabase.from("organizations").insert([orgRow]).select();
-		setActionLoading(false);
-
-		if (insertError) {
-			setActionError(`Insert failed: ${insertError.message} | Hint: ${insertError.hint}`);
-			return;
-		}
-
-		setShowPlanPanel(false);
-		setSelectedPlan("");
-		setSubscriptionStart("");
-		setSubscriptionEnd("");
-		await fetchData();
-		setSelectedRequest(prev => prev ? { ...prev, status: "converted" } : null);
 	};
 
 	const handleRequestAdded = (req: DemoRequest) => {
@@ -469,6 +485,9 @@ export default function DemoRequestTable() {
 	};
 
 	const selectedLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
+	const loginUrl = conversionResult?.slug
+		? `https://${conversionResult.slug}.${appDomain}/login`
+		: "";
 
 	return (
 		<div className="w-full px-8 py-6 relative">
@@ -702,9 +721,108 @@ export default function DemoRequestTable() {
 						</div>
 						{actionError && <p className="text-red-500 text-xs mb-3">{actionError}</p>}
 						<div className="flex gap-2 justify-end">
-							<button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 text-sm" onClick={() => setShowPlanPanel(false)} disabled={actionLoading}>Cancel</button>
+							<button
+								className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 text-sm"
+								onClick={() => {
+									setShowPlanPanel(false);
+									setActionError("");
+								}}
+								disabled={actionLoading}
+							>
+								Cancel
+							</button>
 							<button className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 transition-colors disabled:opacity-50" onClick={handleConvertConfirm} disabled={!selectedPlan || !subscriptionStart || !subscriptionEnd || actionLoading}>
 								{actionLoading ? "Converting..." : "Confirm Conversion"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Conversion Success Modal */}
+			{conversionResult && (
+				<div className="fixed inset-0 z-[70] flex items-center justify-center">
+					<div className="absolute inset-0 bg-black/40" onClick={() => setConversionResult(null)} />
+					<div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md z-10">
+						<h3 className="text-lg font-bold text-teal-800">Organization Created</h3>
+						<p className="text-sm text-gray-500 mt-1">
+							Admin account created for <span className="font-semibold text-gray-700">{selectedRequest?.institution_name}</span>.
+						</p>
+
+						<div className="mt-4 space-y-3">
+							<div>
+								<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Admin Email</p>
+								<div className="flex items-center gap-2">
+									<input
+										value={conversionResult.adminEmail}
+										readOnly
+										className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-gray-50"
+									/>
+									<button
+										className="px-3 py-2 text-xs font-semibold rounded-lg border border-teal-200 text-teal-700 hover:bg-teal-50"
+										onClick={() => handleCopy("email", conversionResult.adminEmail)}
+									>
+										Copy
+									</button>
+								</div>
+							</div>
+
+							<div>
+								<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Temporary Password</p>
+								<div className="flex items-center gap-2">
+									<input
+										value={conversionResult.tempPassword}
+										readOnly
+										className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-gray-50"
+									/>
+									<button
+										className="px-3 py-2 text-xs font-semibold rounded-lg border border-teal-200 text-teal-700 hover:bg-teal-50"
+										onClick={() => handleCopy("password", conversionResult.tempPassword)}
+									>
+										Copy
+									</button>
+								</div>
+								<p className="text-[11px] text-gray-400 mt-1">
+									Share this once. The admin will be asked to change it on first login.
+								</p>
+							</div>
+
+							<div>
+								<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Login URL</p>
+								<div className="flex items-center gap-2">
+									<input
+										value={loginUrl}
+										readOnly
+										className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-gray-50"
+									/>
+									<button
+										className="px-3 py-2 text-xs font-semibold rounded-lg border border-teal-200 text-teal-700 hover:bg-teal-50"
+										onClick={() => handleCopy("login url", loginUrl)}
+									>
+										Copy
+									</button>
+								</div>
+								<p className="text-[11px] text-gray-400 mt-1">
+									Example: https://{conversionResult.slug}.{appDomain}/login
+								</p>
+							</div>
+						</div>
+
+						{conversionResult.warning && (
+							<p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+								{conversionResult.warning}
+							</p>
+						)}
+						{copiedField && (
+							<p className="mt-2 text-xs text-teal-600">{copiedField === "Copy failed" ? copiedField : `${copiedField} copied`}</p>
+						)}
+
+						<div className="flex justify-end mt-5">
+							<button
+								className="px-4 py-2 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800"
+								onClick={() => setConversionResult(null)}
+							>
+								Done
 							</button>
 						</div>
 					</div>

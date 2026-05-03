@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppIcon } from "@/public/icons";
 import type { IconName } from "@/public/icons";
+import { supabase } from "@/lib/supabaseClient";
 
 type PricingPlan = {
   id: string;
@@ -17,63 +18,123 @@ type PricingPlan = {
   }>;
 };
 
-const pricingPlans: PricingPlan[] = [
-  {
-    id: "basic",
-    name: "Basic",
-    price: "0.0",
-    description: "Perfect for small institutions getting started",
-    accent: "light",
-    iconName: "file",
-    features: [
-      { text: "Up to 100 faculty members", iconName: "people" },
-      { text: "Core teaching load features", iconName: "file" },
-      { text: "Basic policy enforcement", iconName: "settings" },
-      { text: "Email support", iconName: "email" },
-      { text: "Monthly reports", iconName: "analytics" },
-    ],
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    price: "0.0",
-    description: "Ideal for growing institutions",
-    accent: "brand",
-    iconName: "subscription",
-    features: [
-      { text: "Up to 500 faculty members", iconName: "people" },
-      { text: "Full feature access", iconName: "menu" },
-      { text: "Advanced workflow automation", iconName: "flow" },
-      { text: "Custom policy rules", iconName: "settings" },
-      { text: "Priority support", iconName: "bell" },
-      { text: "Real-time analytics", iconName: "analytics" },
-      { text: "API access", iconName: "lock" },
-    ],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise (Custom)",
-    price: "0.0",
-    description: "For large institutions and multi-campus systems",
-    accent: "light",
-    iconName: "shield",
-    features: [
-      { text: "Unlimited faculty members", iconName: "people" },
-      { text: "Multi-campus support", iconName: "location" },
-      { text: "Custom policy engine", iconName: "settings" },
-      { text: "Dedicated support team", iconName: "bell" },
-      { text: "Advanced security features", iconName: "shield" },
-      { text: "Custom integrations", iconName: "flow" },
-      { text: "Training & onboarding", iconName: "hat" },
-      { text: "SLA guarantee", iconName: "subscription" },
-    ],
-  },
+type SubscriptionPlan = {
+  id: string;
+  name: string;
+  price: number | null;
+  description: string | null;
+  features: string[] | null;
+  badge: string | null;
+  color: string | null;
+  is_active: boolean | null;
+};
+
+const featureIconCycle: IconName[] = [
+  "people",
+  "file",
+  "settings",
+  "analytics",
+  "bell",
+  "lock",
+  "flow",
+  "subscription",
+  "shield",
+  "checkMarked",
 ];
 
+const planIconCycle: IconName[] = [
+  "file",
+  "subscription",
+  "shield",
+  "analytics",
+  "settings",
+];
+
+const formatPrice = (price: number) => {
+  if (!Number.isFinite(price) || price <= 0) return "Free";
+  return `$${price}/mo`;
+};
+
+const pickPlanIcon = (planName: string, index: number): IconName => {
+  const normalized = planName.toLowerCase();
+  if (normalized.includes("starter") || normalized.includes("basic")) return "file";
+  if (normalized.includes("pro")) return "subscription";
+  if (normalized.includes("premium")) return "analytics";
+  if (normalized.includes("enterprise")) return "shield";
+  return planIconCycle[index % planIconCycle.length];
+};
+
+const pickFeatureIcon = (index: number): IconName =>
+  featureIconCycle[index % featureIconCycle.length];
+
 export default function Pricing() {
-  const [selectedPlanId, setSelectedPlanId] = useState(
-    pricingPlans[1]?.id ?? pricingPlans[0]?.id ?? ""
-  );
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPlans = async () => {
+      setLoading(true);
+      setError("");
+      const { data, error: fetchError } = await supabase
+        .from("subscription_plans")
+        .select("id, name, price, description, features, badge, color, is_active")
+        .order("price", { ascending: true });
+
+      if (!isMounted) return;
+
+      if (fetchError) {
+        setError("Unable to load pricing at the moment.");
+        setPricingPlans([]);
+        setLoading(false);
+        return;
+      }
+
+      const activePlans = (data || []).filter((plan: SubscriptionPlan) => {
+        if (plan.is_active === false) return false;
+        const name = (plan.name || "").toLowerCase();
+        return !name.includes("starter");
+      });
+
+      const normalized = activePlans.map((plan: SubscriptionPlan, index: number) => {
+        const features = Array.isArray(plan.features) && plan.features.length > 0
+          ? plan.features
+          : ["Core platform access"];
+        return {
+          id: plan.id,
+          name: plan.name,
+          price: formatPrice(plan.price ?? 0),
+          description: plan.description || "Flexible plan built for institutional needs",
+          accent: plan.badge ? "brand" : "light",
+          iconName: pickPlanIcon(plan.name, index),
+          features: features.map((text, featureIndex) => ({
+            text,
+            iconName: pickFeatureIcon(featureIndex),
+          })),
+        } as PricingPlan;
+      });
+
+      setPricingPlans(normalized);
+      setLoading(false);
+    };
+
+    fetchPlans();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pricingPlans.length === 0) return;
+    if (pricingPlans.some((plan) => plan.id === selectedPlanId)) return;
+
+    const preferred = pricingPlans.find((plan) => plan.accent === "brand") || pricingPlans[0];
+    if (preferred) setSelectedPlanId(preferred.id);
+  }, [pricingPlans, selectedPlanId]);
 
   return (
     <section id="pricing" className="bg-[var(--color-card)] px-6 py-8 md:px-10">
@@ -89,7 +150,20 @@ export default function Pricing() {
         </div>
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 justify-items-center gap-5 lg:grid-cols-3 lg:gap-8">
-          {pricingPlans.map((plan) => {
+          {loading ? (
+            <div className="col-span-full text-body-medium text-[var(--color-low-emphasis)]">
+              Loading pricing...
+            </div>
+          ) : error ? (
+            <div className="col-span-full text-body-medium text-red-500">
+              {error}
+            </div>
+          ) : pricingPlans.length === 0 ? (
+            <div className="col-span-full text-body-medium text-[var(--color-low-emphasis)]">
+              No active plans available.
+            </div>
+          ) : (
+            pricingPlans.map((plan) => {
             const isSelected = plan.id === selectedPlanId;
             const isExpanded = isSelected;
 
@@ -167,7 +241,8 @@ export default function Pricing() {
                 </a>
               </article>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     </section>

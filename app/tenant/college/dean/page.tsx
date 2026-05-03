@@ -1,3 +1,18 @@
+import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
+import { ICON_SVGS } from "@/public/icons";
+
 export default function SubjectRoomPage() {
-  return <div>dean</div>
+  return (
+    <TenantRoleLayout
+      tenantType="College"
+      role="dean"
+      title="College Menu"
+      iconSvg={ICON_SVGS.menu}
+      contentClassName="p-6"
+    >
+      <div className="text-[28px] font-semibold text-[var(--color-high-emphasis)]">
+        Dean
+      </div>
+    </TenantRoleLayout>
+  );
 }
