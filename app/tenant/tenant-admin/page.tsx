@@ -7,13 +7,19 @@ import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
 import Employee from "@/components/Features/Tenant/Employee";
 import Policies from "@/components/Features/Tenant/Policies";
 import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
-import { NavItems, type TenantAdminView } from "@/config";
+import {
+  NavItems,
+  type TenantAdminView,
+  type InstitutionType,
+  getDefaultTenantAdminView,
+} from "@/config";
 import { ICON_SVGS } from "@/public/icons";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function TenantPage() {
   const router = useRouter();
-  const [activeView, setActiveView] = useState<TenantAdminView>("policies");
+  const [activeView, setActiveView] = useState<TenantAdminView>(() => getDefaultTenantAdminView());
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const sidebarItems = useMemo<SidebarItem[]>(() => {
@@ -23,12 +29,12 @@ export default function TenantPage() {
       employees: ICON_SVGS.files,
     };
 
-    return NavItems(activeView).map((item) => ({
+    return NavItems(activeView, institutionType ?? undefined).map((item) => ({
       key: item.view,
       label: item.name,
       icon: iconMap[item.view],
     }));
-  }, [activeView]);
+  }, [activeView, institutionType]);
 
   const content = {
     policies: <Policies />,
@@ -48,12 +54,24 @@ export default function TenantPage() {
       const metadata = user.user_metadata as {
         first_login?: boolean;
         onboarding_complete?: boolean;
+        institution_type?: InstitutionType;
+        role?: string;
       };
 
       if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
         router.replace("/tenant/onboarding");
         return;
       }
+
+      if (metadata?.role !== "org_admin") {
+        await supabase.auth.signOut();
+        router.replace("/tenant/login");
+        return;
+      }
+
+      const detectedType = metadata?.institution_type ?? null;
+      setInstitutionType(detectedType);
+      setActiveView(getDefaultTenantAdminView(detectedType));
 
       setCheckingAuth(false);
     };

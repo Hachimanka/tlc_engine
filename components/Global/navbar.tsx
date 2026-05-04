@@ -2,15 +2,37 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 type NavbarProps = {
   onLogout?: () => void;
 };
 
 export default function Navbar({ onLogout }: NavbarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const resolveLogoutRedirect = () => {
+    if (pathname?.startsWith("/superadmin")) return "/superadmin/login";
+    if (pathname?.startsWith("/tenant")) return "/tenant/login";
+    return "/";
+  };
+
+  const handleLogout = async () => {
+    setShowMenu(false);
+
+    if (onLogout) {
+      await Promise.resolve(onLogout());
+      return;
+    }
+
+    await supabase.auth.signOut();
+    router.replace(resolveLogoutRedirect());
+  };
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -67,7 +89,7 @@ export default function Navbar({ onLogout }: NavbarProps) {
             <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg py-2 z-50 border border-gray-100 animate-fade-in">
               <button
                 className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 text-sm"
-                onClick={onLogout}
+                onClick={handleLogout}
               >
                 Log out
               </button>
