@@ -1,7 +1,7 @@
 "use client";
 
-import { X, BookPlus, Info, GraduationCap, Clock } from "lucide-react";
 import { useState } from "react";
+import { X } from "lucide-react";
 
 type SubjectFormData = {
   title: string;
@@ -21,6 +21,15 @@ type Props = {
   onSave: (data: SubjectFormData) => void;
 };
 
+const departments = [
+  "Computer Engineering",
+  "Civil Engineering",
+  "Electrical Engineering",
+  "Mechanical Engineering",
+];
+
+const levels = ["First Year", "Second Year", "Third Year", "Fourth Year"];
+
 export default function CreateSubjectForm({ onClose, onSave }: Props) {
   const [form, setForm] = useState({
     title: "",
@@ -38,7 +47,10 @@ export default function CreateSubjectForm({ onClose, onSave }: Props) {
   ) => {
     const { name, value } = e.target;
     const numFields = ["lecHours", "labHours", "units"];
-    setForm((prev) => ({ ...prev, [name]: numFields.includes(name) ? Number(value) : value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: numFields.includes(name) ? Number(value) : value,
+    }));
   };
 
   const handleSubmit = () => {
@@ -50,147 +62,153 @@ export default function CreateSubjectForm({ onClose, onSave }: Props) {
     });
   };
 
+  const inputClass =
+    "w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30";
+  const labelClass = "block text-sm font-medium text-[#1F2125] mb-1";
+
   return (
-    <div className="fixed inset-0 bg-[#1F2125]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="bg-[#006B5F] px-8 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg">
-              <BookPlus className="text-white" size={24} />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-xl tracking-tight">Create Subject</h2>
-              <p className="text-[#C5EEEA] text-xs opacity-90 font-medium">Add to the TLC Engine Curriculum</p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 rounded-full hover:bg-white/10 text-white transition-colors"
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      {/* Modal — wide, capped height so it never overflows the viewport */}
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="bg-[#006B5F] px-6 py-4 flex items-center justify-between shrink-0">
+          <h2 className="text-white font-semibold text-lg">Create Subject</h2>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition-colors"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
-        <div className="px-8 py-6 space-y-5 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          {/* Subject Title */}
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-xs font-bold text-[#717182] uppercase tracking-wider ml-1">
-              <Info size={14} className="text-[#006B5F]" /> Subject Title *
-            </label>
+        {/* ── Scrollable Body ── */}
+        <div className="overflow-y-auto px-6 py-5 space-y-5 flex-1">
+
+          {/* Row 1 — Subject Title (full width) */}
+          <div>
+            <label className={labelClass}>Subject Title *</label>
             <input
               name="title"
               value={form.title}
               onChange={handleChange}
               placeholder="e.g., Data Structures and Algorithms"
-              className="w-full border border-[#C5EEEA] rounded-xl px-4 py-2.5 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20 focus:bg-white transition-all"
+              className={inputClass}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Subject Code */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#717182] uppercase tracking-wider ml-1">Subject Code *</label>
+          {/* Row 2 — Code | Units | Department (3 columns) */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Subject Code *</label>
               <input
                 name="code"
                 value={form.code}
                 onChange={handleChange}
-                placeholder="e.g., CPE 211"
-                className="w-full border border-[#C5EEEA] rounded-xl px-4 py-2.5 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20 focus:bg-white transition-all"
+                placeholder="e.g., CS401"
+                className={inputClass}
               />
             </div>
-
-            {/* Units */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#717182] uppercase tracking-wider ml-1">Total Units *</label>
+            <div>
+              <label className={labelClass}>Units *</label>
               <input
                 name="units"
                 type="number"
+                min={0}
                 value={form.units}
                 onChange={handleChange}
-                className="w-full border border-[#C5EEEA] rounded-xl px-4 py-2.5 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20 focus:bg-white transition-all"
+                className={inputClass}
               />
             </div>
-          </div>
-
-          {/* Department */}
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-xs font-bold text-[#717182] uppercase tracking-wider ml-1">
-              <GraduationCap size={14} className="text-[#006B5F]" /> Department *
-            </label>
-            <select
-              name="department"
-              value={form.department}
-              onChange={handleChange}
-              className="w-full border border-[#C5EEEA] rounded-xl px-4 py-2.5 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20 focus:bg-white transition-all appearance-none cursor-pointer"
-            >
-              <option value="">Select Institutional Department</option>
-              <option>Computer Engineering</option>
-              <option>Civil Engineering</option>
-              <option>Electrical Engineering</option>
-              <option>Mechanical Engineering</option>
-            </select>
-          </div>
-
-          {/* Hours Allocation */}
-          <div className="bg-[#C5EEEA]/20 p-4 rounded-xl space-y-4">
-            <h3 className="text-xs font-bold text-[#006B5F] uppercase tracking-widest flex items-center gap-2">
-              <Clock size={14} /> Weekly Hour Allocation
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#1F2125]">Lecture Hours</label>
-                <input
-                  name="lecHours"
-                  type="number"
-                  value={form.lecHours}
-                  onChange={handleChange}
-                  className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#1F2125]">Laboratory Hours</label>
-                <input
-                  name="labHours"
-                  type="number"
-                  value={form.labHours}
-                  onChange={handleChange}
-                  className="w-full border border-[#C5EEEA] rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20"
-                />
-              </div>
+            <div>
+              <label className={labelClass}>Department *</label>
+              <select
+                name="department"
+                value={form.department}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option value="">Select Department</option>
+                {departments.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#717182] uppercase tracking-wider ml-1">Subject Description</label>
+          {/* Row 3 — Lec Hours | Lab Hours | Year Level (3 columns) */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Lecture Hours/Week</label>
+              <input
+                name="lecHours"
+                type="number"
+                min={0}
+                value={form.lecHours}
+                onChange={handleChange}
+                placeholder="e.g., 2"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Laboratory Hours/Week</label>
+              <input
+                name="labHours"
+                type="number"
+                min={0}
+                value={form.labHours}
+                onChange={handleChange}
+                placeholder="e.g., 3"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Year Level</label>
+              <select
+                name="level"
+                value={form.level}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                {levels.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 4 — Description (full width) */}
+          <div>
+            <label className={labelClass}>Description</label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
-              placeholder="Describe the scope and learning outcomes..."
+              placeholder="Brief description of the subject"
               rows={3}
-              className="w-full border border-[#C5EEEA] rounded-xl px-4 py-2.5 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/20 focus:bg-white transition-all resize-none"
+              className={`${inputClass} resize-none`}
             />
           </div>
+
         </div>
 
-        {/* Footer */}
-        <div className="px-8 py-6 bg-[#F3F3F1]/50 border-t border-[#C5EEEA]/60 flex gap-3">
-          <button
-            onClick={handleSubmit}
-            disabled={!form.title || !form.code || !form.department}
-            className="flex-1 py-3 rounded-xl text-sm font-bold bg-[#006B5F] text-white hover:bg-[#005a4f] shadow-sm hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Submit for Validation
-          </button>
+        {/* ── Footer ── */}
+        <div className="px-6 py-4 bg-[#F3F3F1] flex justify-end gap-3 shrink-0 border-t border-[#C5EEEA]">
           <button
             onClick={onClose}
-            className="px-6 py-3 rounded-xl text-sm font-bold border border-[#006B5F] text-[#006B5F] hover:bg-white transition-all"
+            className="px-5 py-2 rounded-lg text-sm font-medium border border-[#C5EEEA] text-[#717182] hover:bg-white transition-colors"
           >
             Cancel
           </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!form.title || !form.code || !form.department}
+            className="px-5 py-2 rounded-lg text-sm font-medium bg-[#006B5F] text-white hover:bg-[#005a4f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit for approval
+          </button>
         </div>
+
       </div>
     </div>
   );
