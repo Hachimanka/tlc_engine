@@ -1,3 +1,5 @@
-export default function SubjectRoomPage() {
-  return <div>LOAD MANAGER</div>
+import LoadManagerPage from "@/components/roles/College/loadmanager/components/LoadManagerPage";
+
+export default function Page() {
+  return <LoadManagerPage />;
 }
