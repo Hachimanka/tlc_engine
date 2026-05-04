@@ -63,7 +63,7 @@ export default function VersionHistory({ isOpen, onClose, selectedFacultyName, s
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
 			<div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-				<div className="flex items-start justify-between gap-4 bg-[var(--color-primary)] px-5 py-4">
+				<div className="flex items-start justify-between gap-4 px-5 py-4" style={{ background: "var(--teal-primary)" }}>
 					<div>
 						<h2 className="text-lg font-semibold text-white">Version History</h2>
 						<p className="mt-1 text-sm text-white/90">{subtitle}</p>
@@ -78,25 +78,25 @@ export default function VersionHistory({ isOpen, onClose, selectedFacultyName, s
 					</button>
 				</div>
 
-				<div className="border-b border-[var(--color-default)] bg-[#ecf8f6] px-5 py-3 text-sm font-medium text-[var(--color-primary)]">
+				<div className="border-b border-[#edf3f1] bg-[#ecf8f6] px-5 py-3 text-sm font-medium" style={{ color: "var(--teal-primary)" }}>
 					Only Principal and Load Manager can edit
 				</div>
 
 				<div className="flex-1 overflow-y-auto px-5 py-5">
 					<div className="relative space-y-5 pl-5">
-						<div className="absolute left-[14px] top-2 bottom-2 w-px bg-[var(--color-default)]" />
+						<div className="absolute left-[14px] top-2 bottom-2 w-px bg-[#d6e8e4]" />
 
 						{versionEntries.map((entry) => (
 							<div key={entry.id} className="relative flex items-start justify-between gap-4">
-								<div className="absolute left-[-22px] top-2 h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--color-primary)] shadow-sm" />
+								<div className="absolute left-[-22px] top-2 h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--teal-primary)] shadow-sm" />
 								<div className="min-w-0">
-									<p className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+									<p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
 										{entry.time}
 									</p>
-									<p className="text-sm text-[var(--color-low-emphasis)]">
+									<p className="text-sm" style={{ color: "var(--text-mid)" }}>
 										{entry.author}
 									</p>
-									<p className="mt-1 text-sm leading-6 text-[var(--color-high-emphasis)]">
+									<p className="mt-1 text-sm leading-6" style={{ color: "var(--text-dark)" }}>
 										{entry.description}
 									</p>
 								</div>
@@ -104,7 +104,7 @@ export default function VersionHistory({ isOpen, onClose, selectedFacultyName, s
 								<button
 									type="button"
 									className="shrink-0 text-sm font-medium transition hover:opacity-80"
-									style={{ color: "var(--color-primary)" }}
+									style={{ color: "var(--teal-primary)" }}
 								>
 									Restore
 								</button>
@@ -113,11 +113,12 @@ export default function VersionHistory({ isOpen, onClose, selectedFacultyName, s
 					</div>
 				</div>
 
-				<div className="flex items-center justify-end gap-3 border-t border-[var(--color-default)] px-5 py-4">
+				<div className="flex items-center justify-end gap-3 border-t border-[#edf3f1] px-5 py-4">
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+						className="rounded-lg border border-[var(--teal-primary)] px-5 py-3 text-sm font-medium transition hover:bg-[#ecf8f6]"
+						style={{ color: "var(--text-dark)" }}
 					>
 						Close
 					</button>
