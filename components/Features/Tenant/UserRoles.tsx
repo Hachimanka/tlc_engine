@@ -2,32 +2,32 @@
 
 import { ChevronDown, Maximize2, Minimize2, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import CreateRoleModal, { type CreatedRole } from "./CreateRoleModal";
 
 export type TenantRoleUser = {
-  idNo: string;
+  id: string;
   fullName: string;
   schoolEmail: string;
-  role: string;
+  roleName: string;
+  roleKey: string;
   description: string;
+  employeeId?: string | null;
 };
 
-const roleOptions = [
-  "All Roles",
-  "Dean",
-  "VPAA",
-  "Coordinator",
-  "Department Head",
-  "Teacher",
-] as const;
+export type RoleOption = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+};
 
 export const initialRoleUsers: TenantRoleUser[] = [];
 
 type UserRolesProps = {
   roleUsers: TenantRoleUser[];
+  roles: RoleOption[];
   selectedRoleId: string;
   isExpanded: boolean;
-  onCreateRole: (createdRole: CreatedRole) => void;
+  onAddUser: () => void;
   onExpandedChange: (isExpanded: boolean) => void;
   onSelectRole: (roleId: string) => void;
   onVisibleRoleIdsChange: (roleIds: string[]) => void;
@@ -35,27 +35,32 @@ type UserRolesProps = {
 
 export default function UserRoles({
   roleUsers,
+  roles,
   selectedRoleId,
   isExpanded,
-  onCreateRole,
+  onAddUser,
   onExpandedChange,
   onSelectRole,
   onVisibleRoleIdsChange,
 }: UserRolesProps) {
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<(typeof roleOptions)[number]>("All Roles");
-  const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
+  const roleOptions = useMemo(
+    () => ["All Roles", ...roles.map((role) => role.name)],
+    [roles],
+  );
+  const [roleFilter, setRoleFilter] = useState("All Roles");
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
     return roleUsers.filter((user) => {
-      const matchesRole = roleFilter === "All Roles" || user.role === roleFilter;
+      const matchesRole = roleFilter === "All Roles" || user.roleName === roleFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
         user.fullName.toLowerCase().includes(normalizedSearch) ||
-        user.role.toLowerCase().includes(normalizedSearch) ||
-        user.idNo.toLowerCase().includes(normalizedSearch) ||
+        user.roleName.toLowerCase().includes(normalizedSearch) ||
+        user.id.toLowerCase().includes(normalizedSearch) ||
+        (user.employeeId || "").toLowerCase().includes(normalizedSearch) ||
         user.schoolEmail.toLowerCase().includes(normalizedSearch);
 
       return matchesRole && matchesSearch;
@@ -63,7 +68,7 @@ export default function UserRoles({
   }, [roleFilter, roleUsers, search]);
 
   const visibleRoleIds = useMemo(
-    () => filteredUsers.map((user) => user.idNo),
+    () => filteredUsers.map((user) => user.id),
     [filteredUsers],
   );
 
@@ -102,11 +107,11 @@ export default function UserRoles({
             </button>
             <button
               type="button"
-              onClick={() => setIsCreateRoleOpen(true)}
+              onClick={onAddUser}
               className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Create Role
+              Add User
             </button>
           </div>
         </div>
@@ -128,7 +133,7 @@ export default function UserRoles({
             <span className="sr-only">Filter by role</span>
             <select
               value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value as (typeof roleOptions)[number])}
+              onChange={(event) => setRoleFilter(event.target.value)}
               className="h-full min-w-[150px] appearance-none bg-transparent pr-8 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
             >
               {roleOptions.map((role) => (
@@ -158,23 +163,23 @@ export default function UserRoles({
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
-                        No users assigned yet. Create a role to add an employee here.
+                        No users assigned yet. Add a user to assign a role.
                       </td>
                     </tr>
                   ) : (
                     filteredUsers.map((user) => {
-                      const isSelected = selectedRoleId === user.idNo;
+                      const isSelected = selectedRoleId === user.id;
 
                       return (
                         <tr
-                          key={user.idNo}
-                          onClick={() => onSelectRole(user.idNo)}
+                          key={user.id}
+                          onClick={() => onSelectRole(user.id)}
                           className={`cursor-pointer transition hover:bg-[#ecf8f6] ${
                             isSelected ? "bg-[#e0f4f1]" : ""
                           }`}
                         >
                           <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
-                            {user.idNo}
+                            {user.employeeId || "—"}
                           </td>
                           <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
                             {user.fullName}
@@ -183,7 +188,7 @@ export default function UserRoles({
                             {user.schoolEmail}
                           </td>
                           <td className="px-4 py-3 text-xs font-medium text-[var(--color-primary)]">
-                            {user.role}
+                            {user.roleName}
                           </td>
                         </tr>
                       );
@@ -197,17 +202,17 @@ export default function UserRoles({
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {filteredUsers.length === 0 ? (
               <div className="rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
-                No users assigned yet. Create a role to add an employee here.
+                No users assigned yet. Add a user to assign a role.
               </div>
             ) : (
               filteredUsers.map((user) => {
-                const isSelected = selectedRoleId === user.idNo;
+                const isSelected = selectedRoleId === user.id;
 
                 return (
                   <button
                     type="button"
-                    key={user.idNo}
-                    onClick={() => onSelectRole(user.idNo)}
+                    key={user.id}
+                    onClick={() => onSelectRole(user.id)}
                     className={
                       isSelected
                         ? "w-full rounded-lg bg-[var(--color-primary)] px-3 py-4 text-left text-white"
@@ -216,7 +221,7 @@ export default function UserRoles({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-sm font-bold">{user.role}</h2>
+                        <h2 className="text-sm font-bold">{user.roleName}</h2>
                         <p
                           className={`mt-1 text-xs font-medium ${
                             isSelected ? "text-white" : "text-[var(--color-high-emphasis)]"
@@ -230,7 +235,7 @@ export default function UserRoles({
                           isSelected ? "text-white/80" : "text-[var(--color-low-emphasis)]"
                         }`}
                       >
-                        {user.idNo}
+                        {user.employeeId || "—"}
                       </span>
                     </div>
                     <p
@@ -247,12 +252,6 @@ export default function UserRoles({
           </div>
         )}
       </section>
-
-      <CreateRoleModal
-        isOpen={isCreateRoleOpen}
-        onClose={() => setIsCreateRoleOpen(false)}
-        onCreateRole={onCreateRole}
-      />
     </>
   );
 }

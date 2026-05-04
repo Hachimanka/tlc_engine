@@ -11,18 +11,38 @@ import OrganizationTable from "@/components/superadmin/organization";
 import Sidebar from "@/components/superadmin/sidebar";
 import SuperAdminSettings from "@/components/superadmin/settings";
 import SubscriptionCards from "@/components/superadmin/subscription";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function SuperAdminPage() {
   const [activeKey, setActiveKey] = useState("dashboard");
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("superadmin_logged_in");
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
+      const role = (user?.user_metadata as { role?: string } | undefined)?.role;
 
-    if (loggedIn !== "true") {
-      router.replace("/superadmin/login");
-    }
+      if (!user || role !== "superadmin") {
+        await supabase.auth.signOut();
+        router.replace("/superadmin/login");
+        return;
+      }
+
+      setCheckingAuth(false);
+    };
+
+    checkAuth();
   }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">Checking session...</div>
+      </div>
+    );
+  }
 
   let ContentComponent = null;
   if (activeKey === "dashboard") ContentComponent = <Dashboard onNavigate={setActiveKey} />;
@@ -38,7 +58,7 @@ export default function SuperAdminPage() {
     <div className="flex h-screen flex-col overflow-hidden">
       <Navbar
         onLogout={() => {
-          localStorage.removeItem("superadmin_logged_in");
+          supabase.auth.signOut();
           router.replace("/superadmin/login");
         }}
       />

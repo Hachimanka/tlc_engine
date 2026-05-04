@@ -34,9 +34,9 @@ type PermissionGroup = {
 };
 
 type PermissionRoleUser = {
-  idNo: string;
+  id: string;
   fullName: string;
-  role: string;
+  roleName: string;
   description: string;
 };
 
@@ -183,8 +183,12 @@ const createPermissionValues = (enabledIds: PermissionId[] = []): PermissionValu
   }, {} as PermissionValues);
 };
 
-export function createDefaultPermissions(role: string): PermissionValues {
-  const normalizedRole = role.toLowerCase();
+export function createDefaultPermissions(roleName: string): PermissionValues {
+  const normalizedRole = roleName.toLowerCase();
+
+  if (normalizedRole.includes("org admin")) {
+    return createPermissionValues(allPermissionIds);
+  }
 
   if (normalizedRole.includes("dean")) {
     return createPermissionValues([

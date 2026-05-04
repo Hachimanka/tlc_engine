@@ -139,6 +139,112 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: orgError?.message || "Failed to create organization." }, { status: 500 });
   }
 
+  const defaultRoles = [
+    {
+      key: "org_admin",
+      name: "Org Admin",
+      description: "Full access to manage institution settings and users.",
+    },
+    {
+      key: "dean",
+      name: "Dean",
+      description: "Oversees academic departments and approvals.",
+    },
+    {
+      key: "vpaa",
+      name: "VPAA",
+      description: "Reviews academic plans and approvals.",
+    },
+    {
+      key: "coordinator",
+      name: "Coordinator",
+      description: "Coordinates subject and room planning.",
+    },
+    {
+      key: "department_head",
+      name: "Department Head",
+      description: "Manages department faculty and load assignments.",
+    },
+    {
+      key: "teacher",
+      name: "Teacher",
+      description: "Views assigned teaching load and requests adjustments.",
+    },
+  ];
+
+  const { data: createdRoles, error: rolesError } = await supabaseAdmin
+    .from("roles")
+    .insert(
+      defaultRoles.map((role) => ({
+        ...role,
+        org_id: createdOrg.id,
+        is_system: true,
+        created_at: now,
+        updated_at: now,
+      })),
+    )
+    .select("id, key");
+
+  if (rolesError || !createdRoles?.length) {
+    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    return NextResponse.json({ error: rolesError?.message || "Failed to seed roles." }, { status: 500 });
+  }
+
+  const adminRole = createdRoles.find((role) => role.key === "org_admin");
+
+  if (!adminRole) {
+    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
+    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    return NextResponse.json({ error: "Failed to resolve admin role." }, { status: 500 });
+  }
+
+  const { error: orgUserError } = await supabaseAdmin
+    .from("org_users")
+    .insert([
+      {
+        org_id: createdOrg.id,
+        role_id: adminRole.id,
+        auth_user_id: createdUser.user.id,
+        full_name: requesterName,
+        email: adminEmail,
+        employee_id: null,
+        status: "active",
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+  if (orgUserError) {
+    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
+    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    return NextResponse.json({ error: orgUserError.message || "Failed to create org admin." }, { status: 500 });
+  }
+
+  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
+    createdUser.user.id,
+    {
+      user_metadata: {
+        role: "org_admin",
+        org_id: createdOrg.id,
+        org_name: orgName,
+        org_slug: slug,
+        demo_request_id: demoRequestId,
+        first_login: true,
+        onboarding_complete: false,
+      },
+    },
+  );
+
+  if (metadataError) {
+    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
+    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    return NextResponse.json({ error: metadataError.message || "Failed to update admin metadata." }, { status: 500 });
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from("demo_requests")
     .update({ status: "converted" })

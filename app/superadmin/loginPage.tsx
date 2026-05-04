@@ -20,13 +20,20 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 		setError("");
 		setLoading(true);
 		// Supabase sign in
-		const { error: signInError } = await supabase.auth.signInWithPassword({
+		const { data, error: signInError } = await supabase.auth.signInWithPassword({
 			email,
 			password,
 		});
 		setLoading(false);
 		if (signInError) {
 			setError("Invalid credentials or user does not exist.");
+			return;
+		}
+
+		const role = (data?.user?.user_metadata as { role?: string } | undefined)?.role;
+		if (role !== "superadmin") {
+			await supabase.auth.signOut();
+			setError("You do not have access to the superadmin portal.");
 			return;
 		}
 		onLogin();
