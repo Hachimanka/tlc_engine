@@ -18,6 +18,7 @@ export default function TenantPage() {
         role="teacher"
         title="Deped Menu"
         iconSvg={ICON_SVGS.menu}
+        requiredFeatureKey="deped-teaching-load-view"
         contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
       >
         <div className="mx-auto w-full max-w-[1120px] space-y-3">

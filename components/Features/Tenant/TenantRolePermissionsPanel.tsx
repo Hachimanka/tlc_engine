@@ -1,149 +1,273 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Permission, {
-  createDefaultPermissions,
-  type PermissionId,
-  type PermissionValues,
-} from "./Permission";
-import UserRoles, { initialRoleUsers, type TenantRoleUser } from "./UserRoles";
-import AddUserModal, {
-  type AddUserPayload,
-  type CreatedUser,
-  type RoleOption,
-} from "./AddUserModal";
+import { Plus, Search } from "lucide-react";
+import Permission, { type RoleAccess } from "./Permission";
+import CreateRoleModal, { type CreatedRole } from "./CreateRoleModal";
+import type {
+  FeatureDefinition,
+  FeatureKey,
+} from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
 
-type PermissionsByRole = Record<string, PermissionValues>;
+type TenantUser = {
+  id: string;
+  fullName: string;
+  schoolEmail: string;
+  roleId: string;
+  roleName: string;
+  roleKey: string;
+  employeeId?: string | null;
+  status: string;
+};
 
-const mergePermissions = (roleUsers: TenantRoleUser[], current: PermissionsByRole) => {
-  const next = { ...current };
-  roleUsers.forEach((user) => {
-    if (!next[user.id]) {
-      next[user.id] = createDefaultPermissions(user.roleName);
-    }
-  });
-  return next;
+type RolePayload = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  isSystem?: boolean;
+  is_system?: boolean;
+  featureKeys?: string[];
+};
+
+type UserPayload = {
+  id: string;
+  full_name: string;
+  email: string;
+  employee_id?: string | null;
+  role_id: string;
+  status?: string;
+  roles?: unknown;
+};
+
+const sameStringSet = (left: string[], right: string[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightSet = new Set(right);
+  return left.every((item) => rightSet.has(item));
+};
+
+const normalizeJoinedRole = (role: unknown) => {
+  if (Array.isArray(role)) {
+    return role[0] as { id?: string; key?: string; name?: string } | undefined;
+  }
+
+  return role as { id?: string; key?: string; name?: string } | undefined;
 };
 
 export default function TenantRolePermissionsPanel() {
-  const [roleUsers, setRoleUsers] = useState<TenantRoleUser[]>(initialRoleUsers);
-  const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState(initialRoleUsers[0]?.id ?? "");
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [visibleRoleIds, setVisibleRoleIds] = useState<string[]>(
-    initialRoleUsers.map((user) => user.id),
-  );
-  const [permissionsByRole, setPermissionsByRole] = useState<PermissionsByRole>({});
+  const [roles, setRoles] = useState<RoleAccess[]>([]);
+  const [features, setFeatures] = useState<FeatureDefinition[]>([]);
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [roleNameDraft, setRoleNameDraft] = useState("");
+  const [roleDescriptionDraft, setRoleDescriptionDraft] = useState("");
+  const [featureKeysDraft, setFeatureKeysDraft] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
 
-  const loadUsers = useCallback(async () => {
+  const selectedRole = useMemo(
+    () => roles.find((role) => role.id === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
+
+  const selectedRoleUsers = useMemo(
+    () => users.filter((user) => user.roleId === selectedRoleId),
+    [selectedRoleId, users],
+  );
+
+  const filteredRoles = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return roles;
+    }
+
+    return roles.filter((role) => {
+      return (
+        role.name.toLowerCase().includes(normalizedSearch) ||
+        role.key.toLowerCase().includes(normalizedSearch) ||
+        (role.description ?? "").toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [roles, search]);
+
+  const hasChanges = useMemo(() => {
+    if (!selectedRole) {
+      return false;
+    }
+
+    return (
+      roleNameDraft.trim() !== selectedRole.name ||
+      (roleDescriptionDraft.trim() || "") !== (selectedRole.description ?? "") ||
+      !sameStringSet(featureKeysDraft, selectedRole.featureKeys)
+    );
+  }, [featureKeysDraft, roleDescriptionDraft, roleNameDraft, selectedRole]);
+
+  const loadAccessData = useCallback(async () => {
     setIsLoading(true);
     setLoadError("");
+    setSaveError("");
 
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
     if (!token) {
       setIsLoading(false);
-      setLoadError("Please sign in to view users.");
+      setLoadError("Please sign in to manage roles.");
       return;
     }
 
-    const response = await fetch("/api/tenant/users", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const headers = { Authorization: `Bearer ${token}` };
+    const [rolesResponse, usersResponse] = await Promise.all([
+      fetch("/api/tenant/roles", { headers }),
+      fetch("/api/tenant/users", { headers }),
+    ]);
 
-    const payload = await response.json().catch(() => ({}));
+    const rolesPayload = await rolesResponse.json().catch(() => ({}));
+    const usersPayload = await usersResponse.json().catch(() => ({}));
 
-    if (!response.ok) {
+    if (!rolesResponse.ok) {
       setIsLoading(false);
-      setLoadError(payload?.error || "Failed to load users.");
+      setLoadError(rolesPayload?.error || "Failed to load roles.");
       return;
     }
 
-    const nextRoles: RoleOption[] = (payload.roles ?? []).map((role: RoleOption) => ({
+    if (!usersResponse.ok) {
+      setIsLoading(false);
+      setLoadError(usersPayload?.error || "Failed to load users.");
+      return;
+    }
+
+    const nextRoles: RoleAccess[] = ((rolesPayload.roles ?? []) as RolePayload[]).map((role) => ({
       id: role.id,
       key: role.key,
       name: role.name,
       description: role.description ?? null,
+      isSystem: Boolean(role.isSystem ?? role.is_system),
+      featureKeys: role.featureKeys ?? [],
     }));
 
-    const nextUsers: TenantRoleUser[] = (payload.users ?? []).map((user: any) => ({
-      id: user.id,
-      fullName: user.full_name,
-      schoolEmail: user.email,
-      roleName: user.roles?.name ?? "Unassigned",
-      roleKey: user.roles?.key ?? "",
-      description: user.roles?.name
-        ? `${user.roles.name} access`
-        : "Role assignment not set.",
-      employeeId: user.employee_id ?? null,
-    }));
+    const nextUsers: TenantUser[] = ((usersPayload.users ?? []) as UserPayload[]).map((user) => {
+      const role = normalizeJoinedRole(user.roles);
 
+      return {
+        id: user.id,
+        fullName: user.full_name,
+        schoolEmail: user.email,
+        employeeId: user.employee_id ?? null,
+        roleId: user.role_id,
+        roleKey: role?.key ?? "",
+        roleName: role?.name ?? "Unassigned",
+        status: user.status ?? "active",
+      };
+    });
+
+    const nextSelectedRole =
+      nextRoles.find((role) => role.id === selectedRoleId) ??
+      nextRoles.find((role) => role.key !== "org_admin") ??
+      nextRoles[0] ??
+      null;
+
+    setFeatures(rolesPayload.features ?? []);
     setRoles(nextRoles);
-    setRoleUsers(nextUsers);
-    setSelectedRoleId((prev) => nextUsers.find((user) => user.id === prev)?.id ?? nextUsers[0]?.id ?? "");
-    setVisibleRoleIds(nextUsers.map((user) => user.id));
-    setPermissionsByRole((current) => mergePermissions(nextUsers, current));
+    setUsers(nextUsers);
+    setSelectedRoleId(nextSelectedRole?.id ?? "");
+    setRoleNameDraft(nextSelectedRole?.name ?? "");
+    setRoleDescriptionDraft(nextSelectedRole?.description ?? "");
+    setFeatureKeysDraft(nextSelectedRole?.featureKeys ?? []);
     setIsLoading(false);
-  }, []);
+  }, [selectedRoleId]);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAccessData();
+  }, [loadAccessData]);
 
-  const effectiveSelectedRoleId = visibleRoleIds.includes(selectedRoleId)
-    ? selectedRoleId
-    : visibleRoleIds[0] ?? "";
+  const handleSelectRole = (role: RoleAccess) => {
+    setSelectedRoleId(role.id);
+    setRoleNameDraft(role.name);
+    setRoleDescriptionDraft(role.description ?? "");
+    setFeatureKeysDraft(role.featureKeys);
+  };
 
-  const selectedRoleUser = useMemo(
-    () => roleUsers.find((user) => user.id === effectiveSelectedRoleId) ?? null,
-    [effectiveSelectedRoleId, roleUsers],
-  );
+  const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
+    setFeatureKeysDraft((current) => {
+      if (enabled) {
+        return Array.from(new Set([...current, featureKey]));
+      }
 
-  const selectedPermissions = useMemo(() => {
-    if (!selectedRoleUser) {
-      return createDefaultPermissions("");
-    }
+      return current.filter((key) => key !== featureKey);
+    });
+  };
 
-    return permissionsByRole[selectedRoleUser.id] ?? createDefaultPermissions(selectedRoleUser.roleName);
-  }, [permissionsByRole, selectedRoleUser]);
-
-  const handleVisibleRoleIdsChange = useCallback((roleIds: string[]) => {
-    setVisibleRoleIds(roleIds);
-  }, []);
-
-  const handlePermissionChange = (permissionId: PermissionId, checked: boolean) => {
-    if (!selectedRoleUser) {
+  const handleSaveRole = async () => {
+    if (!selectedRole || selectedRole.key === "org_admin") {
       return;
     }
 
-    setPermissionsByRole((currentPermissions) => ({
-      ...currentPermissions,
-      [selectedRoleUser.id]: {
-        ...selectedPermissions,
-        [permissionId]: checked,
+    setIsSaving(true);
+    setSaveError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      setIsSaving(false);
+      setSaveError("Session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch(`/api/tenant/roles/${selectedRole.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
-    }));
-  };
+      body: JSON.stringify({
+        name: roleNameDraft.trim(),
+        description: roleDescriptionDraft.trim(),
+        featureKeys: featureKeysDraft,
+      }),
+    });
 
-  const handleSavePermissions = () => {
-    if (!selectedRoleUser) {
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setSaveError(payload?.error || "Failed to save role.");
       return;
     }
 
-    setPermissionsByRole((currentPermissions) => ({
-      ...currentPermissions,
-      [selectedRoleUser.id]: selectedPermissions,
-    }));
+    setRoles((current) =>
+      current.map((role) =>
+        role.id === selectedRole.id
+          ? {
+              ...role,
+              name: payload.role.name,
+              description: payload.role.description,
+              featureKeys: payload.role.featureKeys ?? [],
+            }
+          : role,
+      ),
+    );
+    setRoleNameDraft(payload.role.name);
+    setRoleDescriptionDraft(payload.role.description ?? "");
+    setFeatureKeysDraft(payload.role.featureKeys ?? []);
   };
 
-  const handleCreateUser = async (payload: AddUserPayload) => {
+  const handleCreateRole = async (payload: {
+    name: string;
+    description?: string;
+    featureKeys: string[];
+  }): Promise<CreatedRole> => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
@@ -151,7 +275,7 @@ export default function TenantRolePermissionsPanel() {
       throw new Error("Session expired. Please log in again.");
     }
 
-    const response = await fetch("/api/tenant/users", {
+    const response = await fetch("/api/tenant/roles", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -163,88 +287,216 @@ export default function TenantRolePermissionsPanel() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data?.error || "Failed to create user.");
+      throw new Error(data?.error || "Failed to create role.");
     }
 
-    const createdUser: CreatedUser = {
-      id: data.user.id,
-      fullName: data.user.full_name,
-      email: data.user.email,
-      employeeId: data.user.employee_id ?? null,
-      roleId: data.user.role?.id ?? payload.roleId,
-      roleKey: data.user.role?.key ?? "",
-      roleName: data.user.role?.name ?? "Unassigned",
-      description: data.user.role?.name
-        ? `${data.user.role.name} access`
-        : "Role assignment not set.",
+    const nextRole: RoleAccess = {
+      id: data.role.id,
+      key: data.role.key,
+      name: data.role.name,
+      description: data.role.description ?? null,
+      isSystem: Boolean(data.role.isSystem),
+      featureKeys: data.role.featureKeys ?? [],
     };
 
-    const nextUser: TenantRoleUser = {
-      id: createdUser.id,
-      fullName: createdUser.fullName,
-      schoolEmail: createdUser.email,
-      roleName: createdUser.roleName,
-      roleKey: createdUser.roleKey,
-      description: createdUser.description,
-      employeeId: createdUser.employeeId,
+    setRoles((current) => [...current, nextRole]);
+    handleSelectRole(nextRole);
+
+    return {
+      ...nextRole,
+      isSystem: nextRole.isSystem,
     };
-
-    setRoleUsers((current) => [nextUser, ...current]);
-    setPermissionsByRole((current) => ({
-      ...current,
-      [nextUser.id]: createDefaultPermissions(nextUser.roleName),
-    }));
-    setSelectedRoleId(nextUser.id);
-
-    return { tempPassword: data.tempPassword, user: createdUser };
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="text-sm text-[var(--color-low-emphasis)]">Loading roles...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="text-sm text-red-600">{loadError}</div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`flex h-full min-h-0 gap-6 ${
-        isExpanded ? "flex-col overflow-y-auto" : "flex-row overflow-hidden"
-      }`}
-    >
-      <AddUserModal
-        isOpen={isAddUserOpen}
-        roles={roles}
-        onClose={() => setIsAddUserOpen(false)}
-        onCreate={handleCreateUser}
+    <div className="flex h-full min-h-0 gap-6 overflow-hidden">
+      <CreateRoleModal
+        isOpen={isCreateRoleOpen}
+        features={features}
+        onClose={() => setIsCreateRoleOpen(false)}
+        onCreateRole={handleCreateRole}
       />
 
-      {isLoading ? (
-        <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          <div className="text-sm text-[var(--color-low-emphasis)]">Loading users...</div>
+      <aside className="flex h-full w-full max-w-[420px] shrink-0 flex-col rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-black">Roles & Access</h1>
+            <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+              {roles.length} role{roles.length === 1 ? "" : "s"} in this organization
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCreateRoleOpen(true)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Role
+            </button>
+          </div>
         </div>
-      ) : loadError ? (
-        <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          <div className="text-sm text-red-600">{loadError}</div>
+
+        <label className="mb-4 flex h-10 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
+          <Search className="h-4 w-4 shrink-0 text-[var(--color-low-emphasis)]" aria-hidden="true" />
+          <span className="sr-only">Search roles</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search role name or responsibility..."
+            className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
+          />
+        </label>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          {filteredRoles.map((role) => {
+            const isSelected = selectedRoleId === role.id;
+            const roleUserCount = users.filter((user) => user.roleId === role.id).length;
+
+            return (
+              <button
+                type="button"
+                key={role.id}
+                onClick={() => handleSelectRole(role)}
+                className={
+                  isSelected
+                    ? "w-full rounded-lg bg-[var(--color-primary)] px-3 py-4 text-left text-white"
+                    : "w-full rounded-lg border border-transparent px-3 py-3 text-left text-[var(--color-high-emphasis)] transition hover:border-[var(--color-default)] hover:bg-[#ecf8f6]"
+                }
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-bold">{role.name}</h2>
+                    <p
+                      className={`mt-1 text-xs ${
+                        isSelected ? "text-white/85" : "text-[var(--color-low-emphasis)]"
+                      }`}
+                    >
+                      {role.description || "Custom role access"}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      isSelected
+                        ? "bg-white/15 text-white"
+                        : "bg-[#ecf8f6] text-[var(--color-primary)]"
+                    }`}
+                  >
+                    {roleUserCount} user{roleUserCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p className={`mt-2 text-[11px] ${isSelected ? "text-white/80" : "text-[var(--color-low-emphasis)]"}`}>
+                  {role.key === "org_admin"
+                    ? "Full access"
+                    : `${role.featureKeys.length} feature${role.featureKeys.length === 1 ? "" : "s"} assigned`}
+                </p>
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <>
-          <div className={isExpanded ? "h-[430px] shrink-0" : "h-full shrink-0"}>
-            <UserRoles
-              roleUsers={roleUsers}
-              roles={roles}
-              selectedRoleId={effectiveSelectedRoleId}
-              isExpanded={isExpanded}
-              onAddUser={() => setIsAddUserOpen(true)}
-              onExpandedChange={setIsExpanded}
-              onSelectRole={setSelectedRoleId}
-              onVisibleRoleIdsChange={handleVisibleRoleIdsChange}
+
+        {selectedRole ? (
+          <div className="mt-4 space-y-3 border-t border-[var(--color-default)] pt-4">
+            <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+              Role Details
+            </h3>
+            <input
+              value={roleNameDraft}
+              onChange={(event) => setRoleNameDraft(event.target.value)}
+              disabled={selectedRole.key === "org_admin"}
+              className="h-10 w-full rounded-lg border border-[var(--color-default)] px-3 text-sm outline-none disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis)]"
+              aria-label="Role name"
             />
+            <textarea
+              value={roleDescriptionDraft}
+              onChange={(event) => setRoleDescriptionDraft(event.target.value)}
+              disabled={selectedRole.key === "org_admin"}
+              rows={3}
+              className="w-full resize-none rounded-lg border border-[var(--color-default)] px-3 py-2 text-sm outline-none disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis)]"
+              aria-label="Role description"
+            />
+            {saveError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {saveError}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <Permission
+          selectedRole={selectedRole}
+          features={features}
+          selectedFeatureKeys={featureKeysDraft}
+          hasChanges={hasChanges}
+          isSaving={isSaving}
+          onFeatureToggle={handleFeatureToggle}
+          onSave={handleSaveRole}
+        />
+
+        <section className="min-h-[170px] rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+              Users with {selectedRole?.name ?? "selected role"}
+            </h2>
           </div>
 
-          <div className={isExpanded ? "min-h-[560px] shrink-0" : "min-w-0 flex-1"}>
-            <Permission
-              selectedRoleUser={selectedRoleUser}
-              permissions={selectedPermissions}
-              onPermissionChange={handlePermissionChange}
-              onSave={handleSavePermissions}
-            />
-          </div>
-        </>
-      )}
+          {selectedRoleUsers.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
+              No users are assigned to this role yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-[var(--color-default)]">
+              <table className="min-w-full border-collapse text-left">
+                <thead className="bg-[var(--color-primary)] text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Name</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Email</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-default)] bg-white">
+                  {selectedRoleUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                        {user.employeeId || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
+                        {user.fullName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                        {user.schoolEmail}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
+                        {user.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

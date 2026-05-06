@@ -133,7 +133,7 @@ export default function AddUserModal({
       >
         <div className="bg-[var(--color-primary)] px-6 py-5">
           <h2 id="add-user-title" className="text-xl font-semibold text-white">
-            Add User
+            Add Account
           </h2>
         </div>
 
@@ -141,7 +141,7 @@ export default function AddUserModal({
           <div className="space-y-4 px-6 py-6">
             <div>
               <h3 className="text-lg font-semibold text-[var(--color-high-emphasis)]">
-                User created
+                Account created
               </h3>
               <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
                 Share the temporary password securely with the new user.
@@ -157,7 +157,7 @@ export default function AddUserModal({
                   {success.user.fullName}
                 </div>
                 <div className="text-xs text-[var(--color-low-emphasis)]">
-                  {success.user.email} • {success.user.roleName}
+                  {success.user.email} - {success.user.roleName}
                 </div>
               </div>
               <div>
@@ -176,7 +176,7 @@ export default function AddUserModal({
                 onClick={resetForm}
                 className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
               >
-                Add another
+                Add another account
               </button>
               <button
                 type="button"
@@ -267,7 +267,7 @@ export default function AddUserModal({
                 disabled={isSubmitting}
                 className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSubmitting ? "Creating..." : "Create User"}
+                {isSubmitting ? "Creating..." : "Create Account"}
               </button>
             </div>
           </form>

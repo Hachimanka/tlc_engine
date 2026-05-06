@@ -1,74 +1,66 @@
 "use client";
 
-import { ChevronDown, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { tenantEmployees } from "./employeeData";
+import type {
+  FeatureDefinition,
+  FeatureKey,
+} from "@/features/tenant-feature-catalog";
 
 export type CreatedRole = {
-  idNo: string;
-  fullName: string;
-  schoolEmail: string;
-  role: string;
-  description: string;
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  featureKeys: string[];
+};
+
+type CreateRolePayload = {
+  name: string;
+  description?: string;
+  featureKeys: string[];
 };
 
 type CreateRoleModalProps = {
   isOpen: boolean;
+  features: FeatureDefinition[];
   onClose: () => void;
-  onCreateRole: (role: CreatedRole) => void;
+  onCreateRole: (payload: CreateRolePayload) => Promise<CreatedRole>;
+};
+
+const groupFeatures = (features: FeatureDefinition[]) => {
+  return features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
+    groups[feature.group] = [...(groups[feature.group] ?? []), feature];
+    return groups;
+  }, {});
 };
 
 export default function CreateRoleModal({
   isOpen,
+  features,
   onClose,
   onCreateRole,
 }: CreateRoleModalProps) {
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [roleName, setRoleName] = useState("");
-  const [employeeSearch, setEmployeeSearch] = useState("");
-  const [isEmployeePickerOpen, setIsEmployeePickerOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [featureKeys, setFeatureKeys] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const selectedEmployee = useMemo(
-    () => tenantEmployees.find((employee) => employee.id === selectedEmployeeId) ?? null,
-    [selectedEmployeeId],
-  );
-
-  const filteredEmployees = useMemo(() => {
-    const normalizedSearch = employeeSearch.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return tenantEmployees;
-    }
-
-    return tenantEmployees.filter((employee) => {
-      return (
-        employee.name.toLowerCase().includes(normalizedSearch) ||
-        employee.id.toLowerCase().includes(normalizedSearch) ||
-        employee.email.toLowerCase().includes(normalizedSearch) ||
-        employee.department.toLowerCase().includes(normalizedSearch)
-      );
-    });
-  }, [employeeSearch]);
-
-  const canCreate = Boolean(selectedEmployee && roleName.trim());
+  const groupedFeatures = useMemo(() => groupFeatures(features), [features]);
 
   const resetForm = useCallback(() => {
-    setSelectedEmployeeId("");
     setRoleName("");
-    setEmployeeSearch("");
-    setIsEmployeePickerOpen(false);
+    setDescription("");
+    setFeatureKeys([]);
+    setError("");
+    setIsSubmitting(false);
   }, []);
 
   const handleClose = useCallback(() => {
     resetForm();
     onClose();
   }, [onClose, resetForm]);
-
-  const handleSelectEmployee = (employeeId: string) => {
-    setSelectedEmployeeId(employeeId);
-    setEmployeeSearch("");
-    setIsEmployeePickerOpen(false);
-  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -96,23 +88,42 @@ export default function CreateRoleModal({
     return null;
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const canCreate = Boolean(roleName.trim()) && !isSubmitting;
+
+  const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
+    setFeatureKeys((current) => {
+      if (enabled) {
+        return Array.from(new Set([...current, featureKey]));
+      }
+
+      return current.filter((key) => key !== featureKey);
+    });
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!selectedEmployee || !roleName.trim()) {
+    if (!roleName.trim()) {
+      setError("Role name is required.");
       return;
     }
 
-    onCreateRole({
-      idNo: selectedEmployee.id,
-      fullName: selectedEmployee.name,
-      schoolEmail: selectedEmployee.email,
-      role: roleName.trim(),
-      description: "Custom tenant role assignment",
-    });
+    setError("");
+    setIsSubmitting(true);
 
-    resetForm();
-    onClose();
+    try {
+      await onCreateRole({
+        name: roleName.trim(),
+        description: description.trim() || undefined,
+        featureKeys,
+      });
+      resetForm();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create role.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -121,7 +132,7 @@ export default function CreateRoleModal({
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-[458px] overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
+        className="flex max-h-[88vh] w-full max-w-[760px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-role-title"
@@ -133,144 +144,115 @@ export default function CreateRoleModal({
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
-          <div className="space-y-2">
-            <label id="employee-picker-label" className="text-sm font-medium text-[#344054]">
-              Select Employee
-            </label>
-            <div className="relative" onClick={(event) => event.stopPropagation()}>
-              <button
-                type="button"
-                aria-labelledby="employee-picker-label"
-                aria-expanded={isEmployeePickerOpen}
-                aria-haspopup="listbox"
-                onClick={() => setIsEmployeePickerOpen((current) => !current)}
-                className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[#d0d5dd] bg-white px-3 text-left text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-              >
-                <span className={selectedEmployee ? "truncate" : "truncate text-[#8f8f8f]"}>
-                  {selectedEmployee ? selectedEmployee.name : "Select employee"}
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-[var(--color-high-emphasis)] transition ${
-                    isEmployeePickerOpen ? "rotate-180" : ""
-                  }`}
-                  aria-hidden="true"
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="space-y-5 overflow-y-auto px-6 py-6">
+            {error ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="role-name" className="text-sm font-medium text-[#344054]">
+                  Role Name
+                </label>
+                <input
+                  id="role-name"
+                  value={roleName}
+                  onChange={(event) => setRoleName(event.target.value)}
+                  placeholder="e.g., Subject Coordinator"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
                 />
-              </button>
+              </div>
 
-              {isEmployeePickerOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[120] overflow-hidden rounded-lg border border-[#d0d5dd] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.16)]">
-                  <label className="flex h-11 items-center gap-2 border-b border-[#eef1f4] px-3">
-                    <Search className="h-4 w-4 shrink-0 text-[var(--color-low-emphasis)]" aria-hidden="true" />
-                    <span className="sr-only">Search employees</span>
-                    <input
-                      value={employeeSearch}
-                      onChange={(event) => setEmployeeSearch(event.target.value)}
-                      placeholder="Search name, ID, email, or department"
-                      autoFocus
-                      className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f]"
-                    />
-                  </label>
+              <div className="space-y-2">
+                <label htmlFor="role-description" className="text-sm font-medium text-[#344054]">
+                  Description
+                </label>
+                <input
+                  id="role-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="What this role is responsible for"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              </div>
+            </div>
 
-                  <div className="max-h-56 overflow-y-auto py-1" role="listbox" aria-labelledby="employee-picker-label">
-                    {filteredEmployees.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-sm text-[var(--color-low-emphasis)]">
-                        No employees found.
-                      </div>
-                    ) : (
-                      filteredEmployees.map((employee) => {
-                        const isSelected = selectedEmployeeId === employee.id;
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+                  Initial Feature Access
+                </h3>
+                <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+                  You can adjust these after creating the role.
+                </p>
+              </div>
 
-                        return (
-                          <button
-                            key={employee.id}
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => handleSelectEmployee(employee.id)}
-                            className={`w-full px-3 py-2.5 text-left transition hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] focus:outline-none ${
-                              isSelected ? "bg-[#dff3f1]" : ""
-                            }`}
-                          >
-                            <span className="block text-sm font-semibold text-[var(--color-high-emphasis)]">
-                              {employee.name}
+              {Object.entries(groupedFeatures).map(([group, groupItems]) => (
+                <fieldset key={group} className="space-y-2">
+                  <legend className="text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                    {group}
+                  </legend>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {groupItems.map((feature) => {
+                      const isAdminOnly = Boolean(feature.adminOnly);
+
+                      return (
+                        <label
+                          key={feature.key}
+                          className={`grid grid-cols-[16px_1fr] gap-2 rounded-md border border-[var(--color-default)] px-3 py-2 text-sm ${
+                            isAdminOnly
+                              ? "bg-[#f8fafc] text-[var(--color-low-emphasis)]"
+                              : "cursor-pointer hover:bg-[#ecf8f6]"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={featureKeys.includes(feature.key)}
+                            disabled={isAdminOnly}
+                            onChange={(event) =>
+                              handleFeatureToggle(feature.key, event.target.checked)
+                            }
+                            className="mt-1 h-4 w-4 rounded border-[#cfd5dd] text-[var(--color-primary)]"
+                          />
+                          <span>
+                            <span className="font-semibold text-[var(--color-high-emphasis)]">
+                              {feature.label}
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-[var(--color-low-emphasis)]">
-                              {employee.id} | {employee.email} | {employee.department}
+                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
+                              {feature.status === "planned" ? "Coming soon" : ""}
                             </span>
-                          </button>
-                        );
-                      })
-                    )}
+                            {isAdminOnly ? (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#64748b]">
+                                Org admin only
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </div>
-              ) : null}
+                </fieldset>
+              ))}
             </div>
           </div>
 
-          {isEmployeePickerOpen ? (
-            <button
-              type="button"
-              aria-label="Close employee picker"
-              className="fixed inset-0 z-[110] cursor-default bg-transparent"
-              onClick={() => setIsEmployeePickerOpen(false)}
-              tabIndex={-1}
-            />
-          ) : null}
-
-          <div className="space-y-2">
-            <label htmlFor="role-name" className="text-sm font-medium text-[#344054]">
-              Role Name
-            </label>
-            <input
-              id="role-name"
-              value={roleName}
-              onChange={(event) => setRoleName(event.target.value)}
-              placeholder="e.g., Load Manager"
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="school-email" className="text-sm font-medium text-[#344054]">
-              School Email
-            </label>
-            <input
-              id="school-email"
-              value={selectedEmployee?.email ?? ""}
-              placeholder="Select an employee first"
-              disabled
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f2f4f7] px-3 text-sm text-[#667085] outline-none placeholder:text-[#a8afb9] disabled:cursor-not-allowed"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="id-number" className="text-sm font-medium text-[#344054]">
-              ID Number
-            </label>
-            <input
-              id="id-number"
-              value={selectedEmployee?.id ?? ""}
-              placeholder="Select an employee first"
-              disabled
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f2f4f7] px-3 text-sm text-[#667085] outline-none placeholder:text-[#a8afb9] disabled:cursor-not-allowed"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-3">
+          <div className="flex justify-end gap-2 border-t border-[var(--color-default)] px-6 py-4">
             <button
               type="button"
               onClick={handleClose}
-              className="h-11 rounded-lg border border-[#d0d5dd] bg-white px-4 text-base font-medium text-[#344054] transition hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+              className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!canCreate}
-              className="h-11 rounded-lg bg-[var(--color-primary)] px-4 text-base font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#c9ced6] disabled:text-white"
+              className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Create Role
+              {isSubmitting ? "Creating..." : "Create Role"}
             </button>
           </div>
         </form>

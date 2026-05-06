@@ -43,6 +43,7 @@ export default function TenantPage() {
         role="subject-room-manager"
         title="Deped Menu"
         iconSvg={ICON_SVGS.menu}
+        requiredFeatureKey="deped-subject-management"
         contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
       >
         <div className="mx-auto w-full max-w-none space-y-4">

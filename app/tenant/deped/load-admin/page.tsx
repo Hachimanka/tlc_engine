@@ -11,6 +11,7 @@ export default function TenantPage() {
       role="load-admin"
       title="Deped Menu"
       iconSvg={ICON_SVGS.menu}
+      requiredFeatureKey="deped-department-load"
       contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
     >
       <div className="mx-auto w-full max-w-none space-y-4">

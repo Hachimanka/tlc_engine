@@ -133,6 +133,7 @@ export default function Pricing() {
     if (pricingPlans.some((plan) => plan.id === selectedPlanId)) return;
 
     const preferred = pricingPlans.find((plan) => plan.accent === "brand") || pricingPlans[0];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (preferred) setSelectedPlanId(preferred.id);
   }, [pricingPlans, selectedPlanId]);
 

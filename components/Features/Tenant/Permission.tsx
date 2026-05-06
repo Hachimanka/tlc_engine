@@ -1,267 +1,46 @@
 "use client";
 
-export type PermissionId =
-  | "view-faculty"
-  | "add-faculty"
-  | "assign-subject-teachers"
-  | "manage-subject-teachers"
-  | "view-teaching-load"
-  | "export-teaching-load"
-  | "send-requests"
-  | "restore-version-history"
-  | "view-departments"
-  | "add-department"
-  | "view-subjects"
-  | "add-subject"
-  | "view-rooms"
-  | "add-rooms"
-  | "assign-rooms-subjects"
-  | "approve-subjects"
-  | "approve-load"
-  | "approve-room-assignments";
+import type {
+  FeatureDefinition,
+  FeatureKey,
+} from "@/features/tenant-feature-catalog";
 
-export type PermissionValues = Record<PermissionId, boolean>;
-
-type PermissionItem = {
-  id: PermissionId;
-  label: string;
-  description: string;
-};
-
-type PermissionGroup = {
-  title: string;
-  items: PermissionItem[];
-};
-
-type PermissionRoleUser = {
+export type RoleAccess = {
   id: string;
-  fullName: string;
-  roleName: string;
-  description: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  featureKeys: string[];
 };
 
 type PermissionProps = {
-  selectedRoleUser: PermissionRoleUser | null;
-  permissions: PermissionValues;
-  onPermissionChange: (permissionId: PermissionId, checked: boolean) => void;
+  selectedRole: RoleAccess | null;
+  features: FeatureDefinition[];
+  selectedFeatureKeys: string[];
+  hasChanges: boolean;
+  isSaving: boolean;
+  onFeatureToggle: (featureKey: FeatureKey, enabled: boolean) => void;
   onSave: () => void;
 };
 
-export const permissionGroups: PermissionGroup[] = [
-  {
-    title: "Manage Load",
-    items: [
-      {
-        id: "view-faculty",
-        label: "View Faculty",
-        description: "Allows the user to see faculty records and assigned teaching load details.",
-      },
-      {
-        id: "add-faculty",
-        label: "Add Faculty",
-        description: "Allows the user to add faculty members to department load management.",
-      },
-      {
-        id: "assign-subject-teachers",
-        label: "Assign Subject to Teachers",
-        description: "Allows the user to assign subjects and schedules to available teachers.",
-      },
-      {
-        id: "manage-subject-teachers",
-        label: "Manage Subject Teacher Assignments",
-        description: "Allows the user to update or remove teacher subject assignments.",
-      },
-    ],
-  },
-  {
-    title: "View Teaching Load",
-    items: [
-      {
-        id: "view-teaching-load",
-        label: "View Teaching Load",
-        description: "Allows the user to review assigned teaching loads and class schedules.",
-      },
-      {
-        id: "export-teaching-load",
-        label: "Export Teaching Load",
-        description: "Allows the user to generate printable or exportable teaching load records.",
-      },
-      {
-        id: "send-requests",
-        label: "Send Requests",
-        description: "Allows the user to submit load adjustment or schedule change requests.",
-      },
-    ],
-  },
-  {
-    title: "Department Load",
-    items: [
-      {
-        id: "restore-version-history",
-        label: "Restore Version History",
-        description: "Allows the user to restore previous department load assignment versions.",
-      },
-      {
-        id: "view-departments",
-        label: "View Departments Table",
-        description: "Allows the user to view department lists, heads, and load summaries.",
-      },
-      {
-        id: "add-department",
-        label: "Add Department",
-        description: "Allows the user to create department records for load administration.",
-      },
-    ],
-  },
-  {
-    title: "Manage Subjects",
-    items: [
-      {
-        id: "view-subjects",
-        label: "View Subjects Table",
-        description: "Allows the user to view subject records, status, and assigned departments.",
-      },
-      {
-        id: "add-subject",
-        label: "Add Subject",
-        description: "Allows the user to create new subject records for review or approval.",
-      },
-    ],
-  },
-  {
-    title: "Manage Rooms",
-    items: [
-      {
-        id: "view-rooms",
-        label: "View Rooms Table",
-        description: "Allows the user to view rooms, capacity, status, and room assignments.",
-      },
-      {
-        id: "add-rooms",
-        label: "Add Rooms",
-        description: "Allows the user to add rooms and update available teaching spaces.",
-      },
-      {
-        id: "assign-rooms-subjects",
-        label: "Assign Rooms to Subjects",
-        description: "Allows the user to connect subjects with rooms and class schedules.",
-      },
-    ],
-  },
-  {
-    title: "Approvals",
-    items: [
-      {
-        id: "approve-subjects",
-        label: "Approve Subjects",
-        description: "Allows the user to approve or reject submitted subject records.",
-      },
-      {
-        id: "approve-load",
-        label: "Approve Load",
-        description: "Allows the user to approve teaching load assignments before release.",
-      },
-      {
-        id: "approve-room-assignments",
-        label: "Approve Room Assignments",
-        description: "Allows the user to approve room assignments connected to subjects.",
-      },
-    ],
-  },
-];
-
-const allPermissionIds = permissionGroups.flatMap((group) =>
-  group.items.map((item) => item.id),
-);
-
-const createPermissionValues = (enabledIds: PermissionId[] = []): PermissionValues => {
-  const enabled = new Set(enabledIds);
-
-  return allPermissionIds.reduce((values, permissionId) => {
-    values[permissionId] = enabled.has(permissionId);
-    return values;
-  }, {} as PermissionValues);
+const groupFeatures = (features: FeatureDefinition[]) => {
+  return features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
+    groups[feature.group] = [...(groups[feature.group] ?? []), feature];
+    return groups;
+  }, {});
 };
 
-export function createDefaultPermissions(roleName: string): PermissionValues {
-  const normalizedRole = roleName.toLowerCase();
-
-  if (normalizedRole.includes("org admin")) {
-    return createPermissionValues(allPermissionIds);
-  }
-
-  if (normalizedRole.includes("dean")) {
-    return createPermissionValues([
-      "view-faculty",
-      "view-teaching-load",
-      "add-faculty",
-      "assign-subject-teachers",
-      "restore-version-history",
-      "view-departments",
-      "view-subjects",
-      "add-subject",
-      "view-rooms",
-      "add-rooms",
-      "assign-rooms-subjects",
-      "approve-subjects",
-      "approve-load",
-      "approve-room-assignments",
-    ]);
-  }
-
-  if (normalizedRole.includes("vpaa")) {
-    return createPermissionValues([
-      "view-teaching-load",
-      "export-teaching-load",
-      "view-subjects",
-      "approve-subjects",
-      "approve-load",
-      "approve-room-assignments",
-    ]);
-  }
-
-  if (normalizedRole.includes("department head")) {
-    return createPermissionValues([
-      "view-faculty",
-      "add-faculty",
-      "assign-subject-teachers",
-      "view-teaching-load",
-      "restore-version-history",
-      "view-departments",
-      "view-subjects",
-      "view-rooms",
-    ]);
-  }
-
-  if (normalizedRole.includes("coordinator")) {
-    return createPermissionValues([
-      "view-teaching-load",
-      "send-requests",
-      "view-subjects",
-      "add-subject",
-      "view-rooms",
-      "assign-rooms-subjects",
-    ]);
-  }
-
-  if (normalizedRole.includes("teacher")) {
-    return createPermissionValues([
-      "view-teaching-load",
-      "export-teaching-load",
-      "send-requests",
-    ]);
-  }
-
-  return createPermissionValues();
-}
-
 export default function Permission({
-  selectedRoleUser,
-  permissions,
-  onPermissionChange,
+  selectedRole,
+  features,
+  selectedFeatureKeys,
+  hasChanges,
+  isSaving,
+  onFeatureToggle,
   onSave,
 }: PermissionProps) {
-  if (!selectedRoleUser) {
+  if (!selectedRole) {
     return (
       <section className="flex h-full min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
         <div className="max-w-sm text-center">
@@ -269,49 +48,72 @@ export default function Permission({
             Select a role
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--color-low-emphasis)]">
-            Choose a role from the list to manage the user permissions and feature access for that account.
+            Choose a role to manage the features available to users assigned to it.
           </p>
         </div>
       </section>
     );
   }
 
+  const selected = new Set(selectedFeatureKeys);
+  const groupedFeatures = groupFeatures(features);
+  const isOrgAdminRole = selectedRole.key === "org_admin";
+
   return (
     <section className="flex h-full min-h-[520px] flex-1 flex-col rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-      <div className="px-6 pb-4 pt-5">
-        <h2 className="text-xl font-bold text-[var(--color-high-emphasis)]">
-          Permissions from &lt;{selectedRoleUser.fullName}&gt;
-        </h2>
-        <p className="mt-2 text-sm text-[var(--color-low-emphasis)]">
-          {selectedRoleUser.description}
-        </p>
+      <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--color-high-emphasis)]">
+              Feature Access for {selectedRole.name}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[var(--color-low-emphasis)]">
+              {isOrgAdminRole
+                ? "Org Admin always keeps full access to every feature in this institution."
+                : selectedRole.description || "Assign the features users with this role can access."}
+            </p>
+          </div>
+
+          {selectedRole.isSystem ? (
+            <span className="rounded-full bg-[#ecf8f6] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
+              System role
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5">
-        <div className="space-y-6">
-          {permissionGroups.map((group) => (
-            <fieldset key={group.title} className="space-y-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="space-y-7">
+          {Object.entries(groupedFeatures).map(([group, groupItems]) => (
+            <fieldset key={group} className="space-y-3">
               <legend className="text-sm font-bold text-[var(--color-high-emphasis)]">
-                {group.title}
+                {group}
               </legend>
 
-              <div className="space-y-4">
-                {group.items.map((item) => {
-                  const isChecked = permissions[item.id] ?? false;
+              <div className="grid gap-3 xl:grid-cols-2">
+                {groupItems.map((feature) => {
+                  const isChecked = isOrgAdminRole || selected.has(feature.key);
+                  const isAdminOnlyLocked = feature.adminOnly && !isOrgAdminRole;
+                  const isDisabled = isOrgAdminRole || isAdminOnlyLocked;
 
                   return (
                     <label
-                      key={item.id}
-                      className="grid cursor-pointer grid-cols-[18px_1fr] gap-3"
+                      key={feature.key}
+                      className={`grid min-h-[116px] grid-cols-[18px_1fr] gap-3 rounded-lg border p-4 ${
+                        isDisabled
+                          ? "border-[var(--color-default)] bg-[#f8fafc]"
+                          : "cursor-pointer border-[var(--color-default)] bg-white hover:bg-[#ecf8f6]"
+                      }`}
                     >
                       <span className="relative mt-1 flex h-4 w-4 items-center justify-center">
                         <input
                           type="checkbox"
                           checked={isChecked}
+                          disabled={isDisabled}
                           onChange={(event) =>
-                            onPermissionChange(item.id, event.target.checked)
+                            onFeatureToggle(feature.key, event.target.checked)
                           }
-                          className="peer h-4 w-4 cursor-pointer rounded-[4px] border border-[#cfd5dd] bg-[#cfd5dd] checked:border-[var(--color-primary)] checked:bg-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+                          className="peer h-4 w-4 cursor-pointer rounded-[4px] border border-[#cfd5dd] bg-[#cfd5dd] checked:border-[var(--color-primary)] checked:bg-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
                         />
                         <svg
                           viewBox="0 0 16 16"
@@ -329,12 +131,29 @@ export default function Permission({
                         </svg>
                       </span>
                       <span>
-                        <span className="block text-sm font-semibold text-[var(--color-high-emphasis)]">
-                          {item.label}
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+                            {feature.label}
+                          </span>
+                          {feature.status === "planned" ? (
+                            <span className="rounded-full bg-[#fff7ed] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
+                              Coming soon
+                            </span>
+                          ) : null}
+                          {isAdminOnlyLocked ? (
+                            <span className="rounded-full bg-[#f1f5f9] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#64748b]">
+                              Org admin only
+                            </span>
+                          ) : null}
                         </span>
-                        <span className="mt-1 block text-xs leading-5 text-[var(--color-low-emphasis)]">
-                          {item.description}
+                        <span className="mt-2 block text-xs leading-5 text-[var(--color-low-emphasis)]">
+                          {feature.description}
                         </span>
+                        {feature.href && !feature.adminOnly ? (
+                          <span className="mt-2 block text-[11px] font-medium text-[var(--color-primary)]">
+                            Route: {feature.href}
+                          </span>
+                        ) : null}
                       </span>
                     </label>
                   );
@@ -345,13 +164,17 @@ export default function Permission({
         </div>
       </div>
 
-      <div className="flex justify-end border-t border-[var(--color-default)] px-5 py-4">
+      <div className="flex items-center justify-between gap-3 border-t border-[var(--color-default)] px-5 py-4">
+        <p className="text-xs text-[var(--color-low-emphasis)]">
+          Planned features can be assigned now, but they will not appear as broken links until pages are available.
+        </p>
         <button
           type="button"
           onClick={onSave}
-          className="rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+          disabled={isOrgAdminRole || !hasChanges || isSaving}
+          className="rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
         >
-          Save Role Permissions
+          {isSaving ? "Saving..." : "Save Feature Access"}
         </button>
       </div>
     </section>

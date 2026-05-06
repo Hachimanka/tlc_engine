@@ -18,7 +18,7 @@ export default function Navbar({ onLogout }: NavbarProps) {
 
   const resolveLogoutRedirect = () => {
     if (pathname?.startsWith("/superadmin")) return "/superadmin/login";
-    if (pathname?.startsWith("/tenant")) return "/tenant/login";
+    if (pathname?.startsWith("/tenant")) return "/login";
     return "/";
   };
 

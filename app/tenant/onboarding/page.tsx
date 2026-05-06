@@ -242,12 +242,6 @@ export default function TenantOnboardingPage() {
 	const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
 	const steps = useMemo(() => getSteps(institutionType), [institutionType]);
 
-	useEffect(() => {
-		if (!institutionType) return;
-		if (institutionType !== "deped") return;
-		setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
-	}, [institutionType]);
-
 	// Password
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -326,7 +320,7 @@ export default function TenantOnboardingPage() {
 	useEffect(() => {
 		const checkAuth = async () => {
 			const { data } = await supabase.auth.getUser();
-			if (!data?.user) { router.replace("/tenant/login"); return; }
+			if (!data?.user) { router.replace("/login"); return; }
 			const meta = data.user.user_metadata as { first_login?: boolean; org_name?: string; full_name?: string };
 			setProfile(prev => ({
 				...prev,
@@ -398,20 +392,46 @@ export default function TenantOnboardingPage() {
 	const handleFinish = async () => {
 		if (!canProceed()) { setStepError("Please complete the required fields to finish."); return; }
 		setSaving(true); setError("");
-		const { error: e } = await supabase.auth.updateUser({
-			data: {
-				first_login: false,
-				onboarding_complete: true,
-				institution_type: institutionType,
-				onboarding_profile: profile,
-				onboarding_departments: departments,
-				onboarding_instructors: instructors,
-				onboarding_academic: academicForm,
-				onboarding_grading: { components: gradeComponents, passing: passingGrade, scale: gradingScale },
+		const { data: sessionData } = await supabase.auth.getSession();
+		const token = sessionData?.session?.access_token;
+
+		if (!token) {
+			setSaving(false);
+			setError("Session expired. Please log in again.");
+			return;
+		}
+
+		const response = await fetch("/api/tenant/onboarding", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
 			},
+			body: JSON.stringify({
+				institutionType,
+				profile,
+				departments,
+				programs,
+				gradeLevels,
+				qualifications,
+				courses,
+				instructors,
+				academic: academicForm,
+				grading: {
+					components: gradeComponents,
+					passing: passingGrade,
+					scale: gradingScale,
+					assessmentType,
+				},
+			}),
 		});
+
 		setSaving(false);
-		if (e) { setError(e.message); return; }
+		const payload = await response.json().catch(() => ({}));
+		if (!response.ok) {
+			setError(payload?.error || "Failed to finish setup.");
+			return;
+		}
 		router.replace("/tenant/tenant-admin");
 	};
 
@@ -472,7 +492,10 @@ export default function TenantOnboardingPage() {
 										title="Basic Education (DepEd)"
 										description="Public or Private K-12 school, SHS included"
 										selected={institutionType === "deped"}
-										onClick={() => setInstitutionType("deped")}
+										onClick={() => {
+											setInstitutionType("deped");
+											setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
+										}}
 									/>
 									<TypeCard
 										icon="🔧"

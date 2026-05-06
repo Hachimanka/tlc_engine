@@ -8,6 +8,7 @@ export default function SubjectRoomPage() {
       role="dean"
       title="College Menu"
       iconSvg={ICON_SVGS.menu}
+      requiredFeatureKey="higher-dean-vpaa-approvals"
       contentClassName="p-6"
     >
       <div className="text-[28px] font-semibold text-[var(--color-high-emphasis)]">

@@ -9,6 +9,7 @@ export default function Page() {
       role="subject-room-manager"
       title="College Menu"
       iconSvg={ICON_SVGS.menu}
+      requiredFeatureKey="higher-subject-management"
       contentClassName="p-6"
     >
       <SubjectRoomManagerPage />

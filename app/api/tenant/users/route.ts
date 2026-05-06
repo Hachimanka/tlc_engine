@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { getFeatureKeysForInstitution } from "@/features/tenant-feature-catalog";
+import { loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { generateTempPassword } from "@/lib/tempPassword";
 
 export const runtime = "nodejs";
 
@@ -11,62 +13,18 @@ type CreateUserRequest = {
   roleId?: string;
 };
 
-const getBearerToken = (req: Request) => {
-  const authHeader = req.headers.get("authorization") || "";
-  const [type, token] = authHeader.split(" ");
-  if (type?.toLowerCase() !== "bearer" || !token) {
-    return null;
-  }
-  return token;
-};
-
-const generateTempPassword = () => {
-  const base = randomBytes(8).toString("hex");
-  const mix = randomBytes(4).toString("base64").replace(/[^a-zA-Z0-9]/g, "");
-  return `Tlc!${base}${mix.slice(0, 3)}`;
-};
-
-const loadOrgContext = async (req: Request) => {
-  const token = getBearerToken(req);
-  if (!token) {
-    return { error: NextResponse.json({ error: "Missing authorization token." }, { status: 401 }) };
-  }
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  const authUser = authData?.user;
-  if (authError || !authUser) {
-    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
-  }
-
-  const { data: orgUser, error: orgUserError } = await supabaseAdmin
-    .from("org_users")
-    .select("org_id, roles(key)")
-    .eq("auth_user_id", authUser.id)
-    .single();
-
-  if (orgUserError || !orgUser?.org_id) {
-    return { error: NextResponse.json({ error: "Organization membership not found." }, { status: 403 }) };
-  }
-
-  if (orgUser.roles?.key !== "org_admin") {
-    return { error: NextResponse.json({ error: "Insufficient permissions." }, { status: 403 }) };
-  }
-
-  return { orgId: orgUser.org_id, authUser };
-};
-
 export async function GET(req: Request) {
-  const context = await loadOrgContext(req);
-  if (context.error) {
-    return context.error;
+  const result = await loadTenantContext(req, { requireOrgAdmin: true });
+  if (result.error) {
+    return result.error;
   }
 
-  const { orgId } = context;
+  const { context } = result;
 
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
     .select("id, key, name, description, is_system")
-    .eq("org_id", orgId)
+    .eq("org_id", context.org.id)
     .order("name", { ascending: true });
 
   if (rolesError) {
@@ -76,20 +34,55 @@ export async function GET(req: Request) {
   const { data: users, error: usersError } = await supabaseAdmin
     .from("org_users")
     .select("id, full_name, email, employee_id, status, role_id, created_at, roles(id, key, name)")
-    .eq("org_id", orgId)
+    .eq("org_id", context.org.id)
     .order("created_at", { ascending: false });
 
   if (usersError) {
     return NextResponse.json({ error: usersError.message || "Failed to load users." }, { status: 500 });
   }
 
-  return NextResponse.json({ roles: roles ?? [], users: users ?? [] });
+  const roleIds = (roles ?? []).map((role) => role.id);
+  const permissionsByRole = new Map<string, string[]>();
+
+  if (roleIds.length > 0) {
+    const { data: permissions, error: permissionsError } = await supabaseAdmin
+      .from("role_feature_permissions")
+      .select("role_id, feature_key")
+      .in("role_id", roleIds)
+      .eq("enabled", true);
+
+    if (permissionsError) {
+      return NextResponse.json(
+        { error: permissionsError.message || "Failed to load role features." },
+        { status: 500 },
+      );
+    }
+
+    for (const permission of permissions ?? []) {
+      const current = permissionsByRole.get(permission.role_id) ?? [];
+      current.push(permission.feature_key);
+      permissionsByRole.set(permission.role_id, current);
+    }
+  }
+
+  const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
+
+  return NextResponse.json({
+    roles: (roles ?? []).map((role) => ({
+      ...role,
+      featureKeys:
+        role.key === "org_admin"
+          ? allFeatureKeys
+          : permissionsByRole.get(role.id) ?? [],
+    })),
+    users: users ?? [],
+  });
 }
 
 export async function POST(req: Request) {
-  const context = await loadOrgContext(req);
-  if (context.error) {
-    return context.error;
+  const result = await loadTenantContext(req, { requireOrgAdmin: true });
+  if (result.error) {
+    return result.error;
   }
 
   let payload: CreateUserRequest = {};
@@ -100,29 +93,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { fullName, email, employeeId, roleId } = payload;
+  const fullName = payload.fullName?.trim();
+  const email = payload.email?.trim();
+  const employeeId = payload.employeeId?.trim();
+  const roleId = payload.roleId?.trim();
 
   if (!fullName || !email || !roleId) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
 
-  const { orgId } = context;
+  const { context } = result;
 
   const { data: roleRow, error: roleError } = await supabaseAdmin
     .from("roles")
     .select("id, key, name")
     .eq("id", roleId)
-    .eq("org_id", orgId)
+    .eq("org_id", context.org.id)
     .single();
 
   if (roleError || !roleRow) {
     return NextResponse.json({ error: "Role not found." }, { status: 404 });
   }
 
+  if (roleRow.key === "org_admin") {
+    return NextResponse.json(
+      { error: "The protected admin role cannot be assigned from account creation." },
+      { status: 400 },
+    );
+  }
+
   const { data: orgInfo } = await supabaseAdmin
     .from("organizations")
-    .select("name, slug")
-    .eq("id", orgId)
+    .select("name, slug, institution_type")
+    .eq("id", context.org.id)
     .single();
 
   const tempPassword = generateTempPassword();
@@ -133,11 +136,17 @@ export async function POST(req: Request) {
     email_confirm: true,
     user_metadata: {
       role: roleRow.key,
-      org_id: orgId,
+      role_id: roleRow.id,
+      role_name: roleRow.name,
+      org_id: context.org.id,
       org_name: orgInfo?.name ?? null,
       org_slug: orgInfo?.slug ?? null,
-      first_login: true,
-      onboarding_complete: false,
+      institution_type: orgInfo?.institution_type ?? context.institutionType,
+      account_status: "active",
+      full_name: fullName,
+      first_login: false,
+      onboarding_complete: true,
+      must_change_password: true,
     },
   });
 
@@ -148,11 +157,11 @@ export async function POST(req: Request) {
 
   const now = new Date().toISOString();
 
-  const { error: orgUserError } = await supabaseAdmin
+  const { data: orgUserRow, error: orgUserError } = await supabaseAdmin
     .from("org_users")
     .insert([
       {
-        org_id: orgId,
+        org_id: context.org.id,
         role_id: roleRow.id,
         auth_user_id: createdUser.user.id,
         full_name: fullName,
@@ -162,21 +171,19 @@ export async function POST(req: Request) {
         created_at: now,
         updated_at: now,
       },
-    ]);
+    ])
+    .select("id, full_name, email, employee_id, status, role_id, created_at")
+    .single();
 
-  if (orgUserError) {
+  if (orgUserError || !orgUserRow) {
     await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
-    return NextResponse.json({ error: orgUserError.message || "Failed to save user." }, { status: 500 });
+    return NextResponse.json({ error: orgUserError?.message || "Failed to save user." }, { status: 500 });
   }
 
   return NextResponse.json({
     tempPassword,
     user: {
-      id: createdUser.user.id,
-      full_name: fullName,
-      email,
-      employee_id: employeeId || null,
-      status: "active",
+      ...orgUserRow,
       role: {
         id: roleRow.id,
         key: roleRow.key,

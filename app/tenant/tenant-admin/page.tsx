@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
+import Accounts from "@/components/Features/Tenant/Accounts";
 import Employee from "@/components/Features/Tenant/Employee";
 import Policies from "@/components/Features/Tenant/Policies";
 import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
@@ -24,6 +25,7 @@ export default function TenantPage() {
 
   const sidebarItems = useMemo<SidebarItem[]>(() => {
     const iconMap: Record<TenantAdminView, string> = {
+      accounts: ICON_SVGS.people,
       "manage-users": ICON_SVGS.people,
       policies: ICON_SVGS.file,
       employees: ICON_SVGS.files,
@@ -37,6 +39,7 @@ export default function TenantPage() {
   }, [activeView, institutionType]);
 
   const content = {
+    accounts: <Accounts />,
     policies: <Policies />,
     "manage-users": <TenantRolePermissionsPanel />,
     employees: <Employee />,
@@ -47,7 +50,7 @@ export default function TenantPage() {
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
       if (!user) {
-        router.replace("/tenant/login?redirect=/tenant/tenant-admin");
+        router.replace("/login?redirect=/tenant/tenant-admin");
         return;
       }
 
@@ -56,20 +59,45 @@ export default function TenantPage() {
         onboarding_complete?: boolean;
         institution_type?: InstitutionType;
         role?: string;
+        must_change_password?: boolean;
       };
+
+      if (metadata?.must_change_password === true) {
+        router.replace("/tenant/password-setup?redirect=/tenant/tenant-admin");
+        return;
+      }
 
       if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
         router.replace("/tenant/onboarding");
         return;
       }
 
-      if (metadata?.role !== "org_admin") {
-        await supabase.auth.signOut();
-        router.replace("/tenant/login");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        router.replace("/login?redirect=/tenant/tenant-admin");
         return;
       }
 
-      const detectedType = metadata?.institution_type ?? null;
+      const response = await fetch("/api/tenant/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!payload.isOrgAdmin) {
+        router.replace(payload.firstActiveHref || "/login");
+        return;
+      }
+
+      const detectedType = payload.org?.institutionType ?? metadata?.institution_type ?? null;
       setInstitutionType(detectedType);
       setActiveView(getDefaultTenantAdminView(detectedType));
 

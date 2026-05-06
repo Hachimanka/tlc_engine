@@ -7,9 +7,14 @@ import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
 import {
   getFeatureSidebarItems,
+  tenantTypeToInstitutionType,
   type FeatureRole,
   type TenantType,
 } from "@/features.config";
+import type {
+  FeatureKey,
+  InstitutionType,
+} from "@/features/tenant-feature-catalog";
 import { ICON_SVGS } from "@/public/icons";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -19,7 +24,19 @@ type TenantRoleLayoutProps = {
   title: string;
   iconSvg?: string;
   contentClassName?: string;
+  requiredFeatureKey?: FeatureKey;
   children: ReactNode;
+};
+
+type TenantAccess = {
+  org: {
+    institutionType: InstitutionType;
+  };
+  role: {
+    key: string;
+    name: string;
+  };
+  enabledFeatureKeys: string[];
 };
 
 export default function TenantRoleLayout({
@@ -28,12 +45,20 @@ export default function TenantRoleLayout({
   title,
   iconSvg,
   contentClassName,
+  requiredFeatureKey,
   children,
 }: TenantRoleLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const featureItems = getFeatureSidebarItems(tenantType, role);
+  const [access, setAccess] = useState<TenantAccess | null>(null);
+  const [accessError, setAccessError] = useState("");
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const institutionType = access?.org.institutionType ?? tenantTypeToInstitutionType(tenantType);
+  const featureItems = getFeatureSidebarItems(
+    institutionType,
+    access?.enabledFeatureKeys ?? [],
+  );
   const sidebarItems: SidebarItem[] = featureItems.map((item) => ({
     key: item.featureKey,
     label: item.label,
@@ -44,7 +69,7 @@ export default function TenantRoleLayout({
     .filter((item) => item.href && item.href !== "#" && pathname.startsWith(item.href))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
-  const activeKey = activeMatch?.featureKey ?? sidebarItems[0]?.key ?? "";
+  const activeKey = activeMatch?.featureKey ?? requiredFeatureKey ?? sidebarItems[0]?.key ?? "";
 
   const handleSetActiveKey = (key: string) => {
     const target = featureItems.find((item) => item.featureKey === key);
@@ -62,33 +87,109 @@ export default function TenantRoleLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
+      setCheckingAuth(true);
+      setAccessError("");
+      setIsUnauthorized(false);
+
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
       if (!user) {
-        router.replace(`/tenant/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+        router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
         return;
       }
 
       const metadata = user.user_metadata as {
         first_login?: boolean;
         onboarding_complete?: boolean;
+        must_change_password?: boolean;
       };
+
+      if (metadata?.must_change_password === true) {
+        router.replace(`/tenant/password-setup?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+        return;
+      }
 
       if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
         router.replace("/tenant/onboarding");
         return;
       }
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+        return;
+      }
+
+      const response = await fetch("/api/tenant/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setAccessError(payload?.error || "Unable to load your feature access.");
+        setCheckingAuth(false);
+        return;
+      }
+
+      const enabledFeatureKeys = payload.enabledFeatureKeys ?? [];
+
+      if (requiredFeatureKey && !enabledFeatureKeys.includes(requiredFeatureKey)) {
+        setAccess(payload);
+        setIsUnauthorized(true);
+        setCheckingAuth(false);
+        return;
+      }
+
+      setAccess(payload);
       setCheckingAuth(false);
     };
 
     checkAuth();
-  }, [pathname, router]);
+  }, [pathname, requiredFeatureKey, router]);
 
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">Checking session...</div>
+      </div>
+    );
+  }
+
+  if (accessError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
+          <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+            Access unavailable
+          </h1>
+          <p className="mt-2 text-sm text-red-600">{accessError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isUnauthorized) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+        <Navbar />
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <section className="max-w-md rounded-lg bg-white px-6 py-6 text-center shadow-level-1">
+            <div
+              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#ecf8f6]"
+              dangerouslySetInnerHTML={{ __html: ICON_SVGS.lock }}
+            />
+            <h1 className="text-xl font-bold text-[var(--color-high-emphasis)]">
+              Feature access required
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-low-emphasis)]">
+              Your role does not currently include this feature. Ask your institution admin to update your role access if you need it.
+            </p>
+          </section>
+        </div>
       </div>
     );
   }
@@ -101,7 +202,7 @@ export default function TenantRoleLayout({
           activeKey={activeKey}
           setActiveKey={handleSetActiveKey}
           items={sidebarItems}
-          title={title}
+          title={access?.role.name ? `${access.role.name} Menu` : title || role}
           iconSvg={iconSvg || ICON_SVGS.people}
         />
         <section className={sectionClassName}>{children}</section>

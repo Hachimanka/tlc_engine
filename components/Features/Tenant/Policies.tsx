@@ -360,6 +360,7 @@ export default function Policies() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTerms((currentTerms) => {
       const nextTerms = syncTermsToCalendarType(calendarType, currentTerms);
       const isSame =
