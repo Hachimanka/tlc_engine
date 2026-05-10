@@ -5,8 +5,9 @@ import {
 } from "@/features/tenant-feature-catalog";
 import {
   loadTenantContext,
-  seedDefaultRoleFeaturePermissions,
+  reconcileInstitutionSystemRoles,
 } from "@/lib/tenantAccess";
+import { asRecord } from "@/lib/tenantBranding";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -49,7 +50,9 @@ export async function POST(req: Request) {
     );
   }
 
+  const currentConfig = asRecord(context.org.onboarding_config);
   const onboardingConfig = {
+    ...currentConfig,
     profile: payload.profile ?? null,
     departments: payload.departments ?? [],
     programs: payload.programs ?? [],
@@ -78,14 +81,16 @@ export async function POST(req: Request) {
   }
 
   try {
-    await seedDefaultRoleFeaturePermissions(context.org.id, institutionType);
+    await reconcileInstitutionSystemRoles(context.org.id, institutionType, {
+      forceSeedPermissions: true,
+    });
   } catch (error) {
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to seed role feature access.",
+            : "Failed to reconcile role defaults.",
       },
       { status: 500 },
     );

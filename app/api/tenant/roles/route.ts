@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import {
   type FeatureKey,
+  getAssignableFeatureKeysForInstitution,
   getFeatureKeysForInstitution,
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
 import {
   loadTenantContext,
+  reconcileInstitutionSystemRoles,
   replaceRoleFeaturePermissions,
 } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -59,6 +61,20 @@ export async function GET(req: Request) {
 
   const { context } = result;
 
+  try {
+    await reconcileInstitutionSystemRoles(context.org.id, context.institutionType);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to reconcile institution roles.",
+      },
+      { status: 500 },
+    );
+  }
+
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
     .select("id, key, name, description, is_system, created_at")
@@ -97,6 +113,9 @@ export async function GET(req: Request) {
   }
 
   const allKeys = getFeatureKeysForInstitution(context.institutionType);
+  const assignableKeys = new Set(
+    getAssignableFeatureKeysForInstitution(context.institutionType),
+  );
 
   return NextResponse.json({
     org: {
@@ -115,7 +134,9 @@ export async function GET(req: Request) {
       featureKeys:
         role.key === "org_admin"
           ? allKeys
-          : permissionsByRole.get(role.id) ?? [],
+          : (permissionsByRole.get(role.id) ?? []).filter((key) =>
+              assignableKeys.has(key as FeatureKey),
+            ),
     })),
   });
 }
@@ -168,7 +189,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const allowedKeys = new Set(getFeatureKeysForInstitution(context.institutionType));
+  const allowedKeys = new Set(
+    getAssignableFeatureKeysForInstitution(context.institutionType),
+  );
   const featureKeys = (payload.featureKeys ?? []).filter((key) =>
     allowedKeys.has(key as FeatureKey),
   );

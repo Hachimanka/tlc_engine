@@ -29,10 +29,26 @@ type CreateRoleModalProps = {
 };
 
 const groupFeatures = (features: FeatureDefinition[]) => {
-  return features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
+  const groups = features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
     groups[feature.group] = [...(groups[feature.group] ?? []), feature];
     return groups;
   }, {});
+
+  for (const group of Object.keys(groups)) {
+    groups[group] = groups[group].sort((left, right) => {
+      if (left.status !== right.status) {
+        return left.status === "active" ? -1 : 1;
+      }
+
+      if (Boolean(left.adminOnly) !== Boolean(right.adminOnly)) {
+        return left.adminOnly ? 1 : -1;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  }
+
+  return groups;
 };
 
 export default function CreateRoleModal({
@@ -186,7 +202,7 @@ export default function CreateRoleModal({
                   Initial Feature Access
                 </h3>
                 <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
-                  You can adjust these after creating the role.
+                  Available features can be assigned now. Admin workspace and planned items stay locked.
                 </p>
               </div>
 
@@ -198,12 +214,14 @@ export default function CreateRoleModal({
                   <div className="grid gap-2 md:grid-cols-2">
                     {groupItems.map((feature) => {
                       const isAdminOnly = Boolean(feature.adminOnly);
+                      const isPlanned = feature.status === "planned";
+                      const isDisabled = isAdminOnly || isPlanned;
 
                       return (
                         <label
                           key={feature.key}
                           className={`grid grid-cols-[16px_1fr] gap-2 rounded-md border border-[var(--color-default)] px-3 py-2 text-sm ${
-                            isAdminOnly
+                            isDisabled
                               ? "bg-[#f8fafc] text-[var(--color-low-emphasis)]"
                               : "cursor-pointer hover:bg-[#ecf8f6]"
                           }`}
@@ -211,7 +229,7 @@ export default function CreateRoleModal({
                           <input
                             type="checkbox"
                             checked={featureKeys.includes(feature.key)}
-                            disabled={isAdminOnly}
+                            disabled={isDisabled}
                             onChange={(event) =>
                               handleFeatureToggle(feature.key, event.target.checked)
                             }
@@ -221,9 +239,11 @@ export default function CreateRoleModal({
                             <span className="font-semibold text-[var(--color-high-emphasis)]">
                               {feature.label}
                             </span>
-                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
-                              {feature.status === "planned" ? "Coming soon" : ""}
-                            </span>
+                            {isPlanned ? (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
+                                Planned
+                              </span>
+                            ) : null}
                             {isAdminOnly ? (
                               <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#64748b]">
                                 Org admin only

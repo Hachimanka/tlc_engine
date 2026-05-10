@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  getFeatureKeysForInstitution,
+  getAssignableFeatureKeysForInstitution,
   type FeatureKey,
 } from "@/features/tenant-feature-catalog";
 import {
@@ -79,7 +79,9 @@ export async function PATCH(
     );
   }
 
-  const allowedKeys = new Set(getFeatureKeysForInstitution(context.institutionType));
+  const allowedKeys = new Set(
+    getAssignableFeatureKeysForInstitution(context.institutionType),
+  );
   const featureKeys = (payload.featureKeys ?? []).filter((key) =>
     allowedKeys.has(key as FeatureKey),
   );

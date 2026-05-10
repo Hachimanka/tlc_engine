@@ -7,6 +7,11 @@ import {
   getEnabledFeatureKeysForRole,
   loadTenantContext,
 } from "@/lib/tenantAccess";
+import {
+  createSignedAvatarUrl,
+  getUserProfileRow,
+} from "@/lib/userProfiles";
+import { getTenantBrandingFromConfig } from "@/lib/tenantBrandingServer";
 
 export const runtime = "nodejs";
 
@@ -20,6 +25,12 @@ export async function GET(req: Request) {
   const { context } = result;
 
   try {
+    const profile = await getUserProfileRow(context.authUser.id);
+    const avatarUrl = await createSignedAvatarUrl(profile?.avatar_path);
+    const branding = await getTenantBrandingFromConfig(
+      context.org.onboarding_config,
+      context.org.name,
+    );
     const enabledFeatureKeys = await getEnabledFeatureKeysForRole(
       context.role,
       context.institutionType,
@@ -33,10 +44,12 @@ export async function GET(req: Request) {
         slug: context.org.slug,
         institutionType: context.institutionType,
       },
+      branding,
       user: {
         id: context.authUser.id,
-        fullName: context.orgUser.full_name,
+        fullName: profile?.display_name || context.orgUser.full_name,
         email: context.orgUser.email,
+        avatarUrl,
       },
       role: {
         id: context.role.id,

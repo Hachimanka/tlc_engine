@@ -11,26 +11,77 @@ import OrganizationTable from "@/components/superadmin/organization";
 import Sidebar from "@/components/superadmin/sidebar";
 import SuperAdminSettings from "@/components/superadmin/settings";
 import SubscriptionCards from "@/components/superadmin/subscription";
+import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function SuperAdminPage() {
   const [activeKey, setActiveKey] = useState("dashboard");
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [profile, setProfile] = useState({
+    displayName: "Super Admin",
+    email: "",
+    avatarUrl: "",
+  });
   const router = useRouter();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
-      const role = (user?.user_metadata as { role?: string } | undefined)?.role;
+      try {
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError && isRecoverableSupabaseSessionError(userError)) {
+          await supabase.auth.signOut({ scope: "local" });
+          router.replace("/superadmin/login");
+          return;
+        }
 
-      if (!user || role !== "superadmin") {
-        await supabase.auth.signOut();
+        if (userError) {
+          throw userError;
+        }
+
+        const user = data?.user;
+        const role = (user?.user_metadata as { role?: string } | undefined)?.role;
+
+        if (!user || role !== "superadmin") {
+          await supabase.auth.signOut();
+          router.replace("/superadmin/login");
+          return;
+        }
+
+        const metadata = user.user_metadata as { full_name?: string; name?: string };
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        let profilePayload: {
+          displayName?: string;
+          email?: string;
+          avatarUrl?: string;
+        } = {};
+
+        if (token) {
+          const response = await fetch("/api/profile", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            profilePayload = await response.json().catch(() => ({}));
+          }
+        }
+
+        setProfile({
+          displayName:
+            profilePayload.displayName ||
+            metadata.full_name ||
+            metadata.name ||
+            user.email ||
+            "Super Admin",
+          email: profilePayload.email || user.email || "",
+          avatarUrl: profilePayload.avatarUrl || "",
+        });
+        setCheckingAuth(false);
+      } catch {
         router.replace("/superadmin/login");
-        return;
       }
-
-      setCheckingAuth(false);
     };
 
     checkAuth();
@@ -57,6 +108,12 @@ export default function SuperAdminPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <Navbar
+        profile={{
+          displayName: profile.displayName,
+          email: profile.email,
+          roleName: "Super Admin",
+          avatarUrl: profile.avatarUrl,
+        }}
         onLogout={() => {
           supabase.auth.signOut();
           router.replace("/superadmin/login");

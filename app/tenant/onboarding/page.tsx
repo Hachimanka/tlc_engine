@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -319,17 +320,32 @@ export default function TenantOnboardingPage() {
 
 	useEffect(() => {
 		const checkAuth = async () => {
-			const { data } = await supabase.auth.getUser();
-			if (!data?.user) { router.replace("/login"); return; }
-			const meta = data.user.user_metadata as { first_login?: boolean; org_name?: string; full_name?: string };
-			setProfile(prev => ({
-				...prev,
-				institutionName: meta?.org_name || "",
-				adminName: meta?.full_name || "",
-				contactEmail: data.user.email || "",
-			}));
-			setPasswordUpdated(meta?.first_login !== true);
-			setLoading(false);
+			try {
+				const { data, error: userError } = await supabase.auth.getUser();
+				if (userError && isRecoverableSupabaseSessionError(userError)) {
+					await supabase.auth.signOut({ scope: "local" });
+					router.replace("/login");
+					return;
+				}
+
+				if (userError) {
+					throw userError;
+				}
+
+				if (!data?.user) { router.replace("/login"); return; }
+				const meta = data.user.user_metadata as { first_login?: boolean; org_name?: string; full_name?: string };
+				setProfile(prev => ({
+					...prev,
+					institutionName: meta?.org_name || "",
+					adminName: meta?.full_name || "",
+					contactEmail: data.user.email || "",
+				}));
+				setPasswordUpdated(meta?.first_login !== true);
+				setLoading(false);
+			} catch {
+				setError("Unable to reach Supabase Auth. Please check your connection and try again.");
+				setLoading(false);
+			}
 		};
 		checkAuth();
 	}, [router]);
@@ -374,7 +390,15 @@ export default function TenantOnboardingPage() {
 		if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
 		if (newPassword !== confirmPassword) { setPasswordError("Passwords do not match."); return; }
 		setPasswordSaving(true);
-		const { error: e } = await supabase.auth.updateUser({ password: newPassword, data: { first_login: false } });
+		let updateResult;
+		try {
+			updateResult = await supabase.auth.updateUser({ password: newPassword, data: { first_login: false } });
+		} catch {
+			setPasswordSaving(false);
+			setPasswordError("Unable to reach Supabase Auth. Please check your connection and try again.");
+			return;
+		}
+		const { error: e } = updateResult;
 		setPasswordSaving(false);
 		if (e) { setPasswordError(e.message); return; }
 		setPasswordUpdated(true);
@@ -392,7 +416,15 @@ export default function TenantOnboardingPage() {
 	const handleFinish = async () => {
 		if (!canProceed()) { setStepError("Please complete the required fields to finish."); return; }
 		setSaving(true); setError("");
-		const { data: sessionData } = await supabase.auth.getSession();
+		let sessionData;
+		try {
+			const result = await supabase.auth.getSession();
+			sessionData = result.data;
+		} catch {
+			setSaving(false);
+			setError("Unable to reach Supabase Auth. Please check your connection and try again.");
+			return;
+		}
 		const token = sessionData?.session?.access_token;
 
 		if (!token) {
@@ -401,30 +433,37 @@ export default function TenantOnboardingPage() {
 			return;
 		}
 
-		const response = await fetch("/api/tenant/onboarding", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${token}`,
-			},
-			body: JSON.stringify({
-				institutionType,
-				profile,
-				departments,
-				programs,
-				gradeLevels,
-				qualifications,
-				courses,
-				instructors,
-				academic: academicForm,
-				grading: {
-					components: gradeComponents,
-					passing: passingGrade,
-					scale: gradingScale,
-					assessmentType,
+		let response;
+		try {
+			response = await fetch("/api/tenant/onboarding", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
 				},
-			}),
-		});
+				body: JSON.stringify({
+					institutionType,
+					profile,
+					departments,
+					programs,
+					gradeLevels,
+					qualifications,
+					courses,
+					instructors,
+					academic: academicForm,
+					grading: {
+						components: gradeComponents,
+						passing: passingGrade,
+						scale: gradingScale,
+						assessmentType,
+					},
+				}),
+			});
+		} catch {
+			setSaving(false);
+			setError("Unable to submit onboarding. Please check your connection and try again.");
+			return;
+		}
 
 		setSaving(false);
 		const payload = await response.json().catch(() => ({}));

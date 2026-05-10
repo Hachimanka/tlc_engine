@@ -34,8 +34,14 @@ const days = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function HeaderPlaceholder() {
   return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-full border-2  text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
-      Logo
+    <div
+      className="flex h-16 w-16 items-center justify-center rounded-full border-2 bg-contain bg-center bg-no-repeat text-[10px] font-semibold uppercase tracking-[0.18em] text-transparent"
+      style={{
+        backgroundImage: "var(--tenant-logo-url)",
+        borderColor: "var(--color-primary)",
+      }}
+    >
+      <span className="sr-only">Logo</span>
     </div>
   );
 }

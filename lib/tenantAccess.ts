@@ -3,12 +3,18 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  getDefaultFeatureKeysForRole,
   getFeatureKeysForInstitution,
   normalizeInstitutionType,
   type FeatureKey,
   type InstitutionType,
 } from "@/features/tenant-feature-catalog";
+import {
+  getDefaultFeatureKeysForRole,
+  getLegacySystemRoleTargetKey,
+  getSystemRoleDefinitionsForInstitution,
+  normalizeRoleKey,
+  type SystemRoleDefinition,
+} from "@/features/tenant-role-catalog";
 
 type TenantRole = {
   id: string;
@@ -224,7 +230,7 @@ export async function replaceRoleFeaturePermissions(
 
   const { error: insertError } = await supabaseAdmin
     .from("role_feature_permissions")
-    .insert(
+    .upsert(
       uniqueFeatureKeys.map((featureKey) => ({
         role_id: roleId,
         feature_key: featureKey,
@@ -232,10 +238,329 @@ export async function replaceRoleFeaturePermissions(
         created_at: now,
         updated_at: now,
       })),
+      { onConflict: "role_id,feature_key" },
     );
 
   if (insertError) {
     throw new Error(insertError.message || "Failed to save feature permissions.");
+  }
+}
+
+const loadRolesForOrg = async (orgId: string): Promise<TenantRole[]> => {
+  const { data, error } = await supabaseAdmin
+    .from("roles")
+    .select("id, key, name, description, is_system")
+    .eq("org_id", orgId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to load organization roles.");
+  }
+
+  return (data ?? []) as TenantRole[];
+};
+
+const getRoleUserCount = async (roleId: string) => {
+  const { count, error } = await supabaseAdmin
+    .from("org_users")
+    .select("id", { count: "exact", head: true })
+    .eq("role_id", roleId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to count role users.");
+  }
+
+  return count ?? 0;
+};
+
+const buildUniqueRoleKey = async (
+  orgId: string,
+  baseKey: string,
+  excludeRoleId?: string,
+) => {
+  let nextKey = normalizeRoleKey(baseKey);
+  let suffix = 2;
+
+  while (true) {
+    let query = supabaseAdmin
+      .from("roles")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("key", nextKey);
+
+    if (excludeRoleId) {
+      query = query.neq("id", excludeRoleId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || "Failed to check role key uniqueness.");
+    }
+
+    if (!data?.id) {
+      return nextKey;
+    }
+
+    nextKey = `${normalizeRoleKey(baseKey)}_${suffix}`;
+    suffix += 1;
+  }
+};
+
+const isDuplicateRoleKeyError = (error: { code?: string; message?: string }) =>
+  error.code === "23505" ||
+  error.message?.toLowerCase().includes("duplicate") ||
+  error.message?.toLowerCase().includes("unique");
+
+const legacyDescriptionFor = (role: TenantRole) => {
+  const legacyNote =
+    "Legacy system role preserved during institution-specific role setup.";
+
+  if (role.description?.includes(legacyNote)) {
+    return role.description;
+  }
+
+  return [role.description, legacyNote].filter(Boolean).join(" ");
+};
+
+async function renameCustomRoleConflict(
+  orgId: string,
+  role: TenantRole,
+  now: string,
+) {
+  if (role.key === "org_admin" || role.is_system) {
+    return false;
+  }
+
+  const nextKey = await buildUniqueRoleKey(
+    orgId,
+    `${normalizeRoleKey(role.key)}_custom`,
+    role.id,
+  );
+
+  const { error } = await supabaseAdmin
+    .from("roles")
+    .update({
+      key: nextKey,
+      description:
+        role.description ||
+        "Custom role preserved before institution-specific system roles were applied.",
+      updated_at: now,
+    })
+    .eq("id", role.id)
+    .eq("org_id", orgId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to preserve custom role.");
+  }
+
+  return true;
+}
+
+async function ensureSystemRole(
+  orgId: string,
+  definition: SystemRoleDefinition,
+  now: string,
+) {
+  let changed = false;
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("roles")
+    .select("id, key, name, description, is_system")
+    .eq("org_id", orgId)
+    .eq("key", definition.key)
+    .maybeSingle<TenantRole>();
+
+  if (existingError) {
+    throw new Error(existingError.message || "Failed to check system role.");
+  }
+
+  if (existing?.id && !existing.is_system && existing.key !== "org_admin") {
+    changed = (await renameCustomRoleConflict(orgId, existing, now)) || changed;
+  }
+
+  const { data: current, error: currentError } = await supabaseAdmin
+    .from("roles")
+    .select("id, key, name, description, is_system")
+    .eq("org_id", orgId)
+    .eq("key", definition.key)
+    .maybeSingle<TenantRole>();
+
+  if (currentError) {
+    throw new Error(currentError.message || "Failed to reload system role.");
+  }
+
+  if (current?.id) {
+    if (
+      current.name === definition.name &&
+      current.description === definition.description &&
+      current.is_system === true
+    ) {
+      return changed;
+    }
+
+    const { error } = await supabaseAdmin
+      .from("roles")
+      .update({
+        name: definition.name,
+        description: definition.description,
+        is_system: true,
+        updated_at: now,
+      })
+      .eq("id", current.id)
+      .eq("org_id", orgId);
+
+    if (error) {
+      throw new Error(error.message || "Failed to update system role.");
+    }
+
+    return true;
+  }
+
+  const { error: insertError } = await supabaseAdmin.from("roles").insert([
+    {
+      org_id: orgId,
+      key: definition.key,
+      name: definition.name,
+      description: definition.description,
+      is_system: true,
+      created_at: now,
+      updated_at: now,
+    },
+  ]);
+
+  if (insertError && !isDuplicateRoleKeyError(insertError)) {
+    throw new Error(insertError.message || "Failed to create system role.");
+  }
+
+  return !insertError;
+}
+
+async function moveUsersToRole(
+  orgId: string,
+  sourceRoleId: string,
+  targetRoleId: string,
+  now: string,
+) {
+  const { error } = await supabaseAdmin
+    .from("org_users")
+    .update({
+      role_id: targetRoleId,
+      updated_at: now,
+    })
+    .eq("org_id", orgId)
+    .eq("role_id", sourceRoleId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to move users to system role.");
+  }
+}
+
+async function deleteRoleIfUnused(orgId: string, roleId: string) {
+  const userCount = await getRoleUserCount(roleId);
+
+  if (userCount > 0) {
+    return false;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("roles")
+    .delete()
+    .eq("id", roleId)
+    .eq("org_id", orgId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to remove unused legacy role.");
+  }
+
+  return true;
+}
+
+export async function reconcileInstitutionSystemRoles(
+  orgId: string,
+  institutionType: InstitutionType,
+  options: { forceSeedPermissions?: boolean } = {},
+) {
+  const systemRoles = getSystemRoleDefinitionsForInstitution(institutionType);
+  const now = new Date().toISOString();
+  let changed = false;
+
+  for (const roleDefinition of systemRoles) {
+    changed = (await ensureSystemRole(orgId, roleDefinition, now)) || changed;
+  }
+
+  let roles = await loadRolesForOrg(orgId);
+  let rolesByKey = new Map(roles.map((role) => [normalizeRoleKey(role.key), role]));
+  const systemRoleKeys = new Set(systemRoles.map((role) => role.key));
+
+  for (const role of roles) {
+    const normalizedKey = normalizeRoleKey(role.key);
+
+    if (!role.is_system || systemRoleKeys.has(normalizedKey)) {
+      continue;
+    }
+
+    const targetKey = getLegacySystemRoleTargetKey(normalizedKey, institutionType);
+    const targetRole = targetKey ? rolesByKey.get(targetKey) : null;
+
+    if (!targetRole?.id) {
+      continue;
+    }
+
+    await moveUsersToRole(orgId, role.id, targetRole.id, now);
+    changed = true;
+    changed = (await deleteRoleIfUnused(orgId, role.id)) || changed;
+  }
+
+  roles = await loadRolesForOrg(orgId);
+
+  for (const role of roles) {
+    const normalizedKey = normalizeRoleKey(role.key);
+
+    if (!role.is_system || systemRoleKeys.has(normalizedKey)) {
+      continue;
+    }
+
+    const userCount = await getRoleUserCount(role.id);
+
+    if (userCount > 0) {
+      const { error } = await supabaseAdmin
+        .from("roles")
+        .update({
+          is_system: false,
+          description: legacyDescriptionFor(role),
+          updated_at: now,
+        })
+        .eq("id", role.id)
+        .eq("org_id", orgId);
+
+      if (error) {
+        throw new Error(error.message || "Failed to preserve legacy role.");
+      }
+
+      changed = true;
+      continue;
+    }
+
+    changed = (await deleteRoleIfUnused(orgId, role.id)) || changed;
+  }
+
+  if (!changed && !options.forceSeedPermissions) {
+    return;
+  }
+
+  roles = await loadRolesForOrg(orgId);
+  rolesByKey = new Map(roles.map((role) => [normalizeRoleKey(role.key), role]));
+
+  for (const roleDefinition of systemRoles) {
+    const role = rolesByKey.get(roleDefinition.key);
+
+    if (!role?.id || !role.is_system) {
+      continue;
+    }
+
+    await replaceRoleFeaturePermissions(
+      role.id,
+      getDefaultFeatureKeysForRole(role.key, institutionType),
+    );
   }
 }
 
@@ -245,7 +570,7 @@ export async function seedDefaultRoleFeaturePermissions(
 ) {
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
-    .select("id, key")
+    .select("id, key, is_system")
     .eq("org_id", orgId);
 
   if (rolesError) {
@@ -253,6 +578,10 @@ export async function seedDefaultRoleFeaturePermissions(
   }
 
   for (const role of roles ?? []) {
+    if (!role.is_system) {
+      continue;
+    }
+
     const featureKeys =
       role.key === "org_admin"
         ? getFeatureKeysForInstitution(institutionType)

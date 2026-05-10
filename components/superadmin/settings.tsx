@@ -1,8 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, type ChangeEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Section = "profile" | "security" | "notifications" | "system" | "danger";
+
+type ProfileResponse = {
+	displayName?: string;
+	email?: string;
+	avatarUrl?: string;
+};
 
 const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white";
 
@@ -127,9 +133,13 @@ export default function SuperAdminSettings() {
 	const [activeSection, setActiveSection] = useState<Section>("profile");
 
 	// Profile
-	const [name, setName] = useState("Leonard Forrosuelo");
-	const [email, setEmail] = useState("admin@platform.edu");
+	const [name, setName] = useState("Super Admin");
+	const [email, setEmail] = useState("");
 	const [phone, setPhone] = useState("");
+	const [avatarUrl, setAvatarUrl] = useState("");
+	const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+	const [avatarFile, setAvatarFile] = useState<File | null>(null);
+	const [profileError, setProfileError] = useState("");
 	const [profileSaving, setProfileSaving] = useState(false);
 	const [profileSuccess, setProfileSuccess] = useState(false);
 
@@ -175,15 +185,142 @@ export default function SuperAdminSettings() {
 		{ key: "danger", label: "Danger Zone", icon: Icons.danger },
 	];
 
+	useEffect(() => {
+		const loadProfile = async () => {
+			setProfileError("");
+
+			try {
+				const { data: sessionData } = await supabase.auth.getSession();
+				const token = sessionData?.session?.access_token;
+
+				if (!token) {
+					setProfileError("Your session expired. Please log in again.");
+					return;
+				}
+
+				const response = await fetch("/api/profile", {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				const payload: ProfileResponse & { error?: string } = await response
+					.json()
+					.catch(() => ({}));
+
+				if (!response.ok) {
+					setProfileError(payload?.error || "Unable to load profile.");
+					return;
+				}
+
+				setName(payload.displayName || "Super Admin");
+				setEmail(payload.email || "");
+				setAvatarUrl(payload.avatarUrl || "");
+			} catch {
+				setProfileError("Unable to load profile. Please check your connection.");
+			}
+		};
+
+		loadProfile();
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (avatarPreviewUrl) {
+				URL.revokeObjectURL(avatarPreviewUrl);
+			}
+		};
+	}, [avatarPreviewUrl]);
+
 	// ── Handlers ───────────────────────────────────────────────────────────────
+	const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+
+		if (!file) {
+			return;
+		}
+
+		if (!file.type.startsWith("image/")) {
+			setProfileError("Please choose an image file.");
+			return;
+		}
+
+		if (file.size > 750_000) {
+			setProfileError("Please choose an image below 750 KB.");
+			return;
+		}
+
+		setAvatarFile(file);
+		setAvatarPreviewUrl(URL.createObjectURL(file));
+		setProfileError("");
+		setProfileSuccess(false);
+	};
+
 	const handleProfileSave = async () => {
+		const nextName = name.trim();
+
+		if (!nextName) {
+			setProfileError("Full name is required.");
+			return;
+		}
+
 		setProfileSaving(true);
 		setProfileSuccess(false);
-		// Simulate or connect to supabase auth update
-		await new Promise(r => setTimeout(r, 800));
-		setProfileSaving(false);
-		setProfileSuccess(true);
-		setTimeout(() => setProfileSuccess(false), 3000);
+		setProfileError("");
+
+		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData?.session?.access_token;
+
+			if (!token) {
+				setProfileError("Your session expired. Please log in again.");
+				return;
+			}
+
+			const formData = new FormData();
+			formData.set("displayName", nextName);
+
+			if (avatarFile) {
+				formData.set("avatar", avatarFile);
+			}
+
+			const response = await fetch("/api/profile", {
+				method: "PATCH",
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+				body: formData,
+			});
+			const payload: ProfileResponse & { error?: string } = await response
+				.json()
+				.catch(() => ({}));
+
+			if (!response.ok) {
+				setProfileError(payload?.error || "Failed to update profile.");
+				return;
+			}
+
+			const savedName = payload.displayName || nextName;
+			const savedAvatarUrl = payload.avatarUrl || "";
+			setName(savedName);
+			setEmail(payload.email || email);
+			setAvatarUrl(savedAvatarUrl);
+			setAvatarFile(null);
+			setAvatarPreviewUrl("");
+			window.dispatchEvent(
+				new CustomEvent("tlc-profile-updated", {
+					detail: {
+						displayName: savedName,
+						avatarUrl: savedAvatarUrl,
+					},
+				}),
+			);
+			setProfileSuccess(true);
+			setTimeout(() => setProfileSuccess(false), 3000);
+		} catch {
+			setProfileError("Unable to save profile. Please check your connection and try again.");
+		} finally {
+			setProfileSaving(false);
+		}
 	};
 
 	const handlePasswordUpdate = async () => {
@@ -211,6 +348,15 @@ export default function SuperAdminSettings() {
 		setSystemSuccess(true);
 		setTimeout(() => setSystemSuccess(false), 3000);
 	};
+
+	const displayAvatarUrl = avatarPreviewUrl || avatarUrl;
+	const profileInitials =
+		name
+			.split(" ")
+			.map(n => n[0])
+			.join("")
+			.slice(0, 2)
+			.toUpperCase() || "SA";
 
 	return (
 		<div className="w-full px-8 py-6">
@@ -251,16 +397,41 @@ export default function SuperAdminSettings() {
 						<SectionCard title="Profile Information" icon={Icons.profile}>
 							<div className="flex flex-col gap-4">
 								{/* Avatar */}
-								<div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-									<div className="w-16 h-16 rounded-full bg-teal-700 flex items-center justify-center text-white text-2xl font-bold shrink-0">
-										{name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+								<div className="flex flex-col gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-center">
+									<div
+										className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-teal-700 bg-cover bg-center text-2xl font-bold text-white"
+										style={{
+											backgroundImage: displayAvatarUrl ? `url("${displayAvatarUrl}")` : undefined,
+										}}
+									>
+										{!displayAvatarUrl ? profileInitials : null}
 									</div>
-									<div>
+									<div className="min-w-0 flex-1">
 										<p className="text-sm font-semibold text-gray-800">{name}</p>
 										<p className="text-xs text-gray-400">{email}</p>
 										<span className="inline-block mt-1 text-[11px] bg-teal-100 text-teal-700 font-bold px-2 py-0.5 rounded-full">Super Admin</span>
 									</div>
+									<label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-teal-800">
+										Choose Photo
+										<input
+											type="file"
+											accept="image/jpeg,image/png,image/webp,image/gif"
+											onChange={handleAvatarChange}
+											className="sr-only"
+										/>
+									</label>
 								</div>
+
+								{profileError ? (
+									<p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+										{profileError}
+									</p>
+								) : null}
+								{profileSuccess ? (
+									<p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+										Profile updated successfully.
+									</p>
+								) : null}
 
 								<div className="grid grid-cols-2 gap-4">
 									<Field label="Full Name">
@@ -271,7 +442,7 @@ export default function SuperAdminSettings() {
 									</Field>
 								</div>
 								<Field label="Email Address" hint="Used for login and system notifications">
-									<input className={INPUT_CLASS} type="email" value={email} onChange={e => setEmail(e.target.value)} />
+									<input className={INPUT_CLASS + " bg-gray-50 text-gray-500"} type="email" value={email} readOnly />
 								</Field>
 
 								<div className="flex justify-end pt-2">

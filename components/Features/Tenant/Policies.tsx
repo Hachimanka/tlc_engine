@@ -1,1322 +1,1381 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  type ChangeEvent,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { AppIcon } from "@/public/icons";
+  AlertTriangle,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  GraduationCap,
+  Loader2,
+  RefreshCw,
+  Save,
+  SlidersHorizontal,
+} from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
-type TabKey =
-  | "calendar-structure"
-  | "teaching-load-policy"
-  | "workload-time-policy"
-  | "subject-curriculum-policy";
+type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
+type TabKey = "calendar" | "teachingLoad" | "workload" | "curriculum" | "grading";
 
-type Term = {
-  id: number;
+type CalendarTerm = {
+  id: string;
   name: string;
   startDate: string;
   endDate: string;
-  isPlaceholder?: boolean;
 };
 
-type CalendarType = "Quarterly" | "Semester" | "Trimester";
-
-type SubjectRow = {
-  id: number;
-  subjectName: string;
-  hoursPerWeek: string;
-  gradeLevel: string;
-};
-
-type PolicyCard = {
-  title: string;
-  description: string;
-  value: string;
-};
-
-type WorkloadFieldConfig = {
+type GradingComponent = {
   id: string;
-  sectionTitle: string;
-  label: string;
-  unit: string;
-  helperText?: string;
-  defaultValue: string;
+  name: string;
+  weight: string;
 };
 
-const workloadFieldRows: WorkloadFieldConfig[][] = [
-  [
-    {
-      id: "fullTimeHours",
-      sectionTitle: "Working Hours",
-      label: "Full-Time Hours per Week",
-      unit: "hours/week",
-      defaultValue: "0",
-    },
-    {
-      id: "partTimeHours",
-      sectionTitle: "",
-      label: "Part-Time Hours per Week",
-      unit: "hours/week",
-      defaultValue: "0",
-    },
-  ],
-  [
-    {
-      id: "teachingTime",
-      sectionTitle: "Time Allocation Breakdown",
-      label: "Teaching Time",
-      unit: "hours/day",
-      helperText: "Default DepEd standard: 6 hours",
-      defaultValue: "0",
-    },
-    {
-      id: "nonTeachingTime",
-      sectionTitle: "",
-      label: "Non-Teaching Time",
-      unit: "hours/week",
-      helperText: "Default DepEd standard: 2 hours",
-      defaultValue: "0",
-    },
-  ],
-  [
-    {
-      id: "minutesPerSubject",
-      sectionTitle: "Subject Time Allocation",
-      label: "Minutes per Subject",
-      unit: "minutes",
-      helperText: "Default DepEd standard: 45 minutes per subject",
-      defaultValue: "0",
-    },
-  ],
+type CurriculumItem = {
+  id: string;
+  label: string;
+  category: string;
+  detail: string;
+  hoursPerWeek: string;
+};
+
+type PolicyState = {
+  calendar: {
+    label: string;
+    type: string;
+    gradeDeadline: string;
+    terms: CalendarTerm[];
+  };
+  teachingLoad: {
+    computationType: string;
+    maximum: string;
+    minimum: string;
+    unit: string;
+    allowOverload: boolean;
+    overload: string;
+  };
+  workload: {
+    fullTimeHours: string;
+    partTimeHours: string;
+    teachingTime: string;
+    nonTeachingTime: string;
+    minutesPerSubject: string;
+    workStart: string;
+    workEnd: string;
+  };
+  curriculum: {
+    mappingMode: string;
+    prerequisiteMode: string;
+    notes: string;
+    items: CurriculumItem[];
+  };
+  grading: {
+    passing: string;
+    scale: string;
+    assessmentType: string;
+    components: GradingComponent[];
+  };
+};
+
+type PolicyPayload = {
+  institutionType?: InstitutionType;
+  onboardingConfig?: unknown;
+  policies?: unknown;
+  error?: string;
+};
+
+const tabConfig: {
+  key: TabKey;
+  label: string;
+  description: string;
+  icon: typeof CalendarDays;
+}[] = [
+  {
+    key: "calendar",
+    label: "Calendar",
+    description: "Terms, dates, and submission windows",
+    icon: CalendarDays,
+  },
+  {
+    key: "teachingLoad",
+    label: "Teaching Load",
+    description: "Maximum load and overload rules",
+    icon: SlidersHorizontal,
+  },
+  {
+    key: "workload",
+    label: "Workload",
+    description: "Working hours and class time",
+    icon: Clock,
+  },
+  {
+    key: "curriculum",
+    label: "Curriculum",
+    description: "Setup-linked curriculum policy",
+    icon: BookOpen,
+  },
+  {
+    key: "grading",
+    label: "Grading",
+    description: "Assessment rules and components",
+    icon: ClipboardList,
+  },
 ];
 
-const calendarTypeTermCounts: Record<CalendarType, number> = {
-  Quarterly: 4,
-  Semester: 2,
-  Trimester: 3,
+const institutionLabels: Record<Exclude<InstitutionType, null>, string> = {
+  higher_ed: "Higher Education",
+  deped: "DepEd Basic Education",
+  tesda: "TESDA / TVET",
+  training: "Training Center",
 };
 
-const calendarTypeTermNames: Record<CalendarType, string[]> = {
-  Quarterly: ["First Quarter", "Second Quarter", "Third Quarter", "Fourth Quarter"],
-  Semester: ["First Semester", "Second Semester"],
-  Trimester: ["First Trimester", "Second Trimester", "Third Trimester"],
+const policyTitles: Record<Exclude<InstitutionType, null>, string> = {
+  higher_ed: "Academic Policies",
+  deped: "School Policies",
+  tesda: "Assessment Policies",
+  training: "Training Policies",
 };
 
-const getDefaultTermName = (type: CalendarType, position: number) => {
-  return calendarTypeTermNames[type][position - 1] ?? `Term ${position}`;
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
 };
 
-const createPlaceholderTerm = (type: CalendarType, position: number): Term => ({
-  id: -position,
-  name: getDefaultTermName(type, position),
-  startDate: "--/--/----",
-  endDate: "--/--/----",
-  isPlaceholder: true,
-});
+const asRecordArray = (value: unknown): Record<string, unknown>[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
-const syncTermsToCalendarType = (
-  type: CalendarType,
-  currentTerms: Term[],
-): Term[] => {
-  const maxTerms = calendarTypeTermCounts[type];
+  return value
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .map((item) => item as Record<string, unknown>);
+};
 
-  return Array.from({ length: maxTerms }, (_, index) => {
+const toText = (value: unknown, fallback = "") => {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return fallback;
+};
+
+const toBool = (value: unknown, fallback: boolean) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  return fallback;
+};
+
+const normalizeInstitutionType = (value: unknown): InstitutionType => {
+  if (value === "higher_ed" || value === "deped" || value === "tesda" || value === "training") {
+    return value;
+  }
+
+  return null;
+};
+
+const normalizeStructure = (value: unknown, institutionType: InstitutionType) => {
+  const structure = toText(value).toLowerCase();
+
+  if (structure === "trimestral") {
+    return { type: "Trimester", names: ["First Trimester", "Second Trimester", "Third Trimester"] };
+  }
+
+  if (structure === "quarterly" || institutionType === "deped") {
+    return {
+      type: "Quarterly",
+      names: ["First Quarter", "Second Quarter", "Third Quarter", "Fourth Quarter"],
+    };
+  }
+
+  return { type: "Semester", names: ["First Semester", "Second Semester"] };
+};
+
+const buildCalendarTerms = (
+  institutionType: InstitutionType,
+  academic: Record<string, unknown>,
+): CalendarTerm[] => {
+  if (institutionType === "tesda" || institutionType === "training") {
+    return [
+      {
+        id: "batch-1",
+        name: toText(academic.batchName, toText(academic.label, "Active Batch")),
+        startDate: toText(academic.batchStart),
+        endDate: toText(academic.batchEnd),
+      },
+    ];
+  }
+
+  const structure = normalizeStructure(academic.structure, institutionType);
+
+  return structure.names.map((name, index) => {
     const position = index + 1;
-    const currentTerm = currentTerms[index];
 
-    if (currentTerm && !currentTerm.isPlaceholder) {
-      return currentTerm;
-    }
-
-    return createPlaceholderTerm(type, position);
+    return {
+      id: `term-${position}`,
+      name,
+      startDate: toText(academic[`period${position}Start`]),
+      endDate: toText(academic[`period${position}End`]),
+    };
   });
 };
 
-const WorkloadInputField = ({
-  field,
-  value,
-  onChange,
-}: {
-  field: WorkloadFieldConfig;
-  value: string;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-}) => {
-  const reactId = useId();
-  const inputId = `${field.id}-${reactId}`;
-  const helperId = field.helperText ? `${inputId}-helper` : undefined;
+const getTeachingDefaults = (institutionType: InstitutionType): PolicyState["teachingLoad"] => {
+  if (institutionType === "deped") {
+    return {
+      computationType: "Hours",
+      maximum: "6",
+      minimum: "4",
+      unit: "hours/day",
+      allowOverload: true,
+      overload: "1",
+    };
+  }
 
-  return (
-    <div className="flex w-full min-w-[280px] flex-1 flex-col items-start gap-3 xl:max-w-[520px]">
-      <div className="min-h-[24px] text-heading-h4 text-[var(--color-high-emphasis)]">
-        {field.sectionTitle}
-      </div>
-      <label
-        htmlFor={inputId}
-        className="text-body-large text-[var(--color-high-emphasis)]"
-      >
-        {field.label}
-      </label>
-      <div className="flex w-full items-center gap-2.5">
-        <div className="flex h-[50px] min-w-0 flex-1 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1 xl:max-w-[400px]">
-          <input
-            id={inputId}
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={value}
-            onChange={onChange}
-            aria-describedby={helperId}
-            className="h-full w-full text-body-small text-[var(--color-high-emphasis)]"
-          />
-        </div>
-        <div className="whitespace-nowrap text-label-table-header text-[var(--color-low-emphasis)]">
-          {field.unit}
-        </div>
-      </div>
-      {field.helperText ? (
-        <p id={helperId} className="text-body-small text-[var(--color-high-emphasis)]">
-          {field.helperText}
-        </p>
-      ) : null}
-    </div>
-  );
+  if (institutionType === "tesda" || institutionType === "training") {
+    return {
+      computationType: "Hours",
+      maximum: "40",
+      minimum: "20",
+      unit: "hours/week",
+      allowOverload: false,
+      overload: "0",
+    };
+  }
+
+  return {
+    computationType: "Units",
+    maximum: "18",
+    minimum: "12",
+    unit: "units/week",
+    allowOverload: true,
+    overload: "3",
+  };
 };
 
-export default function Policies() {
-  const calendarTypeId = useId();
-  const computationTypeId = useId();
-  const maximumLoadId = useId();
-  const minimumLoadId = useId();
-  const overloadHoursId = useId();
+const getWorkloadDefaults = (institutionType: InstitutionType): PolicyState["workload"] => {
+  if (institutionType === "deped") {
+    return {
+      fullTimeHours: "40",
+      partTimeHours: "20",
+      teachingTime: "6",
+      nonTeachingTime: "2",
+      minutesPerSubject: "45",
+      workStart: "07:00",
+      workEnd: "17:00",
+    };
+  }
 
-  const tabs = useMemo(
-    () => [
-      { key: "calendar-structure" as TabKey, label: "Calendar Structure" },
-      { key: "teaching-load-policy" as TabKey, label: "Teaching Load Policy" },
-      {
-        key: "workload-time-policy" as TabKey,
-        label: "Workload & Time Policy",
-      },
-      {
-        key: "subject-curriculum-policy" as TabKey,
-        label: "Subject & Curriculum Policy",
-      },
-    ],
-    [],
-  );
-
-  const initialTerms = useMemo<Term[]>(
-    () => [
-      {
-        id: 1,
-        name: "First Quarter",
-        startDate: "6/1/2026",
-        endDate: "8/31/2026",
-      },
-      {
-        id: 2,
-        name: "Second Quarter",
-        startDate: "9/1/2026",
-        endDate: "11/30/2026",
-      },
-    ],
-    [],
-  );
-
-  const initialWorkloadValues = useMemo(
-    () =>
-      workloadFieldRows
-        .flat()
-        .reduce<Record<string, string>>((accumulator, field) => {
-          accumulator[field.id] = field.defaultValue;
-          return accumulator;
-        }, {}),
-    [],
-  );
-
-  const initialSubjectRows = useMemo<SubjectRow[]>(
-    () => [
-      {
-        id: 1,
-        subjectName: "Mathematics",
-        hoursPerWeek: "5",
-        gradeLevel: "Grade 7",
-      },
-      {
-        id: 2,
-        subjectName: "English",
-        hoursPerWeek: "5",
-        gradeLevel: "Grade 8",
-      },
-    ],
-    [],
-  );
-
-  const policyCards = useMemo<Record<TabKey, PolicyCard[]>>(
-    () => ({
-      "calendar-structure": [
-        {
-          title: "Calendar type",
-          description: "Define the academic rhythm that applies to the tenant.",
-          value: "Quarterly",
-        },
-        {
-          title: "Terms",
-          description: "Set term boundaries and keep the school year in sync.",
-          value: "2 terms active",
-        },
-        {
-          title: "Publishing",
-          description: "Apply approved dates to downstream workflow modules.",
-          value: "Draft",
-        },
-      ],
-      "teaching-load-policy": [
-        {
-          title: "Load limit",
-          description: "Cap the number of teaching units assigned to a faculty.",
-          value: "18 units",
-        },
-        {
-          title: "Overload rule",
-          description: "Allow controlled overloads with the proper approval flow.",
-          value: "Enabled",
-        },
-        {
-          title: "Distribution",
-          description: "Spread high-load subjects across the teaching team.",
-          value: "Balanced",
-        },
-      ],
-      "workload-time-policy": [
-        {
-          title: "Work window",
-          description: "Keep task assignments within the approved school hours.",
-          value: "7:00 AM - 6:00 PM",
-        },
-        {
-          title: "Rest interval",
-          description: "Preserve spacing between successive teaching blocks.",
-          value: "30 minutes",
-        },
-        {
-          title: "Weekly cap",
-          description: "Prevent schedules from exceeding the target workload.",
-          value: "40 hours",
-        },
-      ],
-      "subject-curriculum-policy": [
-        {
-          title: "Curriculum mapping",
-          description: "Match subject offerings against the approved curriculum.",
-          value: "Synced",
-        },
-        {
-          title: "Prerequisite checks",
-          description: "Block schedule changes that violate subject ordering.",
-          value: "Strict",
-        },
-        {
-          title: "Subject mix",
-          description: "Balance core and specialized subjects across sections.",
-          value: "Reviewed",
-        },
-      ],
-    }),
-    [],
-  );
-
-  const [activeTab, setActiveTab] = useState<TabKey>("calendar-structure");
-  const [calendarType, setCalendarType] = useState<CalendarType>("Quarterly");
-  const [computationType, setComputationType] = useState("Hourly");
-  const [maximumTeachingLoad, setMaximumTeachingLoad] = useState("12");
-  const [minimumTeachingLoad, setMinimumTeachingLoad] = useState("8");
-  const [allowOverload, setAllowOverload] = useState(true);
-  const [overloadHours, setOverloadHours] = useState("0");
-  const [workloadValues, setWorkloadValues] = useState<Record<string, string>>(
-    initialWorkloadValues,
-  );
-  const [terms, setTerms] = useState<Term[]>(initialTerms);
-  const [editingTermId, setEditingTermId] = useState<number | null>(null);
-  const [termActionMode, setTermActionMode] = useState<'menu' | 'edit' | 'delete'>('menu');
-  const [editingTermData, setEditingTermData] = useState<Partial<Term> | null>(null);
-  const [subjects, setSubjects] = useState<SubjectRow[]>(initialSubjectRows);
-  const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
-  const [subjectActionMode, setSubjectActionMode] = useState<'menu' | 'edit' | 'delete'>('menu');
-  const [editingSubjectData, setEditingSubjectData] = useState<Partial<SubjectRow> | null>(null);
-  const calendarTypeSelectRef = useRef<HTMLSelectElement | null>(null);
-  const computationTypeSelectRef = useRef<HTMLSelectElement | null>(null);
-  const activePanelId = `${activeTab}-panel`;
-  const activeTabId = `${activeTab}-tab`;
-
-  const getMaxTermsForCalendarType = (type: CalendarType): number => {
-    return calendarTypeTermCounts[type];
+  return {
+    fullTimeHours: "40",
+    partTimeHours: "20",
+    teachingTime: institutionType === "higher_ed" ? "18" : "30",
+    nonTeachingTime: institutionType === "higher_ed" ? "10" : "5",
+    minutesPerSubject: institutionType === "higher_ed" ? "60" : "50",
+    workStart: "08:00",
+    workEnd: "17:00",
   };
+};
+
+const buildCurriculumItems = (
+  institutionType: InstitutionType,
+  config: Record<string, unknown>,
+): CurriculumItem[] => {
+  if (institutionType === "deped") {
+    const gradeLevels = asRecord(config.gradeLevels);
+    const items: CurriculumItem[] = [];
+
+    [
+      ["kinder", "Kindergarten"],
+      ["elementary", "Elementary"],
+      ["jhs", "Junior High School"],
+      ["shs", "Senior High School"],
+    ].forEach(([key, label]) => {
+      if (gradeLevels[key] === true) {
+        items.push({
+          id: `grade-${key}`,
+          label,
+          category: "Grade level",
+          detail: key === "shs" ? "Senior High curriculum enabled" : "Enabled in setup",
+          hoursPerWeek: "",
+        });
+      }
+    });
+
+    if (gradeLevels.shs === true) {
+      const oldTracks = asRecord(gradeLevels.shsTracksOld);
+      const newTracks = asRecord(gradeLevels.shsTracksNew);
+
+      [
+        ["stem", "STEM"],
+        ["abm", "ABM"],
+        ["humss", "HUMSS"],
+        ["tvl", "TVL"],
+      ].forEach(([key, label]) => {
+        if (oldTracks[key] === true) {
+          items.push({
+            id: `shs-${key}`,
+            label,
+            category: "SHS track",
+            detail: "Old SHS track model",
+            hoursPerWeek: "",
+          });
+        }
+      });
+
+      [
+        ["academic", "Academic"],
+        ["techpro", "TechPro"],
+      ].forEach(([key, label]) => {
+        if (newTracks[key] === true) {
+          items.push({
+            id: `shs-${key}`,
+            label,
+            category: "SHS track",
+            detail: "New SHS track model",
+            hoursPerWeek: "",
+          });
+        }
+      });
+    }
+
+    return items;
+  }
+
+  if (institutionType === "higher_ed") {
+    const programs = asRecordArray(config.programs);
+    const departments = asRecordArray(config.departments);
+    const programItems = programs
+      .filter((program) => toText(program.name))
+      .map((program, index) => ({
+        id: `program-${toText(program.code, String(index + 1))}`,
+        label: toText(program.name),
+        category: "Program",
+        detail: [toText(program.code), toText(program.duration) ? `${toText(program.duration)} years` : ""]
+          .filter(Boolean)
+          .join(" - "),
+        hoursPerWeek: "",
+      }));
+
+    if (programItems.length > 0) {
+      return programItems;
+    }
+
+    return departments
+      .filter((department) => toText(department.name))
+      .map((department, index) => ({
+        id: `department-${toText(department.code, String(index + 1))}`,
+        label: toText(department.name),
+        category: "Department",
+        detail: toText(department.head, "Department setup"),
+        hoursPerWeek: "",
+      }));
+  }
+
+  if (institutionType === "tesda") {
+    return asRecordArray(config.qualifications)
+      .filter((qualification) => toText(qualification.name))
+      .map((qualification, index) => ({
+        id: `qualification-${index + 1}`,
+        label: toText(qualification.name),
+        category: toText(qualification.ncLevel, "Qualification"),
+        detail: [toText(qualification.duration), toText(qualification.sector)].filter(Boolean).join(" - "),
+        hoursPerWeek: "",
+      }));
+  }
+
+  if (institutionType === "training") {
+    return asRecordArray(config.courses)
+      .filter((course) => toText(course.name))
+      .map((course, index) => ({
+        id: `course-${index + 1}`,
+        label: toText(course.name),
+        category: toText(course.category, "Course"),
+        detail: toText(course.duration),
+        hoursPerWeek: "",
+      }));
+  }
+
+  return [];
+};
+
+const mergeCurriculumItems = (
+  setupItems: CurriculumItem[],
+  storedItems: Record<string, unknown>[],
+) => {
+  const storedById = new Map(storedItems.map((item) => [toText(item.id), item]));
+
+  return setupItems.map((item) => {
+    const storedItem = storedById.get(item.id);
+
+    return {
+      ...item,
+      hoursPerWeek: toText(storedItem?.hoursPerWeek, item.hoursPerWeek),
+    };
+  });
+};
+
+const defaultGradingComponents = (institutionType: InstitutionType, grading: Record<string, unknown>) => {
+  const configured = asRecordArray(grading.components)
+    .filter((component) => toText(component.name))
+    .map((component, index) => ({
+      id: `component-${index + 1}`,
+      name: toText(component.name),
+      weight: toText(component.weight, "0"),
+    }));
+
+  if (configured.length > 0) {
+    return configured;
+  }
+
+  if (institutionType === "deped") {
+    return [
+      { id: "written-works", name: "Written Works", weight: "25" },
+      { id: "performance-tasks", name: "Performance Tasks", weight: "50" },
+      { id: "quarterly-assessment", name: "Quarterly Assessment", weight: "25" },
+    ];
+  }
+
+  return [{ id: "final-grade", name: "Final Grade", weight: "100" }];
+};
+
+const buildPolicyState = (
+  institutionType: InstitutionType,
+  onboardingConfigValue: unknown,
+  storedPoliciesValue: unknown,
+): PolicyState => {
+  const config = asRecord(onboardingConfigValue);
+  const academic = asRecord(config.academic);
+  const grading = asRecord(config.grading);
+  const storedPolicies = asRecord(storedPoliciesValue);
+  const storedCalendar = asRecord(storedPolicies.calendar);
+  const storedTeachingLoad = asRecord(storedPolicies.teachingLoad);
+  const storedWorkload = asRecord(storedPolicies.workload);
+  const storedCurriculum = asRecord(storedPolicies.curriculum);
+  const storedGrading = asRecord(storedPolicies.grading);
+  const defaultCalendar = {
+    label: toText(academic.label),
+    type:
+      institutionType === "tesda" || institutionType === "training"
+        ? "Batch-based"
+        : normalizeStructure(academic.structure, institutionType).type,
+    gradeDeadline: toText(academic.gradeDeadline, "14"),
+    terms: buildCalendarTerms(institutionType, academic),
+  };
+  const defaultTeachingLoad = getTeachingDefaults(institutionType);
+  const defaultWorkload = getWorkloadDefaults(institutionType);
+  const setupCurriculumItems = buildCurriculumItems(institutionType, config);
+  const storedCurriculumItems = asRecordArray(storedCurriculum.items);
+  const defaultGrading = {
+    passing: toText(grading.passing, institutionType === "higher_ed" ? "75" : "75"),
+    scale: toText(grading.scale, institutionType === "higher_ed" ? "gwa" : "percentage"),
+    assessmentType: toText(
+      grading.assessmentType,
+      institutionType === "tesda" ? "competency" : "percentage",
+    ),
+    components: defaultGradingComponents(institutionType, grading),
+  };
+
+  return {
+    calendar: {
+      label: toText(storedCalendar.label, defaultCalendar.label),
+      type: toText(storedCalendar.type, defaultCalendar.type),
+      gradeDeadline: toText(storedCalendar.gradeDeadline, defaultCalendar.gradeDeadline),
+      terms:
+        asRecordArray(storedCalendar.terms).length > 0
+          ? asRecordArray(storedCalendar.terms).map((term, index) => ({
+              id: toText(term.id, `term-${index + 1}`),
+              name: toText(term.name),
+              startDate: toText(term.startDate),
+              endDate: toText(term.endDate),
+            }))
+          : defaultCalendar.terms,
+    },
+    teachingLoad: {
+      computationType: toText(storedTeachingLoad.computationType, defaultTeachingLoad.computationType),
+      maximum: toText(storedTeachingLoad.maximum, defaultTeachingLoad.maximum),
+      minimum: toText(storedTeachingLoad.minimum, defaultTeachingLoad.minimum),
+      unit: toText(storedTeachingLoad.unit, defaultTeachingLoad.unit),
+      allowOverload: toBool(storedTeachingLoad.allowOverload, defaultTeachingLoad.allowOverload),
+      overload: toText(storedTeachingLoad.overload, defaultTeachingLoad.overload),
+    },
+    workload: {
+      fullTimeHours: toText(storedWorkload.fullTimeHours, defaultWorkload.fullTimeHours),
+      partTimeHours: toText(storedWorkload.partTimeHours, defaultWorkload.partTimeHours),
+      teachingTime: toText(storedWorkload.teachingTime, defaultWorkload.teachingTime),
+      nonTeachingTime: toText(storedWorkload.nonTeachingTime, defaultWorkload.nonTeachingTime),
+      minutesPerSubject: toText(storedWorkload.minutesPerSubject, defaultWorkload.minutesPerSubject),
+      workStart: toText(storedWorkload.workStart, defaultWorkload.workStart),
+      workEnd: toText(storedWorkload.workEnd, defaultWorkload.workEnd),
+    },
+    curriculum: {
+      mappingMode: toText(storedCurriculum.mappingMode, "Synced with setup"),
+      prerequisiteMode: toText(
+        storedCurriculum.prerequisiteMode,
+        institutionType === "tesda" || institutionType === "training" ? "Advisory" : "Strict",
+      ),
+      notes: toText(storedCurriculum.notes),
+      items: mergeCurriculumItems(setupCurriculumItems, storedCurriculumItems),
+    },
+    grading: {
+      passing: toText(storedGrading.passing, defaultGrading.passing),
+      scale: toText(storedGrading.scale, defaultGrading.scale),
+      assessmentType: toText(storedGrading.assessmentType, defaultGrading.assessmentType),
+      components:
+        asRecordArray(storedGrading.components).length > 0
+          ? asRecordArray(storedGrading.components).map((component, index) => ({
+              id: toText(component.id, `component-${index + 1}`),
+              name: toText(component.name),
+              weight: toText(component.weight, "0"),
+            }))
+          : defaultGrading.components,
+    },
+  };
+};
+
+const countConfiguredValues = (config: Record<string, unknown>) => {
+  return [
+    asRecordArray(config.departments).length,
+    asRecordArray(config.programs).length,
+    asRecordArray(config.qualifications).length,
+    asRecordArray(config.courses).length,
+    asRecordArray(config.instructors).length,
+  ].reduce((total, value) => total + value, 0);
+};
+
+const InputField = ({
+  label,
+  value,
+  onChange,
+  type = "text",
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "number" | "date" | "time";
+  suffix?: string;
+}) => (
+  <label className="flex flex-col gap-1.5 text-sm font-medium text-[#344054]">
+    {label}
+    <div className="flex h-11 items-center rounded-lg border border-[#d0d5dd] bg-white px-3 transition focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[rgba(0,107,95,0.14)]">
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none"
+      />
+      {suffix ? <span className="ml-2 text-xs text-[var(--color-low-emphasis)]">{suffix}</span> : null}
+    </div>
+  </label>
+);
+
+const SelectField = ({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) => (
+  <label className="flex flex-col gap-1.5 text-sm font-medium text-[#344054]">
+    {label}
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-11 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+    >
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
+const Section = ({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) => (
+  <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+    <div className="mb-5">
+      <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">{title}</h2>
+      <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">{description}</p>
+    </div>
+    {children}
+  </section>
+);
+
+export default function Policies() {
+  const [activeTab, setActiveTab] = useState<TabKey>("calendar");
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
+  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
+  const [policies, setPolicies] = useState<PolicyState | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+
+  const hasSetup = Boolean(institutionType && Object.keys(onboardingConfig).length > 0);
+  const isDirty = Boolean(policies && JSON.stringify(policies) !== savedSnapshot);
+  const policyTitle = institutionType ? policyTitles[institutionType] : "Policies";
+  const institutionLabel = institutionType ? institutionLabels[institutionType] : "Institution not set";
+  const setupItemCount = useMemo(() => countConfiguredValues(onboardingConfig), [onboardingConfig]);
+
+  const loadPolicies = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError("");
+    setSaveMessage("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        setLoadError("Please sign in to manage policies.");
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/tenant/policies", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = (await response.json().catch(() => ({}))) as PolicyPayload;
+
+      if (!response.ok) {
+        setLoadError(payload.error || "Failed to load policies.");
+        setIsLoading(false);
+        return;
+      }
+
+      const nextInstitutionType = normalizeInstitutionType(payload.institutionType);
+      const nextConfig = asRecord(payload.onboardingConfig);
+      const nextPolicies = buildPolicyState(nextInstitutionType, nextConfig, payload.policies);
+
+      setInstitutionType(nextInstitutionType);
+      setOnboardingConfig(nextConfig);
+      setPolicies(nextPolicies);
+      setSavedSnapshot(JSON.stringify(nextPolicies));
+      setIsLoading(false);
+    } catch {
+      setLoadError("Unable to load policies. Please check your connection and try again.");
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTerms((currentTerms) => {
-      const nextTerms = syncTermsToCalendarType(calendarType, currentTerms);
-      const isSame =
-        currentTerms.length === nextTerms.length &&
-        currentTerms.every(
-          (term, index) =>
-            term.id === nextTerms[index]?.id &&
-            term.name === nextTerms[index]?.name &&
-            term.startDate === nextTerms[index]?.startDate &&
-            term.endDate === nextTerms[index]?.endDate &&
-            Boolean(term.isPlaceholder) === Boolean(nextTerms[index]?.isPlaceholder),
-        );
+    void loadPolicies();
+  }, [loadPolicies]);
 
-      return isSame ? currentTerms : nextTerms;
-    });
-
-    setEditingTermId(null);
-    setTermActionMode('menu');
-    setEditingTermData(null);
-  }, [calendarType]);
-
-  const handleReset = () => {
-    setActiveTab("calendar-structure");
-    setCalendarType("Quarterly");
-    setComputationType("Hourly");
-    setMaximumTeachingLoad("12");
-    setMinimumTeachingLoad("8");
-    setAllowOverload(true);
-    setOverloadHours("0");
-    setWorkloadValues(initialWorkloadValues);
-    setTerms(initialTerms);
+  const updateCalendar = (updates: Partial<PolicyState["calendar"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, calendar: { ...current.calendar, ...updates } } : current,
+    );
+    setSaveMessage("");
   };
 
-  const handleSaveChanges = () => {
-    console.log("Policy changes saved", {
-      activeTab,
-      calendarType,
-      computationType,
-      maximumTeachingLoad,
-      minimumTeachingLoad,
-      allowOverload,
-      overloadHours,
-      workloadValues,
-      terms,
-    });
+  const updateTeachingLoad = (updates: Partial<PolicyState["teachingLoad"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, teachingLoad: { ...current.teachingLoad, ...updates } } : current,
+    );
+    setSaveMessage("");
   };
 
-  const handleAddTerm = () => {
-    const placeholderIndex = terms.findIndex((term) => term.isPlaceholder);
-    if (placeholderIndex === -1) {
+  const updateWorkload = (updates: Partial<PolicyState["workload"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, workload: { ...current.workload, ...updates } } : current,
+    );
+    setSaveMessage("");
+  };
+
+  const updateCurriculum = (updates: Partial<PolicyState["curriculum"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, curriculum: { ...current.curriculum, ...updates } } : current,
+    );
+    setSaveMessage("");
+  };
+
+  const updateGrading = (updates: Partial<PolicyState["grading"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, grading: { ...current.grading, ...updates } } : current,
+    );
+    setSaveMessage("");
+  };
+
+  const handleSave = async () => {
+    if (!policies) {
       return;
     }
 
-    const nextPosition = placeholderIndex + 1;
-    setTerms((currentTerms) =>
-      currentTerms.map((term, index) =>
-        index === placeholderIndex
-          ? {
-              id: term.id,
-              name: getDefaultTermName(calendarType, nextPosition),
-              startDate: "--/--/----",
-              endDate: "--/--/----",
-              isPlaceholder: false,
-            }
-          : term,
-      ),
-    );
-  };
+    setIsSaving(true);
+    setLoadError("");
+    setSaveMessage("");
 
-  const handleTermAction = (termId: number, action: 'menu' | 'edit' | 'delete') => {
-    if (action === 'edit') {
-      const term = terms.find(t => t.id === termId);
-      if (term) {
-        setEditingTermData({ ...term });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        setLoadError("Session expired. Please sign in again.");
+        setIsSaving(false);
+        return;
       }
+
+      const response = await fetch("/api/tenant/policies", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ policies }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as PolicyPayload;
+
+      if (!response.ok) {
+        setLoadError(payload.error || "Failed to save policies.");
+        setIsSaving(false);
+        return;
+      }
+
+      const nextInstitutionType = normalizeInstitutionType(payload.institutionType);
+      const nextConfig = asRecord(payload.onboardingConfig);
+      const nextPolicies = buildPolicyState(nextInstitutionType, nextConfig, payload.policies);
+
+      setInstitutionType(nextInstitutionType);
+      setOnboardingConfig(nextConfig);
+      setPolicies(nextPolicies);
+      setSavedSnapshot(JSON.stringify(nextPolicies));
+      setSaveMessage("Policies saved.");
+      setIsSaving(false);
+    } catch {
+      setLoadError("Unable to save policies. Please check your connection and try again.");
+      setIsSaving(false);
     }
-    setEditingTermId(termId);
-    setTermActionMode(action);
   };
 
-  const handleEditTermField = (field: keyof Term, value: string) => {
-    setEditingTermData(prev => (prev ? { ...prev, [field]: value } : null));
-  };
-
-  const handleSaveTerm = () => {
-    if (editingTermId !== null && editingTermData) {
-      setTerms(terms.map(term =>
-        term.id === editingTermId ? { ...term, ...editingTermData } : term
-      ));
+  const updateTerm = (termId: string, updates: Partial<CalendarTerm>) => {
+    if (!policies) {
+      return;
     }
-    setEditingTermId(null);
-    setTermActionMode('menu');
-    setEditingTermData(null);
-  };
 
-  const handleDeleteTerm = (termId: number) => {
-    setTerms((currentTerms) =>
-      currentTerms.map((term, index) =>
-        term.id === termId
-          ? createPlaceholderTerm(calendarType, index + 1)
-          : term,
+    updateCalendar({
+      terms: policies.calendar.terms.map((term) =>
+        term.id === termId ? { ...term, ...updates } : term,
       ),
-    );
-    setEditingTermId(null);
-    setTermActionMode('menu');
-    setEditingTermData(null);
-  };
-
-  const handleCancelTermAction = () => {
-    setEditingTermId(null);
-    setTermActionMode('menu');
-    setEditingTermData(null);
-  };
-
-  const handleAddSubject = () => {
-    const nextId = Date.now();
-
-    setSubjects((currentSubjects) => [
-      ...currentSubjects,
-      {
-        id: nextId,
-        subjectName: "New Subject",
-        hoursPerWeek: "0",
-        gradeLevel: "",
-      },
-    ]);
-    setEditingSubjectId(nextId);
-    setSubjectActionMode('edit');
-    setEditingSubjectData({
-      id: nextId,
-      subjectName: "New Subject",
-      hoursPerWeek: "0",
-      gradeLevel: "",
     });
   };
 
-  const handleSubjectAction = (
-    subjectId: number,
-    action: 'menu' | 'edit' | 'delete',
+  const updateCurriculumItem = (itemId: string, hoursPerWeek: string) => {
+    if (!policies) {
+      return;
+    }
+
+    updateCurriculum({
+      items: policies.curriculum.items.map((item) =>
+        item.id === itemId ? { ...item, hoursPerWeek } : item,
+      ),
+    });
+  };
+
+  const updateGradingComponent = (
+    componentId: string,
+    updates: Partial<GradingComponent>,
   ) => {
-    if (action === 'edit') {
-      const subject = subjects.find((row) => row.id === subjectId);
-
-      if (subject) {
-        setEditingSubjectData({ ...subject });
-      }
+    if (!policies) {
+      return;
     }
 
-    setEditingSubjectId(subjectId);
-    setSubjectActionMode(action);
+    updateGrading({
+      components: policies.grading.components.map((component) =>
+        component.id === componentId ? { ...component, ...updates } : component,
+      ),
+    });
   };
 
-  const handleEditSubjectField = (field: keyof SubjectRow, value: string) => {
-    setEditingSubjectData((previous) => (previous ? { ...previous, [field]: value } : null));
-  };
-
-  const handleSaveSubject = () => {
-    if (editingSubjectId !== null && editingSubjectData) {
-      setSubjects((currentSubjects) =>
-        currentSubjects.map((subject) =>
-          subject.id === editingSubjectId
-            ? {
-                ...subject,
-                ...editingSubjectData,
-                subjectName: editingSubjectData.subjectName ?? subject.subjectName,
-                hoursPerWeek: editingSubjectData.hoursPerWeek ?? subject.hoursPerWeek,
-                gradeLevel: editingSubjectData.gradeLevel ?? subject.gradeLevel,
-              }
-            : subject,
-        ),
-      );
+  const addGradingComponent = () => {
+    if (!policies) {
+      return;
     }
 
-    setEditingSubjectId(null);
-    setSubjectActionMode('menu');
-    setEditingSubjectData(null);
+    updateGrading({
+      components: [
+        ...policies.grading.components,
+        {
+          id: `component-${Date.now()}`,
+          name: "New Component",
+          weight: "0",
+        },
+      ],
+    });
   };
 
-  const handleDeleteSubject = (subjectId: number) => {
-    setSubjects((currentSubjects) =>
-      currentSubjects.filter((subject) => subject.id !== subjectId),
+  const removeGradingComponent = (componentId: string) => {
+    if (!policies) {
+      return;
+    }
+
+    updateGrading({
+      components: policies.grading.components.filter((component) => component.id !== componentId),
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Loading policies...
+        </div>
+      </div>
     );
-    setEditingSubjectId(null);
-    setSubjectActionMode('menu');
-    setEditingSubjectData(null);
-  };
+  }
 
-  const handleCancelSubjectAction = () => {
-    setEditingSubjectId(null);
-    setSubjectActionMode('menu');
-    setEditingSubjectData(null);
-  };
+  if (loadError && !policies) {
+    return (
+      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="max-w-md text-center">
+          <AlertTriangle className="mx-auto h-8 w-8 text-red-500" aria-hidden="true" />
+          <h1 className="mt-3 text-lg font-bold text-[var(--color-high-emphasis)]">
+            Policies unavailable
+          </h1>
+          <p className="mt-2 text-sm text-red-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={loadPolicies}
+            className="mt-4 inline-flex h-10 items-center gap-2 rounded-md border border-[var(--color-default)] px-4 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleCalendarTypeArrowClick = () => {
-    const select = calendarTypeSelectRef.current;
+  if (!policies) {
+    return null;
+  }
 
-    if (!select) {
-      return;
-    }
-
-    if (typeof window !== "undefined" && "showPicker" in select) {
-      (select as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
-      return;
-    }
-
-    select.focus();
-    select.click();
-  };
-
-  const handleCalendarTypeChange = (
-    event: ChangeEvent<HTMLSelectElement>,
-  ) => {
-    setCalendarType(event.currentTarget.value as CalendarType);
-  };
-
-  const handleComputationTypeArrowClick = () => {
-    const select = computationTypeSelectRef.current;
-
-    if (!select) {
-      return;
-    }
-
-    if (typeof window !== "undefined" && "showPicker" in select) {
-      (select as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
-      return;
-    }
-
-    select.focus();
-    select.click();
-  };
-
-  const handleWorkloadValueChange =
-    (fieldId: string) => (event: ChangeEvent<HTMLInputElement>) => {
-      const nextValue = event.target.value;
-      setWorkloadValues((previous) => ({
-        ...previous,
-        [fieldId]: nextValue === "" ? "" : nextValue,
-      }));
-    };
+  const ActiveIcon = tabConfig.find((tab) => tab.key === activeTab)?.icon ?? ClipboardList;
 
   return (
-    <main className="min-h-full w-full bg-[var(--color-background)] px-0 py-0 text-[var(--color-high-emphasis)]">
-      <div className="relative mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-[1504px] flex-col gap-4 rounded-[24px] bg-[var(--color-background)] px-0 pb-0 pt-0 md:gap-6 md:px-0">
-        <header className="flex flex-col gap-4 px-2 md:flex-row md:items-start md:justify-between md:px-0">
-          <div className="px-4 pt-4 md:px-5 md:pt-5">
-            <h1 className="text-display-h1 text-[var(--color-high-emphasis)]">
-              Policy Management
-            </h1>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#ecf8f6] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
+            <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" />
+            {institutionLabel}
           </div>
+          <h1 className="mt-3 text-2xl font-bold text-black">{policyTitle}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-low-emphasis)]">
+            Rules are aligned with the institution setup saved during onboarding.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3 px-4 pt-4 md:px-0 md:pt-0">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex h-12 min-w-[128px] items-center justify-center gap-2 rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-5 text-label-button text-[var(--color-primary)] shadow-level-1 transition-transform duration-150 hover:-translate-y-0.5"
-              aria-label="Reset policy management form"
-            >
-              <AppIcon
-                name="rotate"
-                className="inline-block [&_svg]:h-4 [&_svg]:w-4"
-                title="Reset"
-              />
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveChanges}
-              className="inline-flex h-12 min-w-[142px] items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 text-label-button text-[var(--color-card)] shadow-level-1 transition-transform duration-150 hover:-translate-y-0.5"
-              aria-label="Save policy changes"
-            >
-              <AppIcon
-                name="checkMarked"
-                className="inline-block [&_svg]:h-4 [&_svg]:w-4"
-                title="Save Changes"
-              />
-              Save Changes
-            </button>
-          </div>
-        </header>
+        <div className="flex flex-wrap items-center gap-2">
+          {saveMessage ? (
+            <span className="inline-flex h-10 items-center gap-2 rounded-md border border-[#abefc6] bg-[#ecfdf3] px-3 text-xs font-semibold text-[#027a48]">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              {saveMessage}
+            </span>
+          ) : null}
+          {isDirty ? (
+            <span className="inline-flex h-10 items-center rounded-md border border-[#fedf89] bg-[#fffaeb] px-3 text-xs font-semibold text-[#b54708]">
+              Unsaved changes
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={loadPolicies}
+            disabled={isSaving}
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--color-default)] px-4 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!isDirty || isSaving}
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Save className="h-4 w-4" aria-hidden="true" />
+            )}
+            {isSaving ? "Saving..." : "Save Policies"}
+          </button>
+        </div>
+      </div>
 
-        <nav
-          className="mx-2 flex w-fit max-w-full flex-wrap items-center gap-1.5 overflow-hidden rounded-[16px] bg-[var(--color-background-dark)] p-1.5 md:mx-0"
-          role="tablist"
-          aria-label="Policy management sections"
-        >
-          {tabs.map((tab) => {
+      {!hasSetup ? (
+        <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm text-[#b54708]">
+          Institution setup is incomplete. Policies can still be reviewed, but calendar,
+          grading, and curriculum defaults will become more accurate after onboarding is
+          finished.
+        </div>
+      ) : null}
+
+      {loadError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+            Calendar
+          </p>
+          <p className="mt-2 text-lg font-bold text-[var(--color-high-emphasis)]">
+            {policies.calendar.type || "-"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+            Terms
+          </p>
+          <p className="mt-2 text-lg font-bold text-[var(--color-high-emphasis)]">
+            {policies.calendar.terms.length}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+            Curriculum Items
+          </p>
+          <p className="mt-2 text-lg font-bold text-[var(--color-high-emphasis)]">
+            {policies.curriculum.items.length}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+            Setup Records
+          </p>
+          <p className="mt-2 text-lg font-bold text-[var(--color-high-emphasis)]">
+            {setupItemCount}
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="flex min-w-max gap-1">
+          {tabConfig.map((tab) => {
             const isActive = activeTab === tab.key;
+            const Icon = tab.icon;
 
             return (
               <button
                 key={tab.key}
                 type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`${tab.key}-panel`}
-                id={`${tab.key}-tab`}
                 onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center justify-center rounded-[12px] px-3 py-2 text-label-button transition-colors duration-150 ${
+                className={
                   isActive
-                    ? "bg-[var(--color-card)] text-[var(--color-high-emphasis)] shadow-level-1"
-                    : "text-[var(--color-high-emphasis)]/85 hover:bg-[rgba(255,255,255,0.72)]"
-                }`}
+                    ? "inline-flex items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white"
+                    : "inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+                }
               >
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 {tab.label}
               </button>
             );
           })}
-        </nav>
+        </div>
+      </div>
 
-        <section
-          id={activePanelId}
-          role="tabpanel"
-          aria-labelledby={activeTabId}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[20px] bg-[var(--color-card)] shadow-level-2"
+      <div className="rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-4 py-3">
+        <div className="flex items-start gap-3">
+          <ActiveIcon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+          <div>
+            <h2 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+              {tabConfig.find((tab) => tab.key === activeTab)?.label}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
+              {tabConfig.find((tab) => tab.key === activeTab)?.description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {activeTab === "calendar" ? (
+        <Section
+          title="Calendar Structure"
+          description="Set the official calendar rhythm and policy dates derived from onboarding."
         >
-          <header className="flex items-center justify-between gap-4 border-b border-[var(--color-default)] px-5 py-4">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <InputField
+              label={institutionType === "tesda" || institutionType === "training" ? "Batch / term label" : "Academic year label"}
+              value={policies.calendar.label}
+              onChange={(value) => updateCalendar({ label: value })}
+            />
+            <SelectField
+              label="Calendar type"
+              value={policies.calendar.type}
+              options={
+                institutionType === "tesda" || institutionType === "training"
+                  ? ["Batch-based", "Monthly", "Quarterly"]
+                  : ["Semester", "Trimester", "Quarterly"]
+              }
+              onChange={(value) => updateCalendar({ type: value })}
+            />
+            <InputField
+              label="Grade submission deadline"
+              type="number"
+              suffix="days"
+              value={policies.calendar.gradeDeadline}
+              onChange={(value) => updateCalendar({ gradeDeadline: value })}
+            />
+          </div>
+
+          <div className="mt-5 overflow-x-auto rounded-lg border border-[#d0d5dd]">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-[var(--color-primary)] text-white">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Term / Batch</th>
+                  <th className="px-4 py-3 font-semibold">Start Date</th>
+                  <th className="px-4 py-3 font-semibold">End Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eaecf0] bg-white">
+                {policies.calendar.terms.map((term) => (
+                  <tr key={term.id}>
+                    <td className="px-4 py-3">
+                      <input
+                        value={term.name}
+                        onChange={(event) => updateTerm(term.id, { name: event.target.value })}
+                        className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="date"
+                        value={term.startDate}
+                        onChange={(event) => updateTerm(term.id, { startDate: event.target.value })}
+                        className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="date"
+                        value={term.endDate}
+                        onChange={(event) => updateTerm(term.id, { endDate: event.target.value })}
+                        className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      ) : null}
+
+      {activeTab === "teachingLoad" ? (
+        <Section
+          title="Teaching Load Policy"
+          description="Control load limits and overload behavior used by scheduling modules."
+        >
+          <div className="grid gap-4 lg:grid-cols-4">
+            <SelectField
+              label="Computation type"
+              value={policies.teachingLoad.computationType}
+              options={["Units", "Hours", "Competency hours"]}
+              onChange={(value) => updateTeachingLoad({ computationType: value })}
+            />
+            <InputField
+              label="Maximum load"
+              type="number"
+              suffix={policies.teachingLoad.unit}
+              value={policies.teachingLoad.maximum}
+              onChange={(value) => updateTeachingLoad({ maximum: value })}
+            />
+            <InputField
+              label="Minimum load"
+              type="number"
+              suffix={policies.teachingLoad.unit}
+              value={policies.teachingLoad.minimum}
+              onChange={(value) => updateTeachingLoad({ minimum: value })}
+            />
+            <InputField
+              label="Load unit"
+              value={policies.teachingLoad.unit}
+              onChange={(value) => updateTeachingLoad({ unit: value })}
+            />
+          </div>
+
+          <div className="mt-5 rounded-lg border border-[#d0d5dd] bg-[#f8fafc] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+                  Allow overload
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
+                  Permit approved assignments beyond the maximum teaching load.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={policies.teachingLoad.allowOverload}
+                onClick={() =>
+                  updateTeachingLoad({ allowOverload: !policies.teachingLoad.allowOverload })
+                }
+                className={
+                  policies.teachingLoad.allowOverload
+                    ? "inline-flex h-8 w-14 justify-end rounded-full bg-[var(--color-primary)] p-1"
+                    : "inline-flex h-8 w-14 justify-start rounded-full bg-[#98a2b3] p-1"
+                }
+              >
+                <span className="h-6 w-6 rounded-full bg-white shadow-sm" />
+              </button>
+            </div>
+            {policies.teachingLoad.allowOverload ? (
+              <div className="mt-4 max-w-xs">
+                <InputField
+                  label="Allowed overload"
+                  type="number"
+                  suffix={policies.teachingLoad.unit}
+                  value={policies.teachingLoad.overload}
+                  onChange={(value) => updateTeachingLoad({ overload: value })}
+                />
+              </div>
+            ) : null}
+          </div>
+        </Section>
+      ) : null}
+
+      {activeTab === "workload" ? (
+        <Section
+          title="Workload & Time Policy"
+          description="Set time expectations used for teaching assignments and compliance checks."
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <InputField
+              label="Full-time hours"
+              type="number"
+              suffix="hours/week"
+              value={policies.workload.fullTimeHours}
+              onChange={(value) => updateWorkload({ fullTimeHours: value })}
+            />
+            <InputField
+              label="Part-time hours"
+              type="number"
+              suffix="hours/week"
+              value={policies.workload.partTimeHours}
+              onChange={(value) => updateWorkload({ partTimeHours: value })}
+            />
+            <InputField
+              label="Teaching time"
+              type="number"
+              suffix={institutionType === "higher_ed" ? "units/week" : "hours/day"}
+              value={policies.workload.teachingTime}
+              onChange={(value) => updateWorkload({ teachingTime: value })}
+            />
+            <InputField
+              label="Non-teaching time"
+              type="number"
+              suffix="hours/week"
+              value={policies.workload.nonTeachingTime}
+              onChange={(value) => updateWorkload({ nonTeachingTime: value })}
+            />
+            <InputField
+              label="Minutes per subject"
+              type="number"
+              suffix="minutes"
+              value={policies.workload.minutesPerSubject}
+              onChange={(value) => updateWorkload({ minutesPerSubject: value })}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <InputField
+                label="Work starts"
+                type="time"
+                value={policies.workload.workStart}
+                onChange={(value) => updateWorkload({ workStart: value })}
+              />
+              <InputField
+                label="Work ends"
+                type="time"
+                value={policies.workload.workEnd}
+                onChange={(value) => updateWorkload({ workEnd: value })}
+              />
+            </div>
+          </div>
+        </Section>
+      ) : null}
+
+      {activeTab === "curriculum" ? (
+        <Section
+          title="Subject & Curriculum Policy"
+          description="Use onboarding setup as the list of policy-covered curriculum areas."
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SelectField
+              label="Curriculum mapping"
+              value={policies.curriculum.mappingMode}
+              options={["Synced with setup", "Manual review", "Locked"]}
+              onChange={(value) => updateCurriculum({ mappingMode: value })}
+            />
+            <SelectField
+              label="Prerequisite checks"
+              value={policies.curriculum.prerequisiteMode}
+              options={["Strict", "Advisory", "Disabled"]}
+              onChange={(value) => updateCurriculum({ prerequisiteMode: value })}
+            />
+          </div>
+
+          <label className="mt-4 flex flex-col gap-1.5 text-sm font-medium text-[#344054]">
+            Policy notes
+            <textarea
+              value={policies.curriculum.notes}
+              onChange={(event) => updateCurriculum({ notes: event.target.value })}
+              rows={3}
+              className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+              placeholder="Add curriculum-specific policy notes..."
+            />
+          </label>
+
+          <div className="mt-5 overflow-x-auto rounded-lg border border-[#d0d5dd]">
+            {policies.curriculum.items.length === 0 ? (
+              <div className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+                No curriculum setup items found yet.
+              </div>
+            ) : (
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-[var(--color-primary)] text-white">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Name</th>
+                    <th className="px-4 py-3 font-semibold">Category</th>
+                    <th className="px-4 py-3 font-semibold">Setup Detail</th>
+                    <th className="px-4 py-3 font-semibold">Policy Hours</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#eaecf0] bg-white">
+                  {policies.curriculum.items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3 font-medium text-[var(--color-high-emphasis)]">
+                        {item.label}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--color-high-emphasis)]">
+                        {item.category}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--color-low-emphasis)]">
+                        {item.detail || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.hoursPerWeek}
+                          onChange={(event) => updateCurriculumItem(item.id, event.target.value)}
+                          className="h-10 w-32 rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                          placeholder="0"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Section>
+      ) : null}
+
+      {activeTab === "grading" ? (
+        <Section
+          title="Grading & Assessment Policy"
+          description="Configure passing marks, scale, and weighted assessment components."
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
+            <InputField
+              label="Passing mark"
+              type="number"
+              value={policies.grading.passing}
+              onChange={(value) => updateGrading({ passing: value })}
+            />
+            <SelectField
+              label="Grading scale"
+              value={policies.grading.scale}
+              options={["percentage", "gwa", "letter", "pass_fail"]}
+              onChange={(value) => updateGrading({ scale: value })}
+            />
+            <SelectField
+              label="Assessment type"
+              value={policies.grading.assessmentType}
+              options={["percentage", "competency", "pass_fail"]}
+              onChange={(value) => updateGrading({ assessmentType: value })}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-heading-h3 text-[var(--color-high-emphasis)]">
-                {activeTab === "calendar-structure"
-                  ? "Academic Calendar Configuration"
-                  : activeTab === "teaching-load-policy"
-                    ? "Teaching Load Configuration"
-                    : tabs.find((tab) => tab.key === activeTab)?.label}
-              </h2>
-              <p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
-                {activeTab === "calendar-structure"
-                  ? "Set the academic year structure, term dates, and publication timing."
-                  : activeTab === "teaching-load-policy"
-                    ? "Configure teaching load computation, overload limits, and load thresholds."
-                    : "Adjust the active policy group without leaving the tenant workspace."}
+              <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+                Assessment Components
+              </h3>
+              <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
+                Component weights should total 100 when percentage grading is used.
               </p>
             </div>
-          </header>
+            <button
+              type="button"
+              onClick={addGradingComponent}
+              className="inline-flex h-10 items-center rounded-md border border-[var(--color-default)] px-4 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+            >
+              Add Component
+            </button>
+          </div>
 
-          {activeTab === "calendar-structure" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="grid gap-6 px-5 py-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-                <div className="flex flex-col gap-3">
-                  <label
-                    htmlFor={calendarTypeId}
-                    className="text-body-large text-[var(--color-high-emphasis)]"
-                  >
-                    Academic Calendar Type
-                  </label>
-                  <div className="flex h-[50px] items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-4 shadow-level-1">
-                    <div className="flex h-[29px] flex-1 items-center justify-between gap-3">
-                      <select
-                        ref={calendarTypeSelectRef}
-                        id={calendarTypeId}
-                        value={calendarType}
-                        onChange={handleCalendarTypeChange}
-                        className="h-full flex-1 cursor-pointer bg-transparent text-body-medium text-[var(--color-high-emphasis)] outline-none"
-                        aria-label="Select academic calendar type"
-                      >
-                        <option value="Quarterly">Quarterly</option>
-                        <option value="Semester">Semester</option>
-                        <option value="Trimester">Trimester</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleCalendarTypeArrowClick}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-primary)] transition-colors duration-150 hover:bg-[rgba(2,147,131,0.08)]"
-                        aria-label="Open academic calendar type options"
-                      >
-                        <svg
-                          className="h-2 w-3"
-                          viewBox="0 0 12 8"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M1 1.5L6 6.5L11 1.5"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
+          <div className="mt-4 space-y-3">
+            {policies.grading.components.map((component) => (
+              <div
+                key={component.id}
+                className="grid gap-3 rounded-lg border border-[#d0d5dd] bg-[#f8fafc] p-3 sm:grid-cols-[1fr_140px_auto]"
+              >
+                <InputField
+                  label="Component"
+                  value={component.name}
+                  onChange={(value) => updateGradingComponent(component.id, { name: value })}
+                />
+                <InputField
+                  label="Weight"
+                  type="number"
+                  suffix="%"
+                  value={component.weight}
+                  onChange={(value) => updateGradingComponent(component.id, { weight: value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeGradingComponent(component.id)}
+                  className="self-end rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                >
+                  Remove
+                </button>
               </div>
-
-              <section className="flex min-h-0 flex-1 flex-col border-t border-[var(--color-default)]">
-                <div className="flex items-center justify-between gap-4 px-5 py-5">
-                  <h3 className="text-body-large text-[var(--color-high-emphasis)]">
-                    Academic Terms
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={handleAddTerm}
-                    disabled={terms.every((term) => !term.isPlaceholder)}
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 text-label-button text-[var(--color-card)] shadow-level-1 transition-transform duration-150 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Add academic term"
-                  >
-                    <AppIcon
-                      name="plus"
-                      className="inline-block [&_svg]:h-4 [&_svg]:w-4"
-                      title="Add term"
-                    />
-                    Add Term
-                  </button>
-                </div>
-
-                <div className="px-5 pb-5">
-                  <div className="overflow-hidden rounded-[16px] border border-[var(--color-default)]">
-                    <div className="grid grid-cols-[1.4fr_1fr_1fr_120px] bg-[var(--color-primary)] px-5 py-4 text-center text-label-table-header text-[var(--color-card)]">
-                      <div>Term Name</div>
-                      <div>Start Date</div>
-                      <div>End Date</div>
-                      <div>Actions</div>
-                    </div>
-
-                    <div className="divide-y divide-[var(--color-default)] bg-[var(--color-card)]">
-                      {terms.map((term) => (
-                        <div
-                          key={term.id}
-                          className="grid grid-cols-[1.4fr_1fr_1fr_120px] items-center px-5 py-4 text-center text-body-small text-[var(--color-high-emphasis)] gap-3"
-                        >
-                          {editingTermId === term.id && editingTermData && termActionMode === 'edit' ? (
-                            <input
-                              type="text"
-                              value={editingTermData.name || ''}
-                              onChange={(e) => handleEditTermField('name', e.target.value)}
-                              className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                              aria-label="Edit term name"
-                            />
-                          ) : (
-                            <div className={term.isPlaceholder ? "text-[var(--color-low-emphasis)]" : ""}>
-                              {term.name}
-                            </div>
-                          )}
-                          {editingTermId === term.id && editingTermData && termActionMode === 'edit' ? (
-                            <input
-                              type="date"
-                              value={editingTermData.startDate || ''}
-                              onChange={(e) => handleEditTermField('startDate', e.target.value)}
-                              className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                              aria-label="Edit start date"
-                            />
-                          ) : (
-                            <div className={term.isPlaceholder ? "text-[var(--color-low-emphasis)]" : ""}>
-                              {term.startDate}
-                            </div>
-                          )}
-                          {editingTermId === term.id && editingTermData && termActionMode === 'edit' ? (
-                            <input
-                              type="date"
-                              value={editingTermData.endDate || ''}
-                              onChange={(e) => handleEditTermField('endDate', e.target.value)}
-                              className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                              aria-label="Edit end date"
-                            />
-                          ) : (
-                            <div className={term.isPlaceholder ? "text-[var(--color-low-emphasis)]" : ""}>
-                              {term.endDate}
-                            </div>
-                          )}
-                          <div className="flex justify-center gap-2">
-                            {editingTermId === term.id && termActionMode === 'edit' ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={handleSaveTerm}
-                                  className="inline-flex h-8 items-center rounded-md bg-[var(--color-primary)] px-3 text-label-caption text-[var(--color-card)] transition-colors duration-150 hover:bg-[#005a50]"
-                                  aria-label={`Save ${term.name}`}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelTermAction}
-                                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                  aria-label={`Cancel editing ${term.name}`}
-                                >
-                                  Cancel
-                                </button>
-                              </>
-                            ) : editingTermId === term.id && termActionMode === 'delete' ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteTerm(term.id)}
-                                  className="inline-flex h-8 items-center rounded-md bg-[#ff4c4c] px-3 text-label-caption text-white transition-colors duration-150 hover:bg-[#e63939]"
-                                  aria-label={`Confirm delete ${term.name}`}
-                                >
-                                  Delete
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelTermAction}
-                                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                  aria-label={`Cancel deleting ${term.name}`}
-                                >
-                                  Cancel
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {editingTermId !== term.id && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTermAction(term.id, 'menu')}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-default)] bg-[var(--color-background)] text-[var(--color-primary)] transition-colors duration-150 hover:bg-[rgba(2,147,131,0.08)]"
-                                    aria-label={`Open actions for ${term.name}`}
-                                  >
-                                    <span className="text-lg font-bold">•••</span>
-                                  </button>
-                                )}
-                                {editingTermId === term.id && termActionMode === 'menu' && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleTermAction(term.id, 'edit')}
-                                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                      aria-label={`Edit ${term.name}`}
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleTermAction(term.id, 'delete')}
-                                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                      aria-label={`Delete ${term.name}`}
-                                    >
-                                      Delete
-                                    </button>
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          ) : activeTab === "teaching-load-policy" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-6">
-              <section
-                className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--color-default)] bg-[var(--color-background)] shadow-level-1"
-                aria-labelledby="teaching-load-configuration-title"
-              >
-                <header className="flex items-center gap-2.5 border-b border-[var(--color-default)] px-6 py-4">
-                  <h3
-                    id="teaching-load-configuration-title"
-                    className="text-heading-h3 text-[var(--color-high-emphasis)]"
-                  >
-                    Teaching Load Configuration
-                  </h3>
-                </header>
-
-                <div className="grid flex-1 gap-8 overflow-auto px-6 py-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-                  <div className="flex flex-col gap-8">
-                    <div className="flex flex-col gap-5">
-                      <label
-                        htmlFor={computationTypeId}
-                        className="text-body-large text-[var(--color-high-emphasis)]"
-                      >
-                        Computation Type
-                      </label>
-                      <div className="flex h-[50px] items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1">
-                        <div className="flex h-[29px] flex-1 items-center justify-between gap-3">
-                          <select
-                            ref={computationTypeSelectRef}
-                            id={computationTypeId}
-                            aria-describedby={`${computationTypeId}-hint`}
-                            value={computationType}
-                            onChange={(event) =>
-                              setComputationType(event.target.value)
-                            }
-                            className="h-full flex-1 cursor-pointer bg-transparent pr-6 text-body-medium text-[var(--color-high-emphasis)] outline-none"
-                          >
-                            <option value="Hourly">Hourly</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={handleComputationTypeArrowClick}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-primary)] transition-colors duration-150 hover:bg-[rgba(2,147,131,0.08)]"
-                            aria-label="Open computation type options"
-                          >
-                            <svg
-                              className="h-2 w-3"
-                              viewBox="0 0 12 8"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M1 1.5L6 6.5L11 1.5"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      <p
-                        id={`${computationTypeId}-hint`}
-                        className="text-label-table-header text-[var(--color-low-emphasis)]"
-                      >
-                        DepEd policies use hours-based computation
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-5">
-                      <label
-                        htmlFor={maximumLoadId}
-                        className="text-body-large text-[var(--color-high-emphasis)]"
-                      >
-                        Maximum Teaching Load
-                      </label>
-                      <div className="flex h-[50px] items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1">
-                        <input
-                          id={maximumLoadId}
-                          type="number"
-                          inputMode="numeric"
-                          min="0"
-                          value={maximumTeachingLoad}
-                          onChange={(event) =>
-                            setMaximumTeachingLoad(event.target.value)
-                          }
-                          aria-describedby={`${maximumLoadId}-hint`}
-                          className="h-full w-full bg-transparent text-body-medium text-[var(--color-high-emphasis)] outline-none"
-                        />
-                      </div>
-                      <p
-                        id={`${maximumLoadId}-hint`}
-                        className="text-label-table-header text-[var(--color-low-emphasis)]"
-                      >
-                        hours/day
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-5">
-                      <label
-                        htmlFor={minimumLoadId}
-                        className="text-body-large text-[var(--color-high-emphasis)]"
-                      >
-                        Minimum Teaching Load
-                      </label>
-                      <div className="flex h-[50px] items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1">
-                        <input
-                          id={minimumLoadId}
-                          type="number"
-                          inputMode="numeric"
-                          min="0"
-                          value={minimumTeachingLoad}
-                          onChange={(event) =>
-                            setMinimumTeachingLoad(event.target.value)
-                          }
-                          aria-describedby={`${minimumLoadId}-hint`}
-                          className="h-full w-full bg-transparent text-body-medium text-[var(--color-high-emphasis)] outline-none"
-                        />
-                      </div>
-                      <p
-                        id={`${minimumLoadId}-hint`}
-                        className="text-label-table-header text-[var(--color-low-emphasis)]"
-                      >
-                        hours/day
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex min-h-0 flex-col">
-                    <div className="flex min-h-0 flex-1 flex-col rounded-[18px] bg-[var(--color-background)] p-5 shadow-level-1">
-                      <div className="flex items-start justify-between gap-4 border-b border-[var(--color-default)] pb-5">
-                        <div className="flex flex-col gap-2">
-                          <label
-                            htmlFor={overloadHoursId}
-                            className="text-body-medium text-[var(--color-high-emphasis)]"
-                          >
-                            Allow Overload
-                          </label>
-                          <p className="text-body-medium text-[var(--color-low-emphasis)]">
-                            Permit faculty to teach beyond maximum load
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={allowOverload}
-                          aria-label="Allow Overload"
-                          onClick={() => setAllowOverload((previous) => !previous)}
-                          className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors ${
-                            allowOverload ? "justify-end bg-[#029383]" : "justify-start bg-[#bdbdbd]"
-                          }`}
-                        >
-                          <span className="h-[22px] w-[22px] rounded-full bg-white shadow-sm" />
-                        </button>
-                      </div>
-
-                      {allowOverload ? (
-                        <div className="flex min-h-0 flex-1 flex-col justify-between pt-5">
-                          <div className="flex flex-col gap-5">
-                            <label
-                              htmlFor={overloadHoursId}
-                              className="text-body-medium text-[var(--color-high-emphasis)]"
-                            >
-                              Allowed Overload Number
-                            </label>
-                            <div className="flex h-[50px] items-center rounded-md border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1">
-                              <input
-                                id={overloadHoursId}
-                                type="number"
-                                inputMode="numeric"
-                                min="0"
-                                value={overloadHours}
-                                onChange={(event) =>
-                                  setOverloadHours(event.target.value)
-                                }
-                                aria-describedby={`${overloadHoursId}-hint`}
-                                className="h-full w-full bg-transparent text-body-small text-[var(--color-high-emphasis)] outline-none"
-                              />
-                            </div>
-                            <p
-                              id={`${overloadHoursId}-hint`}
-                              className="text-label-table-header text-[var(--color-low-emphasis)]"
-                            >
-                              hours/day
-                            </p>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          ) : activeTab === "workload-time-policy" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-6">
-              <section
-                className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--color-default)] bg-[var(--color-card)] shadow-level-2"
-                aria-labelledby="workload-rules-title"
-              >
-                <header className="flex items-center gap-2.5 border-b border-[var(--color-default)] px-[25px] py-[15px]">
-                  <h3
-                    id="workload-rules-title"
-                    className="text-heading-h3 text-[var(--color-high-emphasis)]"
-                  >
-                    Workload Rules
-                  </h3>
-                </header>
-
-                <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
-                  {workloadFieldRows.map((row, rowIndex) => (
-                    <div
-                      key={`row-${rowIndex}`}
-                      className="flex w-full flex-col items-start gap-5 px-[25px] py-[15px]"
-                    >
-                      <div className="flex w-full flex-wrap items-start gap-x-10 gap-y-6 xl:gap-x-[150px]">
-                        {row.map((field) => (
-                          <WorkloadInputField
-                            key={field.id}
-                            field={field}
-                            value={workloadValues[field.id]}
-                            onChange={handleWorkloadValueChange(field.id)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="h-14 w-full" />
-                </div>
-              </section>
-            </div>
-          ) : activeTab === "subject-curriculum-policy" ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-6">
-              <section
-                className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-[var(--color-default)] bg-[var(--color-card)] shadow-level-2"
-                aria-labelledby="subject-hours-configuration-title"
-              >
-                <header className="flex items-center gap-2.5 border-b border-[var(--color-default)] px-[25px] py-[15px]">
-                  <h3
-                    id="subject-hours-configuration-title"
-                    className="text-heading-h3 text-[var(--color-high-emphasis)]"
-                  >
-                    Subject & Curriculum Configuration
-                  </h3>
-                </header>
-
-                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-0 py-4">
-                  <div className="flex flex-col items-start gap-[25px] px-0 py-[25px]">
-                    <div className="flex w-full flex-wrap items-center justify-between gap-4 px-[25px] py-4">
-                      <p className="text-body-large text-[var(--color-high-emphasis)]">
-                        Add and manage subjects with curriculum hours by grade level
-                      </p>
-                      <button
-                        type="button"
-                        aria-label="Add Subject"
-                        onClick={handleAddSubject}
-                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 text-body-small text-[var(--color-card)] shadow-level-1 transition-transform duration-150 hover:-translate-y-0.5"
-                      >
-                        <AppIcon
-                          name="plus"
-                          className="inline-block [&_svg]:h-4 [&_svg]:w-4 [&_svg_path]:stroke-[var(--color-card)]"
-                          title="Add Subject"
-                        />
-                        <span>Add Subject</span>
-                      </button>
-                    </div>
-
-                    <div className="w-full px-[25px]">
-                      <div className="overflow-hidden rounded-[16px] border border-[var(--color-default)]">
-                        <div className="grid grid-cols-[1.4fr_1fr_1fr_120px] bg-[var(--color-primary)] px-5 py-4 text-center text-label-table-header text-[var(--color-card)]">
-                          <div>Subject Name</div>
-                          <div>Hours Per Week</div>
-                          <div>Grade Level</div>
-                          <div>Actions</div>
-                        </div>
-
-                        <div className="divide-y divide-[var(--color-default)] bg-[var(--color-card)]">
-                          {subjects.map((subject) => (
-                            <div
-                              key={subject.id}
-                              className="grid grid-cols-[1.4fr_1fr_1fr_120px] items-center gap-3 px-5 py-4 text-center text-body-small text-[var(--color-high-emphasis)]"
-                            >
-                              {editingSubjectId === subject.id && editingSubjectData && subjectActionMode === 'edit' ? (
-                                <input
-                                  type="text"
-                                  value={editingSubjectData.subjectName || ''}
-                                  onChange={(event) =>
-                                    handleEditSubjectField('subjectName', event.target.value)
-                                  }
-                                  className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                                  aria-label="Edit subject name"
-                                />
-                              ) : (
-                                <div>{subject.subjectName}</div>
-                              )}
-
-                              {editingSubjectId === subject.id && editingSubjectData && subjectActionMode === 'edit' ? (
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min="0"
-                                  step="1"
-                                  value={editingSubjectData.hoursPerWeek || ''}
-                                  onChange={(event) =>
-                                    handleEditSubjectField('hoursPerWeek', event.target.value)
-                                  }
-                                  className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                                  aria-label="Edit hours per week"
-                                />
-                              ) : (
-                                <div>{subject.hoursPerWeek}</div>
-                              )}
-
-                              {editingSubjectId === subject.id && editingSubjectData && subjectActionMode === 'edit' ? (
-                                <input
-                                  type="text"
-                                  value={editingSubjectData.gradeLevel || ''}
-                                  onChange={(event) =>
-                                    handleEditSubjectField('gradeLevel', event.target.value)
-                                  }
-                                  className="w-full rounded border border-[var(--color-default)] bg-[var(--color-card)] px-2 py-1.5 text-body-small text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
-                                  aria-label="Edit grade level"
-                                />
-                              ) : (
-                                <div>{subject.gradeLevel}</div>
-                              )}
-
-                              <div className="flex justify-center gap-2">
-                                {editingSubjectId === subject.id && subjectActionMode === 'edit' ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={handleSaveSubject}
-                                      className="inline-flex h-8 items-center rounded-md bg-[var(--color-primary)] px-3 text-label-caption text-[var(--color-card)] transition-colors duration-150 hover:bg-[#005a50]"
-                                      aria-label={`Save ${subject.subjectName}`}
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={handleCancelSubjectAction}
-                                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                      aria-label={`Cancel editing ${subject.subjectName}`}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </>
-                                ) : editingSubjectId === subject.id && subjectActionMode === 'delete' ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteSubject(subject.id)}
-                                      className="inline-flex h-8 items-center rounded-md bg-[#ff4c4c] px-3 text-label-caption text-white transition-colors duration-150 hover:bg-[#e63939]"
-                                      aria-label={`Confirm delete ${subject.subjectName}`}
-                                    >
-                                      Delete
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={handleCancelSubjectAction}
-                                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                      aria-label={`Cancel deleting ${subject.subjectName}`}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    {editingSubjectId !== subject.id && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSubjectAction(subject.id, 'menu')}
-                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-default)] bg-[var(--color-background)] text-[var(--color-primary)] transition-colors duration-150 hover:bg-[rgba(2,147,131,0.08)]"
-                                        aria-label={`Open actions for ${subject.subjectName}`}
-                                      >
-                                        <span className="text-lg font-bold">•••</span>
-                                      </button>
-                                    )}
-                                    {editingSubjectId === subject.id && subjectActionMode === 'menu' && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSubjectAction(subject.id, 'edit')}
-                                          className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                          aria-label={`Edit ${subject.subjectName}`}
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSubjectAction(subject.id, 'delete')}
-                                          className="inline-flex h-8 items-center rounded-md border border-[var(--color-default)] bg-[var(--color-background)] px-3 text-label-caption text-[var(--color-high-emphasis)] transition-colors duration-150 hover:bg-[var(--color-default)]"
-                                          aria-label={`Delete ${subject.subjectName}`}
-                                        >
-                                          Delete
-                                        </button>
-                                      </>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="h-[167px] w-full" />
-                </div>
-              </section>
-            </div>
-          ) : null}
-        </section>
-      </div>
-    </main>
+            ))}
+          </div>
+        </Section>
+      ) : null}
+    </div>
   );
 }

@@ -190,7 +190,7 @@ const higherEducationFeatures: FeatureDefinition[] = [
   },
   {
     key: "higher-subject-management",
-    label: "Subject / Course Management",
+    label: "Subject Management",
     description: "Create and review subjects, courses, and curriculum assignments.",
     group: "Academic Operations",
     institutionType: "higher_ed",
@@ -200,30 +200,35 @@ const higherEducationFeatures: FeatureDefinition[] = [
   },
   {
     key: "higher-room-schedule-management",
-    label: "Room / Schedule Management",
+    label: "Room Management",
     description: "Manage rooms, class schedules, and subject-room assignments.",
     group: "Academic Operations",
     institutionType: "higher_ed",
-    status: "planned",
+    status: "active",
+    href: "/tenant/college/manage-room",
     iconName: "menu",
   },
   {
     key: "higher-academic-calendar",
     label: "Academic Calendar",
-    description: "Manage semesters, trimesters, grading windows, and deadlines.",
+    description: "Configure semesters, trimesters, grading windows, and deadlines in Policies.",
     group: "Academic Policies",
     institutionType: "higher_ed",
-    status: "planned",
+    status: "active",
+    href: "/tenant/tenant-admin",
     iconName: "settings",
+    adminOnly: true,
   },
   {
     key: "higher-grading-gwa",
     label: "Grading / GWA Setup",
-    description: "Configure grading scale, GWA rules, and grade components.",
+    description: "Configure grading scale, GWA rules, and grade components in Policies.",
     group: "Academic Policies",
     institutionType: "higher_ed",
-    status: "planned",
+    status: "active",
+    href: "/tenant/tenant-admin",
     iconName: "analytics",
+    adminOnly: true,
   },
   {
     key: "higher-dean-vpaa-approvals",
@@ -327,20 +332,24 @@ const depedFeatures: FeatureDefinition[] = [
   {
     key: "deped-school-year-calendar",
     label: "School Year / Quarter Calendar",
-    description: "Manage quarterly grading periods and grade submission deadlines.",
+    description: "Configure the school year, quarters, grading periods, and deadlines in Policies.",
     group: "DepEd Policies",
     institutionType: "deped",
-    status: "planned",
+    status: "active",
+    href: "/tenant/tenant-admin",
     iconName: "settings",
+    adminOnly: true,
   },
   {
     key: "deped-grading",
     label: "DepEd Grading Components",
-    description: "Configure written works, performance tasks, quarterly assessment, and descriptors.",
+    description: "Configure written works, performance tasks, quarterly assessment, and descriptors in Policies.",
     group: "DepEd Policies",
     institutionType: "deped",
-    status: "planned",
+    status: "active",
+    href: "/tenant/tenant-admin",
     iconName: "analytics",
+    adminOnly: true,
   },
   {
     key: "deped-adjustment-requests",
@@ -573,93 +582,20 @@ export function getFeatureKeysForInstitution(
   return getFeaturesForInstitution(institutionType).map((feature) => feature.key);
 }
 
-export function getDefaultFeatureKeysForRole(
-  roleKey: string,
+export function getAssignableFeaturesForInstitution(
+  institutionType: InstitutionType,
+): FeatureDefinition[] {
+  return getFeaturesForInstitution(institutionType).filter(
+    (feature) => feature.status === "active" && !feature.adminOnly,
+  );
+}
+
+export function getAssignableFeatureKeysForInstitution(
   institutionType: InstitutionType,
 ): FeatureKey[] {
-  const normalizedRole = roleKey.toLowerCase().replace(/_/g, "-");
-  const allKeys = getFeatureKeysForInstitution(institutionType);
-
-  if (normalizedRole === "org-admin") {
-    return allKeys;
-  }
-
-  if (institutionType === "deped") {
-    if (normalizedRole.includes("teacher")) {
-      return ["deped-teaching-load-view", "deped-adjustment-requests"];
-    }
-
-    if (normalizedRole.includes("load-manager") || normalizedRole.includes("department-head")) {
-      return [
-        "deped-teacher-load-assignment",
-        "deped-department-load",
-        "deped-teaching-load-view",
-      ];
-    }
-
-    if (normalizedRole.includes("coordinator") || normalizedRole.includes("subject")) {
-      return ["deped-subject-management", "deped-room-management"];
-    }
-
-    if (normalizedRole.includes("dean") || normalizedRole.includes("vpaa") || normalizedRole.includes("principal")) {
-      return [
-        "deped-department-load",
-        "deped-teacher-load-assignment",
-        "deped-subject-management",
-        "deped-room-management",
-        "deped-compliance",
-      ];
-    }
-  }
-
-  if (institutionType === "higher_ed") {
-    if (normalizedRole.includes("teacher") || normalizedRole.includes("faculty")) {
-      return ["higher-teaching-load-view", "higher-adjustment-requests"];
-    }
-
-    if (normalizedRole.includes("load-manager") || normalizedRole.includes("department-head")) {
-      return [
-        "higher-faculty-load-assignment",
-        "higher-teaching-load-view",
-        "higher-departments",
-      ];
-    }
-
-    if (normalizedRole.includes("coordinator") || normalizedRole.includes("subject")) {
-      return ["higher-subject-management", "higher-room-schedule-management"];
-    }
-
-    if (normalizedRole.includes("dean") || normalizedRole.includes("vpaa")) {
-      return [
-        "higher-dean-vpaa-approvals",
-        "higher-faculty-load-assignment",
-        "higher-subject-management",
-        "higher-compliance",
-      ];
-    }
-  }
-
-  if (institutionType === "tesda") {
-    if (normalizedRole.includes("trainer") || normalizedRole.includes("teacher")) {
-      return ["tesda-training-batches", "tesda-competency-assessment", "tesda-assessment-results"];
-    }
-
-    if (normalizedRole.includes("coordinator") || normalizedRole.includes("manager")) {
-      return ["tesda-qualifications", "tesda-training-batches", "tesda-trainee-records"];
-    }
-  }
-
-  if (institutionType === "training") {
-    if (normalizedRole.includes("facilitator") || normalizedRole.includes("teacher")) {
-      return ["training-sessions-batches", "training-attendance", "training-evaluation-assessment"];
-    }
-
-    if (normalizedRole.includes("coordinator") || normalizedRole.includes("manager")) {
-      return ["training-courses", "training-sessions-batches", "training-participants"];
-    }
-  }
-
-  return [];
+  return getAssignableFeaturesForInstitution(institutionType).map(
+    (feature) => feature.key,
+  );
 }
 
 export function getActiveFeatureHref(

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
+import TenantBrandScope from "@/components/Global/TenantBrandScope";
+import TenantFeatureContent from "@/components/Global/TenantFeatureContent";
 import {
   getFeatureSidebarItems,
   tenantTypeToInstitutionType,
@@ -16,6 +18,8 @@ import type {
   InstitutionType,
 } from "@/features/tenant-feature-catalog";
 import { ICON_SVGS } from "@/public/icons";
+import type { TenantBranding } from "@/lib/tenantBranding";
+import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
 type TenantRoleLayoutProps = {
@@ -30,7 +34,16 @@ type TenantRoleLayoutProps = {
 
 type TenantAccess = {
   org: {
+    id?: string;
+    name?: string;
+    slug?: string;
     institutionType: InstitutionType;
+  };
+  branding?: TenantBranding | null;
+  user: {
+    fullName: string;
+    email: string;
+    avatarUrl?: string | null;
   };
   role: {
     key: string;
@@ -54,6 +67,7 @@ export default function TenantRoleLayout({
   const [access, setAccess] = useState<TenantAccess | null>(null);
   const [accessError, setAccessError] = useState("");
   const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const [selectedFeatureKey, setSelectedFeatureKey] = useState("");
   const institutionType = access?.org.institutionType ?? tenantTypeToInstitutionType(tenantType);
   const featureItems = getFeatureSidebarItems(
     institutionType,
@@ -69,12 +83,13 @@ export default function TenantRoleLayout({
     .filter((item) => item.href && item.href !== "#" && pathname.startsWith(item.href))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
-  const activeKey = activeMatch?.featureKey ?? requiredFeatureKey ?? sidebarItems[0]?.key ?? "";
+  const routeActiveKey = activeMatch?.featureKey ?? requiredFeatureKey ?? sidebarItems[0]?.key ?? "";
+  const activeKey = selectedFeatureKey || routeActiveKey;
 
   const handleSetActiveKey = (key: string) => {
     const target = featureItems.find((item) => item.featureKey === key);
     if (target?.href && target.href !== "#") {
-      router.push(target.href);
+      setSelectedFeatureKey(key);
     }
   };
 
@@ -91,61 +106,76 @@ export default function TenantRoleLayout({
       setAccessError("");
       setIsUnauthorized(false);
 
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
-      if (!user) {
-        router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
-        return;
-      }
+      try {
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError && isRecoverableSupabaseSessionError(userError)) {
+          await supabase.auth.signOut({ scope: "local" });
+          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          return;
+        }
 
-      const metadata = user.user_metadata as {
-        first_login?: boolean;
-        onboarding_complete?: boolean;
-        must_change_password?: boolean;
-      };
+        if (userError) {
+          throw userError;
+        }
 
-      if (metadata?.must_change_password === true) {
-        router.replace(`/tenant/password-setup?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
-        return;
-      }
+        const user = data?.user;
+        if (!user) {
+          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          return;
+        }
 
-      if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
-        router.replace("/tenant/onboarding");
-        return;
-      }
+        const metadata = user.user_metadata as {
+          first_login?: boolean;
+          onboarding_complete?: boolean;
+          must_change_password?: boolean;
+        };
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+        if (metadata?.must_change_password === true) {
+          router.replace(`/tenant/password-setup?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          return;
+        }
 
-      if (!token) {
-        router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
-        return;
-      }
+        if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
+          router.replace("/tenant/onboarding");
+          return;
+        }
 
-      const response = await fetch("/api/tenant/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const payload = await response.json().catch(() => ({}));
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
 
-      if (!response.ok) {
-        setAccessError(payload?.error || "Unable to load your feature access.");
-        setCheckingAuth(false);
-        return;
-      }
+        if (!token) {
+          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          return;
+        }
 
-      const enabledFeatureKeys = payload.enabledFeatureKeys ?? [];
+        const response = await fetch("/api/tenant/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const payload = await response.json().catch(() => ({}));
 
-      if (requiredFeatureKey && !enabledFeatureKeys.includes(requiredFeatureKey)) {
+        if (!response.ok) {
+          setAccessError(payload?.error || "Unable to load your feature access.");
+          setCheckingAuth(false);
+          return;
+        }
+
+        const enabledFeatureKeys = payload.enabledFeatureKeys ?? [];
+
+        if (requiredFeatureKey && !enabledFeatureKeys.includes(requiredFeatureKey)) {
+          setAccess(payload);
+          setIsUnauthorized(true);
+          setCheckingAuth(false);
+          return;
+        }
+
         setAccess(payload);
-        setIsUnauthorized(true);
         setCheckingAuth(false);
-        return;
+      } catch {
+        setAccessError("Unable to reach the authentication service. Please check your Supabase connection and try again.");
+        setCheckingAuth(false);
       }
-
-      setAccess(payload);
-      setCheckingAuth(false);
     };
 
     checkAuth();
@@ -174,12 +204,23 @@ export default function TenantRoleLayout({
 
   if (isUnauthorized) {
     return (
-      <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
-        <Navbar />
+      <TenantBrandScope
+        branding={access?.branding}
+        className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+        <Navbar
+          branding={access?.branding}
+          profile={{
+            displayName: access?.user.fullName,
+            email: access?.user.email,
+            roleName: access?.role.name,
+            avatarUrl: access?.user.avatarUrl ?? "",
+          }}
+        />
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
           <section className="max-w-md rounded-lg bg-white px-6 py-6 text-center shadow-level-1">
             <div
-              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#ecf8f6]"
+              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-default)]"
               dangerouslySetInnerHTML={{ __html: ICON_SVGS.lock }}
             />
             <h1 className="text-xl font-bold text-[var(--color-high-emphasis)]">
@@ -190,13 +231,24 @@ export default function TenantRoleLayout({
             </p>
           </section>
         </div>
-      </div>
+      </TenantBrandScope>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
-      <Navbar />
+    <TenantBrandScope
+      branding={access?.branding}
+      className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+    >
+      <Navbar
+        branding={access?.branding}
+        profile={{
+          displayName: access?.user.fullName,
+          email: access?.user.email,
+          roleName: access?.role.name,
+          avatarUrl: access?.user.avatarUrl ?? "",
+        }}
+      />
       <div className="flex min-h-0 flex-1">
         <Sidebar
           activeKey={activeKey}
@@ -204,9 +256,25 @@ export default function TenantRoleLayout({
           items={sidebarItems}
           title={access?.role.name ? `${access.role.name} Menu` : title || role}
           iconSvg={iconSvg || ICON_SVGS.people}
+          branding={access?.branding}
+          organizationName={access?.org.name}
+          profile={{
+            displayName: access?.user.fullName,
+            email: access?.user.email,
+            roleName: access?.role.name,
+            avatarUrl: access?.user.avatarUrl ?? "",
+          }}
         />
-        <section className={sectionClassName}>{children}</section>
+        <section className={sectionClassName}>
+          {selectedFeatureKey ? (
+            <TenantFeatureContent featureKey={selectedFeatureKey}>
+              {children}
+            </TenantFeatureContent>
+          ) : (
+            children
+          )}
+        </section>
       </div>
-    </div>
+    </TenantBrandScope>
   );
 }

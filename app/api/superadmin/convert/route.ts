@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { getBootstrapSystemRoleDefinitions } from "@/features/tenant-role-catalog";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -139,45 +140,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: orgError?.message || "Failed to create organization." }, { status: 500 });
   }
 
-  const defaultRoles = [
-    {
-      key: "org_admin",
-      name: "Org Admin",
-      description: "Full access to manage institution settings and users.",
-    },
-    {
-      key: "dean",
-      name: "Dean",
-      description: "Oversees academic departments and approvals.",
-    },
-    {
-      key: "vpaa",
-      name: "VPAA",
-      description: "Reviews academic plans and approvals.",
-    },
-    {
-      key: "coordinator",
-      name: "Coordinator",
-      description: "Coordinates subject and room planning.",
-    },
-    {
-      key: "department_head",
-      name: "Department Head",
-      description: "Manages department faculty and load assignments.",
-    },
-    {
-      key: "teacher",
-      name: "Teacher",
-      description: "Views assigned teaching load and requests adjustments.",
-    },
-  ];
+  const defaultRoles = getBootstrapSystemRoleDefinitions();
 
   const { data: createdRoles, error: rolesError } = await supabaseAdmin
     .from("roles")
     .insert(
       defaultRoles.map((role) => ({
-        ...role,
         org_id: createdOrg.id,
+        key: role.key,
+        name: role.name,
+        description: role.description,
         is_system: true,
         created_at: now,
         updated_at: now,

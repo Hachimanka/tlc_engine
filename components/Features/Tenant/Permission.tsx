@@ -25,10 +25,29 @@ type PermissionProps = {
 };
 
 const groupFeatures = (features: FeatureDefinition[]) => {
-  return features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
-    groups[feature.group] = [...(groups[feature.group] ?? []), feature];
-    return groups;
+  const groups = features.reduce<Record<string, FeatureDefinition[]>>((currentGroups, feature) => {
+    currentGroups[feature.group] = [
+      ...(currentGroups[feature.group] ?? []),
+      feature,
+    ];
+    return currentGroups;
   }, {});
+
+  for (const group of Object.keys(groups)) {
+    groups[group] = groups[group].sort((left, right) => {
+      if (left.status !== right.status) {
+        return left.status === "active" ? -1 : 1;
+      }
+
+      if (Boolean(left.adminOnly) !== Boolean(right.adminOnly)) {
+        return left.adminOnly ? 1 : -1;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  }
+
+  return groups;
 };
 
 export default function Permission({
@@ -58,6 +77,13 @@ export default function Permission({
   const selected = new Set(selectedFeatureKeys);
   const groupedFeatures = groupFeatures(features);
   const isOrgAdminRole = selectedRole.key === "org_admin";
+  const availableCount = features.filter(
+    (feature) => feature.status === "active" && !feature.adminOnly,
+  ).length;
+  const adminOnlyCount = features.filter(
+    (feature) => feature.status === "active" && feature.adminOnly,
+  ).length;
+  const plannedCount = features.filter((feature) => feature.status === "planned").length;
 
   return (
     <section className="flex h-full min-h-[520px] flex-1 flex-col rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
@@ -72,6 +98,17 @@ export default function Permission({
                 ? "Org Admin always keeps full access to every feature in this institution."
                 : selectedRole.description || "Assign the features users with this role can access."}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
+                {availableCount} available
+              </span>
+              <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-[11px] font-semibold text-[#475569]">
+                {adminOnlyCount} admin workspace
+              </span>
+              <span className="rounded-full bg-[#fff7ed] px-2.5 py-1 text-[11px] font-semibold text-[#c2410c]">
+                {plannedCount} planned
+              </span>
+            </div>
           </div>
 
           {selectedRole.isSystem ? (
@@ -92,9 +129,13 @@ export default function Permission({
 
               <div className="grid gap-3 xl:grid-cols-2">
                 {groupItems.map((feature) => {
-                  const isChecked = isOrgAdminRole || selected.has(feature.key);
+                  const isPlanned = feature.status === "planned";
+                  const isChecked =
+                    isOrgAdminRole || (!isPlanned && selected.has(feature.key));
                   const isAdminOnlyLocked = feature.adminOnly && !isOrgAdminRole;
-                  const isDisabled = isOrgAdminRole || isAdminOnlyLocked;
+                  const isPlannedLocked = isPlanned && !isOrgAdminRole;
+                  const isDisabled =
+                    isOrgAdminRole || isAdminOnlyLocked || isPlannedLocked;
 
                   return (
                     <label
@@ -135,9 +176,9 @@ export default function Permission({
                           <span className="text-sm font-semibold text-[var(--color-high-emphasis)]">
                             {feature.label}
                           </span>
-                          {feature.status === "planned" ? (
+                          {isPlanned ? (
                             <span className="rounded-full bg-[#fff7ed] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
-                              Coming soon
+                              Planned
                             </span>
                           ) : null}
                           {isAdminOnlyLocked ? (
@@ -145,10 +186,20 @@ export default function Permission({
                               Org admin only
                             </span>
                           ) : null}
+                          {!isPlanned && !feature.adminOnly ? (
+                            <span className="rounded-full bg-[#ecf8f6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-primary)]">
+                              Available
+                            </span>
+                          ) : null}
                         </span>
                         <span className="mt-2 block text-xs leading-5 text-[var(--color-low-emphasis)]">
                           {feature.description}
                         </span>
+                        {isPlanned ? (
+                          <span className="mt-2 block text-[11px] font-medium text-[#c2410c]">
+                            Page is not built yet, so this stays hidden from user menus.
+                          </span>
+                        ) : null}
                         {feature.href && !feature.adminOnly ? (
                           <span className="mt-2 block text-[11px] font-medium text-[var(--color-primary)]">
                             Route: {feature.href}
@@ -166,7 +217,7 @@ export default function Permission({
 
       <div className="flex items-center justify-between gap-3 border-t border-[var(--color-default)] px-5 py-4">
         <p className="text-xs text-[var(--color-low-emphasis)]">
-          Planned features can be assigned now, but they will not appear as broken links until pages are available.
+          Only available features are assignable to custom roles. Planned features are shown for roadmap visibility and stay hidden until their pages are built.
         </p>
         <button
           type="button"

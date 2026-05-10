@@ -6,8 +6,6 @@ export const runtime = "nodejs";
 
 type UpdateUserRequest = {
   fullName?: string;
-  email?: string;
-  employeeId?: string | null;
   roleId?: string;
   status?: "active" | "disabled";
 };
@@ -111,16 +109,9 @@ export async function PATCH(
 
   const nextFullName =
     typeof payload.fullName === "string" ? payload.fullName.trim() : targetUser.full_name;
-  const nextEmail = typeof payload.email === "string" ? payload.email.trim() : targetUser.email;
-  const nextEmployeeId =
-    typeof payload.employeeId === "string"
-      ? payload.employeeId.trim() || null
-      : payload.employeeId === null
-        ? null
-        : targetUser.employee_id ?? null;
 
-  if (!nextFullName || !nextEmail) {
-    return NextResponse.json({ error: "Full name and email are required." }, { status: 400 });
+  if (!nextFullName) {
+    return NextResponse.json({ error: "Full name is required." }, { status: 400 });
   }
 
   const now = new Date().toISOString();
@@ -129,8 +120,6 @@ export async function PATCH(
     .from("org_users")
     .update({
       full_name: nextFullName,
-      email: nextEmail,
-      employee_id: nextEmployeeId,
       role_id: roleRow.id,
       status: nextStatus,
       updated_at: now,
@@ -152,7 +141,6 @@ export async function PATCH(
   const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
     targetUser.auth_user_id,
     {
-      email: nextEmail,
       user_metadata: {
         ...metadata,
         role: roleRow.key,

@@ -11,8 +11,6 @@ export type RoleOption = {
 
 export type AddUserPayload = {
   fullName: string;
-  email: string;
-  employeeId?: string;
   roleId: string;
 };
 
@@ -30,30 +28,60 @@ export type CreatedUser = {
 type AddUserModalProps = {
   isOpen: boolean;
   roles: RoleOption[];
+  emailDomain?: string | null;
   onClose: () => void;
   onCreate: (payload: AddUserPayload) => Promise<{ tempPassword: string; user: CreatedUser }>;
+};
+
+const normalizeNamePart = (value: string) =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+
+const getEmailPreview = (fullName: string, emailDomain?: string | null) => {
+  const domain = emailDomain || "institution.edu";
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .map(normalizeNamePart)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return `name@${domain}`;
+  }
+
+  if (parts.length === 1) {
+    return `${parts[0]}@${domain}`;
+  }
+
+  return `${parts[0]}.${parts[parts.length - 1]}@${domain}`;
 };
 
 export default function AddUserModal({
   isOpen,
   roles,
+  emailDomain,
   onClose,
   onCreate,
 }: AddUserModalProps) {
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
   const [roleId, setRoleId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ tempPassword: string; user: CreatedUser } | null>(null);
 
   const roleOptions = useMemo(() => roles, [roles]);
+  const generatedEmailPreview = useMemo(
+    () => getEmailPreview(fullName, emailDomain),
+    [emailDomain, fullName],
+  );
 
   const resetForm = useCallback(() => {
     setFullName("");
-    setEmail("");
-    setEmployeeId("");
     setRoleId("");
     setError("");
     setIsSubmitting(false);
@@ -87,7 +115,7 @@ export default function AddUserModal({
     return null;
   }
 
-  const canSubmit = Boolean(fullName.trim() && email.trim() && roleId);
+  const canSubmit = Boolean(fullName.trim() && roleId);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -102,8 +130,6 @@ export default function AddUserModal({
     try {
       const result = await onCreate({
         fullName: fullName.trim(),
-        email: email.trim(),
-        employeeId: employeeId.trim() || undefined,
         roleId,
       });
       setSuccess(result);
@@ -209,30 +235,34 @@ export default function AddUserModal({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-[#344054]">
-                Email
+              <label htmlFor="generated-email" className="text-sm font-medium text-[#344054]">
+                Generated Email
               </label>
               <input
-                id="email"
+                id="generated-email"
                 type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@school.edu"
-                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                value={generatedEmailPreview}
+                readOnly
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-3 text-sm text-[#475467] outline-none"
               />
+              <p className="text-xs text-[var(--color-low-emphasis)]">
+                The final email is generated from the full name and made unique if needed.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="employee-id" className="text-sm font-medium text-[#344054]">
-                Employee ID (optional)
+              <label htmlFor="generated-employee-id" className="text-sm font-medium text-[#344054]">
+                Generated Employee ID
               </label>
               <input
-                id="employee-id"
-                value={employeeId}
-                onChange={(event) => setEmployeeId(event.target.value)}
-                placeholder="e.g., 2024-001"
-                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                id="generated-employee-id"
+                value={`${new Date().getFullYear().toString().slice(-2)}-####-###`}
+                readOnly
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-3 text-sm text-[#475467] outline-none"
               />
+              <p className="text-xs text-[var(--color-low-emphasis)]">
+                Format follows YY-####-###, for example 23-0001-001.
+              </p>
             </div>
 
             <div className="space-y-2">

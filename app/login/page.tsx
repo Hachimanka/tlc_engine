@@ -3,6 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import TenantBrandScope from "@/components/Global/TenantBrandScope";
+import type { TenantBranding } from "@/lib/tenantBranding";
+import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
 type UserMetadata = {
@@ -19,31 +22,41 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
+  const logoUrl = branding?.logoUrl || "";
+  const logoAlt = branding?.logoAlt || "TLC Logo";
 
   const getAssignedFeatureRedirect = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (!token) {
+      if (!token) {
+        return "/login";
+      }
+
+      const response = await fetch("/api/tenant/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        return "/login";
+      }
+
+      return payload.firstActiveHref || "/login";
+    } catch {
       return "/login";
     }
-
-    const response = await fetch("/api/tenant/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return "/login";
-    }
-
-    return payload.firstActiveHref || "/login";
   };
 
-  const redirectAfterLogin = async (metadata: UserMetadata | null | undefined) => {
+  const redirectAfterLogin = async (
+    metadata: UserMetadata | null | undefined,
+    options: { resolveAssignedFeature?: boolean } = {},
+  ) => {
+    const resolveAssignedFeature = options.resolveAssignedFeature ?? true;
     const redirect = searchParams?.get("redirect");
 
     if (metadata?.must_change_password === true) {
@@ -63,21 +76,57 @@ function LoginContent() {
       return;
     }
 
+    if (!resolveAssignedFeature) {
+      return;
+    }
+
     const assignedRedirect = await getAssignedFeatureRedirect();
     router.replace(redirect && redirect !== "/tenant/tenant-admin" ? redirect : assignedRedirect);
   };
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        await redirectAfterLogin(data.user.user_metadata as UserMetadata);
+    const loadPublicBranding = async () => {
+      const slug = searchParams?.get("org") || searchParams?.get("slug");
+
+      if (!slug) {
         return;
       }
 
-      setCheckingSession(false);
+      try {
+        const response = await fetch(`/api/tenant/branding/public?slug=${encodeURIComponent(slug)}`);
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.ok && payload?.branding) {
+          setBranding(payload.branding);
+        }
+      } catch {
+        setBranding(null);
+      }
     };
 
+    const checkSession = async () => {
+      try {
+        const { data, error: userError } = await supabase.auth.getUser();
+        if (userError && !isRecoverableSupabaseSessionError(userError)) {
+          throw userError;
+        }
+
+        if (userError) {
+          await supabase.auth.signOut({ scope: "local" });
+        }
+
+        if (data?.user) {
+          await redirectAfterLogin(data.user.user_metadata as UserMetadata, {
+            resolveAssignedFeature: false,
+          });
+          return;
+        }
+      } catch {
+        await supabase.auth.signOut({ scope: "local" });
+      }
+    };
+
+    loadPublicBranding();
     checkSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -92,10 +141,20 @@ function LoginContent() {
     setError("");
     setLoading(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    let signInResult;
+
+    try {
+      signInResult = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+    } catch {
+      setLoading(false);
+      setError("Unable to reach Supabase Auth. Please check your connection and try again.");
+      return;
+    }
+
+    const { data, error: signInError } = signInResult;
 
     setLoading(false);
 
@@ -107,30 +166,31 @@ function LoginContent() {
     await redirectAfterLogin(data.user?.user_metadata as UserMetadata);
   };
 
-  if (checkingSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 flex items-center justify-center rounded-xl bg-teal-100 shadow">
-            <Image src="/navbar/tlclogo.png" alt="TLC Logo" width={36} height={36} />
-          </div>
-          <div className="text-teal-700 font-semibold text-sm">Checking session...</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <TenantBrandScope
+      branding={branding}
+      className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-4"
+    >
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md flex flex-col gap-6"
+        className="bg-[var(--color-card)] rounded-xl shadow-lg p-8 w-full max-w-md flex flex-col gap-6"
       >
         <div className="flex flex-col items-center gap-2">
-          <Image src="/navbar/tlclogo.png" alt="TLC Logo" width={48} height={48} />
-          <h1 className="text-2xl font-bold text-teal-800 text-center">Institution Login</h1>
+          {logoUrl ? (
+            <span
+              className="h-12 w-12 rounded-md bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: `url("${logoUrl}")` }}
+              role="img"
+              aria-label={logoAlt}
+            />
+          ) : (
+            <Image src="/navbar/tlclogo.png" alt="TLC Logo" width={48} height={48} />
+          )}
+          <h1 className="text-2xl font-bold text-[var(--color-primary)] text-center">
+            {branding?.loginTitle || "Institution Login"}
+          </h1>
           <p className="text-xs text-gray-400 text-center">
-            Use your organization account credentials.
+            {branding?.loginSubtitle || "Use your organization account credentials."}
           </p>
         </div>
 
@@ -140,7 +200,7 @@ function LoginContent() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input
             type="email"
-            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[var(--color-light-primary)]"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="name@institution.edu"
@@ -152,7 +212,7 @@ function LoginContent() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
           <input
             type="password"
-            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[var(--color-light-primary)]"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
@@ -162,13 +222,13 @@ function LoginContent() {
 
         <button
           type="submit"
-          className="bg-teal-700 text-white rounded px-6 py-2 font-medium shadow hover:bg-teal-800 transition disabled:opacity-50"
+          className="bg-[var(--color-primary)] text-white rounded px-6 py-2 font-medium shadow hover:bg-[var(--color-light-primary)] transition disabled:opacity-50"
           disabled={loading}
         >
           {loading ? "Signing in..." : "Login"}
         </button>
       </form>
-    </div>
+    </TenantBrandScope>
   );
 }
 

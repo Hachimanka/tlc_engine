@@ -2,7 +2,7 @@ import { AppIcon } from "@/public/icons";
 
 export type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
 
-export type TenantAdminView = "accounts" | "policies" | "manage-users" | "employees";
+export type TenantAdminView = "accounts" | "policies" | "manage-users" | "employees" | "branding";
 
 const getTenantAdminLabels = (institutionType?: InstitutionType) => {
   if (institutionType === "higher_ed") {
@@ -26,10 +26,10 @@ const getTenantAdminLabels = (institutionType?: InstitutionType) => {
 
 const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView[] => {
   if (institutionType === "tesda" || institutionType === "training") {
-    return ["accounts", "employees", "manage-users", "policies"];
+    return ["accounts", "employees", "manage-users", "policies", "branding"];
   }
 
-  return ["accounts", "manage-users", "employees", "policies"];
+  return ["accounts", "manage-users", "employees", "policies", "branding"];
 };
 
 export const getDefaultTenantAdminView = (institutionType?: InstitutionType): TenantAdminView => {
@@ -75,6 +75,14 @@ export const NavItems = (
       view: "employees" as TenantAdminView,
       icon: <AppIcon name="files" className="w-5 h-5" />,
       active: activeView === "employees",
+      position: "top",
+    },
+    {
+      name: "Branding",
+      href: "/tenant/tenant-admin",
+      view: "branding" as TenantAdminView,
+      icon: <AppIcon name="settings" className="w-5 h-5" />,
+      active: activeView === "branding",
       position: "top",
     },
   ];

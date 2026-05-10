@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { randomInt } from "crypto";
 import { getFeatureKeysForInstitution } from "@/features/tenant-feature-catalog";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import {
+  loadTenantContext,
+  reconcileInstitutionSystemRoles,
+} from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateTempPassword } from "@/lib/tempPassword";
 
@@ -8,9 +12,111 @@ export const runtime = "nodejs";
 
 type CreateUserRequest = {
   fullName?: string;
-  email?: string;
-  employeeId?: string;
   roleId?: string;
+};
+
+const normalizeIdentifierPart = (value: string) =>
+  value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+
+const getEmailDomain = (adminEmail?: string | null, slug?: string | null) => {
+  const domain = adminEmail?.split("@")[1]?.trim().toLowerCase();
+  if (domain) {
+    return domain;
+  }
+
+  const fallbackSlug = normalizeIdentifierPart(slug || "institution").replace(/\./g, "-");
+  return `${fallbackSlug || "institution"}.tlc.local`;
+};
+
+const getEmailLocalPart = (fullName: string) => {
+  const nameParts = fullName
+    .trim()
+    .split(/\s+/)
+    .map(normalizeIdentifierPart)
+    .filter(Boolean);
+
+  if (nameParts.length === 0) {
+    return "user";
+  }
+
+  if (nameParts.length === 1) {
+    return nameParts[0];
+  }
+
+  return `${nameParts[0]}.${nameParts[nameParts.length - 1]}`;
+};
+
+const buildUniqueAccountEmail = async (
+  orgId: string,
+  fullName: string,
+  emailDomain: string,
+) => {
+  const baseLocalPart = getEmailLocalPart(fullName);
+
+  for (let suffix = 0; suffix < 100; suffix += 1) {
+    const localPart = suffix === 0 ? baseLocalPart : `${baseLocalPart}${suffix + 1}`;
+    const candidate = `${localPart}@${emailDomain}`;
+
+    const { data, error } = await supabaseAdmin
+      .from("org_users")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("email", candidate)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || "Failed to check generated email.");
+    }
+
+    if (!data?.id) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to generate a unique email for this account.");
+};
+
+const buildUniqueEmployeeId = async (orgId: string) => {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const { count, error: countError } = await supabaseAdmin
+    .from("org_users")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .like("employee_id", `${year}-%`);
+
+  if (countError) {
+    throw new Error(countError.message || "Failed to generate employee ID.");
+  }
+
+  const sequence = String((count ?? 0) + 1).padStart(3, "0");
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const randomBlock = String(randomInt(1, 10000)).padStart(4, "0");
+    const candidate = `${year}-${randomBlock}-${sequence}`;
+
+    const { data, error } = await supabaseAdmin
+      .from("org_users")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("employee_id", candidate)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || "Failed to check generated employee ID.");
+    }
+
+    if (!data?.id) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to generate a unique employee ID.");
 };
 
 export async function GET(req: Request) {
@@ -20,6 +126,20 @@ export async function GET(req: Request) {
   }
 
   const { context } = result;
+
+  try {
+    await reconcileInstitutionSystemRoles(context.org.id, context.institutionType);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to reconcile institution roles.",
+      },
+      { status: 500 },
+    );
+  }
 
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
@@ -40,6 +160,12 @@ export async function GET(req: Request) {
   if (usersError) {
     return NextResponse.json({ error: usersError.message || "Failed to load users." }, { status: 500 });
   }
+
+  const { data: orgInfo } = await supabaseAdmin
+    .from("organizations")
+    .select("admin_email, slug")
+    .eq("id", context.org.id)
+    .single();
 
   const roleIds = (roles ?? []).map((role) => role.id);
   const permissionsByRole = new Map<string, string[]>();
@@ -68,6 +194,9 @@ export async function GET(req: Request) {
   const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
 
   return NextResponse.json({
+    org: {
+      emailDomain: getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug),
+    },
     roles: (roles ?? []).map((role) => ({
       ...role,
       featureKeys:
@@ -94,11 +223,9 @@ export async function POST(req: Request) {
   }
 
   const fullName = payload.fullName?.trim();
-  const email = payload.email?.trim();
-  const employeeId = payload.employeeId?.trim();
   const roleId = payload.roleId?.trim();
 
-  if (!fullName || !email || !roleId) {
+  if (!fullName || !roleId) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
 
@@ -124,9 +251,28 @@ export async function POST(req: Request) {
 
   const { data: orgInfo } = await supabaseAdmin
     .from("organizations")
-    .select("name, slug, institution_type")
+    .select("name, slug, admin_email, institution_type")
     .eq("id", context.org.id)
     .single();
+
+  let email = "";
+  let employeeId = "";
+
+  try {
+    const emailDomain = getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug);
+    email = await buildUniqueAccountEmail(context.org.id, fullName, emailDomain);
+    employeeId = await buildUniqueEmployeeId(context.org.id);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate account identifiers.",
+      },
+      { status: 500 },
+    );
+  }
 
   const tempPassword = generateTempPassword();
 
@@ -166,7 +312,7 @@ export async function POST(req: Request) {
         auth_user_id: createdUser.user.id,
         full_name: fullName,
         email,
-        employee_id: employeeId || null,
+        employee_id: employeeId,
         status: "active",
         created_at: now,
         updated_at: now,
