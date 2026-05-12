@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle, Filter, Plus, X } from "lucide-react";
+import { CheckCircle, Plus, Search, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 type SubjectStatus =
@@ -147,6 +147,19 @@ export default function SubjectManagementTable() {
     loadSubjects();
   }, []);
 
+  useEffect(() => {
+    if (!showForm && !showConfirm) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showConfirm, showForm]);
+
   const filtered = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -180,7 +193,6 @@ export default function SubjectManagementTable() {
       return;
     }
 
-    setShowForm(false);
     setShowConfirm(true);
   };
 
@@ -240,205 +252,241 @@ export default function SubjectManagementTable() {
   };
 
   return (
-    <div>
-      <h1 className="mb-6 text-[28px] font-bold text-[#1F2125]">Subject Management</h1>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-semibold text-[var(--color-high-emphasis)]">
+          Subject Management
+        </h1>
+        <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
+          Create subjects and track Dean/VPAA approval status.
+        </p>
+      </div>
 
       {showForm ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#1F2125]">Create Subject</h2>
-            <button onClick={() => setShowForm(false)} className="text-gray-400 transition-colors hover:text-gray-600">
-              <X size={18} />
-            </button>
-          </div>
-
-          {submitError ? (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {submitError}
-            </div>
-          ) : null}
-
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm text-[#1F2125]">
-                Subject Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                value={form.title}
-                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                placeholder="e.g., Data Structures and Algorithms"
-                className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm text-[#1F2125]">
-                Subject Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                value={form.code}
-                onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
-                placeholder="e.g., CS401"
-                className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm uppercase focus:border-[#006B5F] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm text-[#1F2125]">
-                Department <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={form.department}
-                onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
-                className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-              >
-                <option value="">Select Department</option>
-                {departmentSelectOptions.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm text-[#1F2125]">
-                  Units <span className="text-red-500">*</span>
-                </label>
-                <input
-                  value={form.units}
-                  type="number"
-                  min="0"
-                  onChange={(event) => setForm((current) => ({ ...current, units: event.target.value }))}
-                  placeholder="e.g., 3"
-                  className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-[#1F2125]">Year Level</label>
-                <select
-                  value={form.level}
-                  onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))}
-                  className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-                >
-                  {levelSelectOptions.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm text-[#1F2125]">Lecture Hours/Week</label>
-                <input
-                  value={form.lecHours}
-                  type="number"
-                  min="0"
-                  onChange={(event) => setForm((current) => ({ ...current, lecHours: event.target.value }))}
-                  placeholder="e.g., 2"
-                  className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-[#1F2125]">Laboratory Hours/Week</label>
-                <input
-                  value={form.labHours}
-                  type="number"
-                  min="0"
-                  onChange={(event) => setForm((current) => ({ ...current, labHours: event.target.value }))}
-                  placeholder="e.g., 3"
-                  className="w-full rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm text-[#1F2125]">Description</label>
-              <textarea
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Brief description of the subject"
-                rows={3}
-                className="w-full resize-none rounded-lg border border-[#C5EEEA] bg-white px-3 py-2.5 text-sm focus:border-[#006B5F] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="mt-8 flex gap-3">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 rounded-lg bg-[#006B5F] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#005a4f]"
-            >
-              Submit for approval
-            </button>
-            <button
-              onClick={() => setShowForm(false)}
-              className="flex-1 rounded-lg border border-[#006B5F] py-2.5 text-sm font-medium text-[#006B5F] transition-colors hover:bg-[#f0faf9]"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="flex h-10 min-w-[200px] flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3">
-              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-gray-400" stroke="currentColor" strokeWidth={1.8}>
-                <path d="M21 21L16.65 16.65M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <input
-                type="search"
-                placeholder="Search subject by code or name...."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="h-full w-full bg-transparent text-sm text-[#1F2125] outline-none placeholder:text-gray-400"
-              />
-            </div>
-
-            <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-gray-50">
-              <Filter size={16} />
-            </button>
-
-            <div className="relative flex h-10 items-center rounded-lg border border-gray-200 bg-white px-3">
-              <select
-                value={departmentFilter}
-                onChange={(event) => setDepartmentFilter(event.target.value)}
-                className="appearance-none bg-transparent pr-6 text-sm font-medium text-[#1F2125] outline-none"
-              >
-                {departmentOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="relative flex h-10 items-center rounded-lg border border-gray-200 bg-white px-3">
-              <select
-                value={levelFilter}
-                onChange={(event) => setLevelFilter(event.target.value)}
-                className="appearance-none bg-transparent pr-6 text-sm font-medium text-[#1F2125] outline-none"
-              >
-                {levelOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {canSubmitSubject ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowForm(false)}
+        >
+          <div
+            className="w-full max-w-[760px] overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-subject-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 bg-[var(--color-primary)] px-5 py-4">
+              <h2 id="create-subject-title" className="text-base font-bold text-white">
+                Create Subject
+              </h2>
               <button
                 type="button"
-                onClick={() => {
-                  setSubmitError("");
-                  setShowForm(true);
-                }}
-                className="flex h-10 items-center gap-2 rounded-lg bg-[#006B5F] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#005a4f]"
+                onClick={() => setShowForm(false)}
+                className="rounded-md p-1 text-white/75 transition hover:bg-white/10 hover:text-white"
               >
-                <Plus size={16} /> Create Subject
+                <X className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Close create subject form</span>
               </button>
-            ) : null}
+            </div>
+
+            <div className="max-h-[calc(100vh-8rem)] overflow-y-auto px-5 py-5">
+              {submitError ? (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <label className="space-y-1 lg:col-span-2">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Subject Title <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    value={form.title}
+                    onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="e.g., Data Structures and Algorithms"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Subject Code <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    value={form.code}
+                    onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+                    placeholder="e.g., CS401"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm uppercase outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Department <span className="text-red-500">*</span>
+                  </span>
+                  <select
+                    value={form.department}
+                    onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  >
+                    <option value="">Select Department</option>
+                    {departmentSelectOptions.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Units <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    value={form.units}
+                    type="number"
+                    min="0"
+                    onChange={(event) => setForm((current) => ({ ...current, units: event.target.value }))}
+                    placeholder="e.g., 3"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Year Level
+                  </span>
+                  <select
+                    value={form.level}
+                    onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))}
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  >
+                    {levelSelectOptions.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Lecture Hours/Week
+                  </span>
+                  <input
+                    value={form.lecHours}
+                    type="number"
+                    min="0"
+                    onChange={(event) => setForm((current) => ({ ...current, lecHours: event.target.value }))}
+                    placeholder="e.g., 2"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Laboratory Hours/Week
+                  </span>
+                  <input
+                    value={form.labHours}
+                    type="number"
+                    min="0"
+                    onChange={(event) => setForm((current) => ({ ...current, labHours: event.target.value }))}
+                    placeholder="e.g., 3"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1 lg:col-span-2">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Description
+                  </span>
+                  <textarea
+                    value={form.description}
+                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                    placeholder="Brief description of the subject"
+                    rows={3}
+                    className="w-full resize-none rounded-md border border-[var(--color-default)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="rounded-md border border-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-light-primary)]"
+                >
+                  Submit for Approval
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex h-10 min-w-[200px] flex-1 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3">
+            <Search className="h-4 w-4 shrink-0 text-[var(--color-low-emphasis)]" aria-hidden="true" />
+            <span className="sr-only">Search subjects</span>
+            <input
+              type="search"
+              placeholder="Search subject by code or name..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
+            />
+          </label>
+
+          <select
+            value={departmentFilter}
+            onChange={(event) => setDepartmentFilter(event.target.value)}
+            className="h-10 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
+            aria-label="Filter by department"
+          >
+            {departmentOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={levelFilter}
+            onChange={(event) => setLevelFilter(event.target.value)}
+            className="h-10 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
+            aria-label="Filter by year level"
+          >
+            {levelOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          {canSubmitSubject ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSubmitError("");
+                setShowForm(true);
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)]"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Create Subject
+            </button>
+          ) : null}
+        </div>
+      </div>
 
           {error ? (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -446,42 +494,42 @@ export default function SubjectManagementTable() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-left">
-                <thead>
-                  <tr className="bg-[#006B5F] text-white">
+                <thead className="bg-[var(--color-primary)] text-white">
+                  <tr>
                     {["Subject Title", "Subject Code", "Department", "Lec Hours", "Lab Hours", "Units", "Date Created", "Status", "Description", "Year Level"].map((col) => (
                       <th key={col} className="whitespace-nowrap px-4 py-3 text-xs font-semibold">{col}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[var(--color-default)] bg-white">
                   {loading ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-400">Loading subjects...</td>
+                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">Loading subjects...</td>
                     </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-400">No subjects found.</td>
+                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">No subjects found.</td>
                     </tr>
                   ) : (
                     filtered.map((subject) => (
-                      <tr key={`${subject.source}-${subject.id}`} className="transition-colors hover:bg-gray-50">
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.title}</td>
-                        <td className="px-4 py-3 text-xs font-semibold text-[#1F2125]">{subject.code}</td>
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.department}</td>
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.lecHours}</td>
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.labHours}</td>
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.units}</td>
-                        <td className="px-4 py-3 text-xs text-gray-400">{formatDate(subject.dateCreated)}</td>
+                      <tr key={`${subject.source}-${subject.id}`} className="transition-colors hover:bg-[#ecf8f6]">
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.title}</td>
+                        <td className="px-4 py-3 text-xs font-semibold text-[var(--color-high-emphasis)]">{subject.code}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.department}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.lecHours}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.labHours}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.units}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-low-emphasis)]">{formatDate(subject.dateCreated)}</td>
                         <td className={`px-4 py-3 text-xs font-medium ${statusColor[subject.status]}`}>
                           {statusLabel[subject.status]}
                         </td>
-                        <td className="max-w-[220px] truncate px-4 py-3 text-xs text-gray-400" title={subject.description}>
+                        <td className="max-w-[220px] truncate px-4 py-3 text-xs text-[var(--color-low-emphasis)]" title={subject.description}>
                           {subject.description || "-"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-[#1F2125]">{subject.level || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.level || "-"}</td>
                       </tr>
                     ))
                   )}
@@ -489,60 +537,59 @@ export default function SubjectManagementTable() {
               </table>
             </div>
           </div>
-        </>
-      )}
-
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]">
+            <div className="flex items-start justify-between bg-[var(--color-primary)] px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e6f4f2]">
-                  <CheckCircle size={22} className="text-[#006B5F]" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <CheckCircle size={22} className="text-white" />
                 </div>
-                <h2 className="text-lg font-bold text-[#1F2125]">Submit for Approval</h2>
+                <h2 className="text-lg font-bold text-white">Submit for Approval</h2>
               </div>
-              <button onClick={() => setShowConfirm(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowConfirm(false)} className="text-white/75 hover:text-white">
                 <X size={18} />
               </button>
             </div>
 
-            <p className="mb-3 text-sm font-medium text-[#1F2125]">
-              You are about to submit the following subject for Dean approval:
-            </p>
-
-            <div className="mb-4 space-y-1 rounded-lg bg-gray-50 p-4">
-              <p className="text-sm text-[#1F2125]"><span className="font-medium">Subject Code:</span> {form.code}</p>
-              <p className="text-sm text-[#1F2125]"><span className="font-medium">Subject Name:</span> {form.title}</p>
-            </div>
-
-            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm text-amber-700">
-                <span className="font-semibold">Note:</span> After Dean approval, this subject will move to VPAA for final approval.
+            <div className="px-5 py-5">
+              <p className="mb-3 text-sm font-medium text-[var(--color-high-emphasis)]">
+                You are about to submit the following subject for Dean approval:
               </p>
-            </div>
 
-            {submitError ? (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {submitError}
+              <div className="mb-4 space-y-1 rounded-lg bg-[var(--color-background)] p-4">
+                <p className="text-sm text-[var(--color-high-emphasis)]"><span className="font-medium">Subject Code:</span> {form.code}</p>
+                <p className="text-sm text-[var(--color-high-emphasis)]"><span className="font-medium">Subject Name:</span> {form.title}</p>
               </div>
-            ) : null}
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-[#1F2125] hover:bg-gray-50"
-                disabled={submitting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirm}
-                className="flex-1 rounded-lg bg-[#006B5F] py-2.5 text-sm font-medium text-white hover:bg-[#005a4f] disabled:opacity-50"
-                disabled={submitting}
-              >
-                {submitting ? "Submitting..." : "Confirm Submission"}
-              </button>
+              <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm text-amber-700">
+                  <span className="font-semibold">Note:</span> After Dean approval, this subject will move to VPAA for final approval.
+                </p>
+              </div>
+
+              {submitError ? (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {submitError}
+                </div>
+              ) : null}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 rounded-lg border border-[var(--color-default)] py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] hover:bg-[var(--color-background)]"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  className="flex-1 rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-medium text-white hover:bg-[var(--color-light-primary)] disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? "Submitting..." : "Confirm Submission"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

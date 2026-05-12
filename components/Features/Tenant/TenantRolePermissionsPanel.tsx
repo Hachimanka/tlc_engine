@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import Permission, { type RoleAccess } from "./Permission";
 import CreateRoleModal, { type CreatedRole } from "./CreateRoleModal";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type {
   FeatureDefinition,
   FeatureKey,
@@ -18,6 +19,7 @@ type TenantUser = {
   roleName: string;
   roleKey: string;
   employeeId?: string | null;
+  department?: string | null;
   status: string;
 };
 
@@ -36,10 +38,13 @@ type UserPayload = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   role_id: string;
   status?: string;
   roles?: unknown;
 };
+
+type RolePanelTab = "features" | "users";
 
 const sameStringSet = (left: string[], right: string[]) => {
   if (left.length !== right.length) {
@@ -72,6 +77,9 @@ export default function TenantRolePermissionsPanel() {
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
+  const [activePanelTab, setActivePanelTab] = useState<RolePanelTab>("features");
+  const [isRoleUsersLoading, setIsRoleUsersLoading] = useState(false);
+  const roleUsersTimerRef = useRef<number | null>(null);
 
   const selectedRole = useMemo(
     () => roles.find((role) => role.id === selectedRoleId) ?? null,
@@ -163,6 +171,7 @@ export default function TenantRolePermissionsPanel() {
         fullName: user.full_name,
         schoolEmail: user.email,
         employeeId: user.employee_id ?? null,
+        department: user.department ?? null,
         roleId: user.role_id,
         roleKey: role?.key ?? "",
         roleName: role?.name ?? "Unassigned",
@@ -191,11 +200,32 @@ export default function TenantRolePermissionsPanel() {
     loadAccessData();
   }, [loadAccessData]);
 
+  useEffect(() => {
+    return () => {
+      if (roleUsersTimerRef.current !== null) {
+        window.clearTimeout(roleUsersTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleSelectRole = (role: RoleAccess) => {
+    if (role.id === selectedRoleId) {
+      return;
+    }
+
+    if (roleUsersTimerRef.current !== null) {
+      window.clearTimeout(roleUsersTimerRef.current);
+    }
+
+    setIsRoleUsersLoading(true);
     setSelectedRoleId(role.id);
     setRoleNameDraft(role.name);
     setRoleDescriptionDraft(role.description ?? "");
     setFeatureKeysDraft(role.featureKeys);
+    roleUsersTimerRef.current = window.setTimeout(() => {
+      setIsRoleUsersLoading(false);
+      roleUsersTimerRef.current = null;
+    }, 450);
   };
 
   const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
@@ -300,6 +330,7 @@ export default function TenantRolePermissionsPanel() {
     };
 
     setRoles((current) => [...current, nextRole]);
+    setActivePanelTab("features");
     handleSelectRole(nextRole);
 
     return {
@@ -310,9 +341,11 @@ export default function TenantRolePermissionsPanel() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="text-sm text-[var(--color-low-emphasis)]">Loading roles...</div>
-      </div>
+      <TenantLoadingScreen
+        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading roles"
+        useStoredBranding
+      />
     );
   }
 
@@ -382,7 +415,7 @@ export default function TenantRolePermissionsPanel() {
                 }
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h2 className="text-sm font-bold">{role.name}</h2>
                     <p
                       className={`mt-1 text-xs ${
@@ -441,61 +474,117 @@ export default function TenantRolePermissionsPanel() {
         ) : null}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <Permission
-          selectedRole={selectedRole}
-          features={features}
-          selectedFeatureKeys={featureKeysDraft}
-          hasChanges={hasChanges}
-          isSaving={isSaving}
-          onFeatureToggle={handleFeatureToggle}
-          onSave={handleSaveRole}
-        />
-
-        <section className="min-h-[170px] rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-bold text-[var(--color-high-emphasis)]">
-              Users with {selectedRole?.name ?? "selected role"}
-            </h2>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="border-b border-[var(--color-default)] px-5 pt-4">
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Role workspace tabs">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activePanelTab === "features"}
+              onClick={() => setActivePanelTab("features")}
+              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
+                activePanelTab === "features"
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[#ecf8f6] text-[var(--color-primary)] hover:bg-[var(--color-default)]"
+              }`}
+            >
+              Feature Access
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activePanelTab === "users"}
+              onClick={() => setActivePanelTab("users")}
+              className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
+                activePanelTab === "users"
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[#ecf8f6] text-[var(--color-primary)] hover:bg-[var(--color-default)]"
+              }`}
+            >
+              Users with Role
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] ${
+                  activePanelTab === "users"
+                    ? "bg-white/15 text-white"
+                    : "bg-white text-[var(--color-primary)]"
+                }`}
+              >
+                {selectedRoleUsers.length}
+              </span>
+            </button>
           </div>
+        </div>
 
-          {selectedRoleUsers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
-              No users are assigned to this role yet.
+        {activePanelTab === "features" ? (
+          <Permission
+            selectedRole={selectedRole}
+            features={features}
+            selectedFeatureKeys={featureKeysDraft}
+            hasChanges={hasChanges}
+            embedded
+            isSaving={isSaving}
+            onFeatureToggle={handleFeatureToggle}
+            onSave={handleSaveRole}
+          />
+        ) : (
+          <section className="flex min-h-0 flex-1 flex-col p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
+                Users with {selectedRole?.name ?? "selected role"}
+              </h2>
+              <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
+                {selectedRoleUsers.length} user{selectedRoleUsers.length === 1 ? "" : "s"}
+              </span>
             </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-[var(--color-default)]">
-              <table className="min-w-full border-collapse text-left">
-                <thead className="bg-[var(--color-primary)] text-white">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Name</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Email</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-default)] bg-white">
-                  {selectedRoleUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                        {user.employeeId || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
-                        {user.fullName}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                        {user.schoolEmail}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
-                        {user.status}
-                      </td>
+
+            {isRoleUsersLoading ? (
+              <TenantLoadingScreen
+                className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[var(--color-default)]"
+                label="Loading users with role"
+                useStoredBranding
+              />
+            ) : selectedRoleUsers.length === 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
+                No users are assigned to this role yet.
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--color-default)]">
+                <table className="min-w-full border-collapse text-left">
+                  <thead className="sticky top-0 bg-[var(--color-primary)] text-white">
+                    <tr>
+                      <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
+                      <th className="px-4 py-3 text-xs font-semibold">Name</th>
+                      <th className="px-4 py-3 text-xs font-semibold">Email</th>
+                      <th className="px-4 py-3 text-xs font-semibold">Department</th>
+                      <th className="px-4 py-3 text-xs font-semibold">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-default)] bg-white">
+                    {selectedRoleUsers.map((user) => (
+                      <tr key={user.id}>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                          {user.employeeId || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
+                          {user.fullName}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                          {user.schoolEmail}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                          {user.department || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
+                          {user.status}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

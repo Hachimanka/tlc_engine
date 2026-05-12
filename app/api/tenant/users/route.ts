@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomInt } from "crypto";
 import { getFeatureKeysForInstitution } from "@/features/tenant-feature-catalog";
+import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   reconcileInstitutionSystemRoles,
@@ -13,6 +14,7 @@ export const runtime = "nodejs";
 type CreateUserRequest = {
   fullName?: string;
   roleId?: string;
+  department?: string | null;
 };
 
 const normalizeIdentifierPart = (value: string) =>
@@ -50,6 +52,14 @@ const getEmailLocalPart = (fullName: string) => {
   }
 
   return `${nameParts[0]}.${nameParts[nameParts.length - 1]}`;
+};
+
+const normalizeDepartment = (value?: string | null) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replace(/\s+/g, " ");
 };
 
 const buildUniqueAccountEmail = async (
@@ -153,7 +163,7 @@ export async function GET(req: Request) {
 
   const { data: users, error: usersError } = await supabaseAdmin
     .from("org_users")
-    .select("id, full_name, email, employee_id, status, role_id, created_at, roles(id, key, name)")
+    .select("id, full_name, email, employee_id, department, status, role_id, created_at, roles(id, key, name)")
     .eq("org_id", context.org.id)
     .order("created_at", { ascending: false });
 
@@ -249,6 +259,16 @@ export async function POST(req: Request) {
     );
   }
 
+  const requiresDepartment = isDepartmentRequiredRole(roleRow.key);
+  const department = requiresDepartment ? normalizeDepartment(payload.department) : null;
+
+  if (requiresDepartment && !department) {
+    return NextResponse.json(
+      { error: "Department is required for this role." },
+      { status: 400 },
+    );
+  }
+
   const { data: orgInfo } = await supabaseAdmin
     .from("organizations")
     .select("name, slug, admin_email, institution_type")
@@ -289,6 +309,7 @@ export async function POST(req: Request) {
       org_slug: orgInfo?.slug ?? null,
       institution_type: orgInfo?.institution_type ?? context.institutionType,
       account_status: "active",
+      department,
       full_name: fullName,
       first_login: false,
       onboarding_complete: true,
@@ -313,12 +334,13 @@ export async function POST(req: Request) {
         full_name: fullName,
         email,
         employee_id: employeeId,
+        department,
         status: "active",
         created_at: now,
         updated_at: now,
       },
     ])
-    .select("id, full_name, email, employee_id, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, status, role_id, created_at")
     .single();
 
   if (orgUserError || !orgUserRow) {

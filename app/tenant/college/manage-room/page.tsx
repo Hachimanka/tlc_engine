@@ -6,7 +6,7 @@ export default function CollegeRoomManagementPage() {
   return (
     <TenantRoleLayout
       tenantType="College"
-      role="subject-room-manager"
+      role="room-manager"
       title="College Menu"
       iconSvg={ICON_SVGS.menu}
       requiredFeatureKey="higher-room-schedule-management"

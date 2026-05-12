@@ -64,6 +64,7 @@ export const finalStatuses = new Set<ApprovalStatus>([
 
 export const allowedSubjectSubmitterRoles = new Set([
   "org_admin",
+  "subject_manager",
   "subject_room_manager",
   "department_head",
 ]);

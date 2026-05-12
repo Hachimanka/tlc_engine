@@ -7,6 +7,8 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountRole = RoleOption;
@@ -16,6 +18,7 @@ type AccountUser = {
   fullName: string;
   email: string;
   employeeId?: string | null;
+  department?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -37,6 +40,7 @@ type UserPayload = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -47,6 +51,7 @@ type UserPayload = {
 type EditAccountPayload = {
   fullName: string;
   roleId: string;
+  department?: string | null;
   status: "active" | "disabled";
 };
 
@@ -67,6 +72,7 @@ const normalizeUser = (user: UserPayload): AccountUser => {
     fullName: user.full_name,
     email: user.email,
     employeeId: user.employee_id ?? null,
+    department: user.department ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -105,6 +111,7 @@ function EditAccountModal({
 }) {
   const [fullName, setFullName] = useState(user.fullName);
   const [roleId, setRoleId] = useState(user.roleId);
+  const [department, setDepartment] = useState(user.department ?? "");
   const [status, setStatus] = useState<"active" | "disabled">(user.status);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -114,6 +121,11 @@ function EditAccountModal({
     () => roles.filter((role) => role.key !== "org_admin" || role.id === user.roleId),
     [roles, user.roleId],
   );
+  const selectedRole = useMemo(
+    () => roleOptions.find((role) => role.id === roleId) ?? null,
+    [roleId, roleOptions],
+  );
+  const requiresDepartment = isDepartmentRequiredRole(selectedRole?.key);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -137,8 +149,12 @@ function EditAccountModal({
     event.preventDefault();
     setError("");
 
-    if (!fullName.trim() || !roleId) {
-      setError("Full name and role are required.");
+    if (!fullName.trim() || !roleId || (requiresDepartment && !department.trim())) {
+      setError(
+        requiresDepartment
+          ? "Full name, role, and department are required."
+          : "Full name and role are required.",
+      );
       return;
     }
 
@@ -148,12 +164,22 @@ function EditAccountModal({
       await onSave({
         fullName: fullName.trim(),
         roleId,
+        department: requiresDepartment ? department.trim().replace(/\s+/g, " ") : null,
         status,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update account.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRoleChange = (nextRoleId: string) => {
+    const nextRole = roleOptions.find((role) => role.id === nextRoleId);
+    setRoleId(nextRoleId);
+
+    if (!isDepartmentRequiredRole(nextRole?.key)) {
+      setDepartment("");
     }
   };
 
@@ -234,7 +260,7 @@ function EditAccountModal({
                 id="edit-role"
                 value={roleId}
                 disabled={isProtectedAdmin}
-                onChange={(event) => setRoleId(event.target.value)}
+                onChange={(event) => handleRoleChange(event.target.value)}
                 className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#667085]"
               >
                 {roleOptions.map((role) => (
@@ -260,6 +286,21 @@ function EditAccountModal({
                 <option value="disabled">Disabled</option>
               </select>
             </div>
+
+            {requiresDepartment ? (
+              <div className="space-y-2 sm:col-span-2">
+                <label htmlFor="edit-department" className="text-sm font-medium text-[#344054]">
+                  Department
+                </label>
+                <input
+                  id="edit-department"
+                  value={department}
+                  onChange={(event) => setDepartment(event.target.value)}
+                  placeholder="e.g., Mathematics Department"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-2 pt-3">
@@ -363,6 +404,7 @@ export default function Accounts() {
         user.fullName.toLowerCase().includes(normalizedSearch) ||
         user.email.toLowerCase().includes(normalizedSearch) ||
         (user.employeeId ?? "").toLowerCase().includes(normalizedSearch) ||
+        (user.department ?? "").toLowerCase().includes(normalizedSearch) ||
         user.roleName.toLowerCase().includes(normalizedSearch);
 
       const matchesRole = roleFilter === "all" || user.roleId === roleFilter;
@@ -400,6 +442,7 @@ export default function Accounts() {
       fullName: data.user.full_name,
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
+      department: data.user.department ?? null,
       roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
@@ -414,6 +457,7 @@ export default function Accounts() {
         fullName: createdUser.fullName,
         email: createdUser.email,
         employeeId: createdUser.employeeId,
+        department: createdUser.department ?? null,
         roleId: createdUser.roleId,
         roleKey: createdUser.roleKey,
         roleName: createdUser.roleName,
@@ -495,9 +539,11 @@ export default function Accounts() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="text-sm text-[var(--color-low-emphasis)]">Loading accounts...</div>
-      </div>
+      <TenantLoadingScreen
+        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading accounts"
+        useStoredBranding
+      />
     );
   }
 
@@ -631,6 +677,7 @@ export default function Accounts() {
                   <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
                   <th className="px-4 py-3 text-xs font-semibold">Name</th>
                   <th className="px-4 py-3 text-xs font-semibold">Email</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Department</th>
                   <th className="px-4 py-3 text-xs font-semibold">Role</th>
                   <th className="px-4 py-3 text-xs font-semibold">Status</th>
                   <th className="px-4 py-3 text-xs font-semibold">Created</th>
@@ -648,6 +695,9 @@ export default function Accounts() {
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
                       {user.email}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                      {user.department || "-"}
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
                       {user.roleName}

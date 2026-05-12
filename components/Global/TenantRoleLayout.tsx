@@ -68,6 +68,7 @@ export default function TenantRoleLayout({
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [access, setAccess] = useState<TenantAccess | null>(null);
   const [accessError, setAccessError] = useState("");
+  const [contentLoading, setContentLoading] = useState(false);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [selectedFeatureKey, setSelectedFeatureKey] = useState("");
   const institutionType = access?.org.institutionType ?? tenantTypeToInstitutionType(tenantType);
@@ -89,8 +90,13 @@ export default function TenantRoleLayout({
   const activeKey = selectedFeatureKey || routeActiveKey;
 
   const handleSetActiveKey = (key: string) => {
+    if (key === activeKey) {
+      return;
+    }
+
     const target = featureItems.find((item) => item.featureKey === key);
     if (target?.href && target.href !== "#") {
+      setContentLoading(true);
       setSelectedFeatureKey(key);
     }
   };
@@ -185,6 +191,18 @@ export default function TenantRoleLayout({
     checkAuth();
   }, [pathname, requiredFeatureKey, router]);
 
+  useEffect(() => {
+    if (!contentLoading) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setContentLoading(false);
+    }, 520);
+
+    return () => window.clearTimeout(timer);
+  }, [activeKey, contentLoading]);
+
   if (checkingAuth) {
     return (
       <TenantLoadingScreen
@@ -274,7 +292,13 @@ export default function TenantRoleLayout({
           }}
         />
         <section className={sectionClassName}>
-          {selectedFeatureKey ? (
+          {contentLoading ? (
+            <TenantLoadingScreen
+              branding={access?.branding}
+              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+              label="Loading section"
+            />
+          ) : selectedFeatureKey ? (
             <TenantFeatureContent featureKey={selectedFeatureKey}>
               {children}
             </TenantFeatureContent>

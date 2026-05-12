@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import { loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -7,6 +8,7 @@ export const runtime = "nodejs";
 type UpdateUserRequest = {
   fullName?: string;
   roleId?: string;
+  department?: string | null;
   status?: "active" | "disabled";
 };
 
@@ -18,6 +20,7 @@ type OrgUserRow = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   status?: string | null;
   created_at?: string | null;
 };
@@ -26,6 +29,14 @@ type RoleRow = {
   id: string;
   key: string;
   name: string;
+};
+
+const normalizeDepartment = (value?: string | null) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replace(/\s+/g, " ");
 };
 
 export async function PATCH(
@@ -54,7 +65,7 @@ export async function PATCH(
 
   const { data: targetUser, error: targetError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, status, created_at")
+    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
@@ -114,6 +125,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Full name is required." }, { status: 400 });
   }
 
+  const requiresDepartment = isDepartmentRequiredRole(roleRow.key);
+  const requestedDepartment =
+    typeof payload.department === "string" ? payload.department : targetUser.department;
+  const nextDepartment = requiresDepartment ? normalizeDepartment(requestedDepartment) : null;
+
+  if (requiresDepartment && !nextDepartment) {
+    return NextResponse.json(
+      { error: "Department is required for this role." },
+      { status: 400 },
+    );
+  }
+
   const now = new Date().toISOString();
 
   const { data: updatedUser, error: updateError } = await supabaseAdmin
@@ -121,12 +144,13 @@ export async function PATCH(
     .update({
       full_name: nextFullName,
       role_id: roleRow.id,
+      department: nextDepartment,
       status: nextStatus,
       updated_at: now,
     })
     .eq("id", targetUser.id)
     .eq("org_id", context.org.id)
-    .select("id, full_name, email, employee_id, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, status, role_id, created_at")
     .single();
 
   if (updateError || !updatedUser) {
@@ -147,6 +171,7 @@ export async function PATCH(
         role_id: roleRow.id,
         role_name: roleRow.name,
         account_status: nextStatus,
+        department: nextDepartment,
         full_name: nextFullName,
       },
     },

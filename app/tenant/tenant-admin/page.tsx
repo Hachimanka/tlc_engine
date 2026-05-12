@@ -37,6 +37,7 @@ export default function TenantPage() {
   });
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
   const sidebarItems = useMemo<SidebarItem[]>(() => {
@@ -152,6 +153,27 @@ export default function TenantPage() {
     checkAuth();
   }, [router]);
 
+  useEffect(() => {
+    if (!contentLoading) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setContentLoading(false);
+    }, 520);
+
+    return () => window.clearTimeout(timer);
+  }, [activeView, contentLoading]);
+
+  const handleSidebarViewChange = (key: string) => {
+    if (key === activeView) {
+      return;
+    }
+
+    setContentLoading(true);
+    setActiveView(key as TenantAdminView);
+  };
+
   if (checkingAuth) {
     return (
       <TenantLoadingScreen
@@ -194,7 +216,7 @@ export default function TenantPage() {
       <div className="flex min-h-0 flex-1">
         <Sidebar
           activeKey={activeView}
-          setActiveKey={(key) => setActiveView(key as TenantAdminView)}
+          setActiveKey={handleSidebarViewChange}
           items={sidebarItems}
           title={`${roleName} Menu`}
           iconSvg={ICON_SVGS.people}
@@ -206,7 +228,15 @@ export default function TenantPage() {
           }}
         />
         <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
-          {content}
+          {contentLoading ? (
+            <TenantLoadingScreen
+              branding={branding}
+              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+              label="Loading section"
+            />
+          ) : (
+            content
+          )}
         </section>
       </div>
     </TenantBrandScope>
