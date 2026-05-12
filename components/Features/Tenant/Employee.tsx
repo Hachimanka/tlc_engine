@@ -16,6 +16,7 @@ type EmployeeUser = {
   fullName: string;
   email: string;
   employeeId?: string | null;
+  department?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -35,6 +36,7 @@ type UserPayload = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -58,6 +60,7 @@ const normalizeUser = (user: UserPayload): EmployeeUser => {
     fullName: user.full_name,
     email: user.email,
     employeeId: user.employee_id ?? null,
+    department: user.department ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -190,6 +193,7 @@ export default function Employee() {
       const matchesSearch =
         normalizedSearch.length === 0 ||
         (employee.employeeId ?? "").toLowerCase().includes(normalizedSearch) ||
+        (employee.department ?? "").toLowerCase().includes(normalizedSearch) ||
         employee.fullName.toLowerCase().includes(normalizedSearch) ||
         employee.email.toLowerCase().includes(normalizedSearch) ||
         employee.roleName.toLowerCase().includes(normalizedSearch) ||
@@ -226,7 +230,8 @@ export default function Employee() {
       fullName: data.user.full_name,
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
+      department: data.user.department ?? null,
+      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name
@@ -240,6 +245,7 @@ export default function Employee() {
         fullName: createdUser.fullName,
         email: createdUser.email,
         employeeId: createdUser.employeeId,
+        department: createdUser.department,
         roleId: createdUser.roleId,
         roleKey: createdUser.roleKey,
         roleName: createdUser.roleName,
@@ -248,6 +254,22 @@ export default function Employee() {
       },
       ...current,
     ]);
+
+    if (createdUser.roleId) {
+      setRoles((current) =>
+        current.some((role) => role.id === createdUser.roleId)
+          ? current
+          : [
+              ...current,
+              {
+                id: createdUser.roleId,
+                key: createdUser.roleKey,
+                name: createdUser.roleName,
+                description: null,
+              },
+            ],
+      );
+    }
 
     return { tempPassword: data.tempPassword, user: createdUser };
   };
@@ -308,7 +330,7 @@ export default function Employee() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, email, ID, group, or role..."
+            placeholder="Search name, email, ID, department, group, or role..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
           />
         </label>
@@ -358,6 +380,7 @@ export default function Employee() {
                 <th className="px-5 py-4 text-sm font-semibold">ID No.</th>
                 <th className="px-5 py-4 text-sm font-semibold">Name</th>
                 <th className="px-5 py-4 text-sm font-semibold">Email</th>
+                <th className="px-5 py-4 text-sm font-semibold">Department</th>
                 <th className="px-5 py-4 text-sm font-semibold">Group</th>
                 <th className="px-5 py-4 text-sm font-semibold">Role</th>
                 <th className="px-5 py-4 text-sm font-semibold">Status</th>
@@ -366,7 +389,7 @@ export default function Employee() {
             <tbody className="divide-y divide-[var(--color-default)] bg-white">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
                     No faculty or staff profiles found.
                   </td>
                 </tr>
@@ -384,6 +407,9 @@ export default function Employee() {
                       </td>
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {employee.email}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                        {employee.department || "-"}
                       </td>
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {staffGroup}

@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 type UpdateUserRequest = {
   fullName?: string;
+  department?: string | null;
   roleId?: string;
   status?: "active" | "disabled";
 };
@@ -18,6 +19,7 @@ type OrgUserRow = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   status?: string | null;
   created_at?: string | null;
 };
@@ -54,7 +56,7 @@ export async function PATCH(
 
   const { data: targetUser, error: targetError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, status, created_at")
+    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
@@ -109,6 +111,8 @@ export async function PATCH(
 
   const nextFullName =
     typeof payload.fullName === "string" ? payload.fullName.trim() : targetUser.full_name;
+  const nextDepartment =
+    typeof payload.department === "string" ? payload.department.trim() || null : targetUser.department ?? null;
 
   if (!nextFullName) {
     return NextResponse.json({ error: "Full name is required." }, { status: 400 });
@@ -120,13 +124,14 @@ export async function PATCH(
     .from("org_users")
     .update({
       full_name: nextFullName,
+      department: nextDepartment,
       role_id: roleRow.id,
       status: nextStatus,
       updated_at: now,
     })
     .eq("id", targetUser.id)
     .eq("org_id", context.org.id)
-    .select("id, full_name, email, employee_id, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, status, role_id, created_at")
     .single();
 
   if (updateError || !updatedUser) {
@@ -148,6 +153,7 @@ export async function PATCH(
         role_name: roleRow.name,
         account_status: nextStatus,
         full_name: nextFullName,
+        department: nextDepartment,
       },
     },
   );
