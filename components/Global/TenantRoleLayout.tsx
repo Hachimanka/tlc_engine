@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import TenantFeatureContent from "@/components/Global/TenantFeatureContent";
 import {
@@ -19,6 +20,7 @@ import type {
 } from "@/features/tenant-feature-catalog";
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
+import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -165,12 +167,14 @@ export default function TenantRoleLayout({
 
         if (requiredFeatureKey && !enabledFeatureKeys.includes(requiredFeatureKey)) {
           setAccess(payload);
+          saveStoredTenantBranding(payload.branding ?? null);
           setIsUnauthorized(true);
           setCheckingAuth(false);
           return;
         }
 
         setAccess(payload);
+        saveStoredTenantBranding(payload.branding ?? null);
         setCheckingAuth(false);
       } catch {
         setAccessError("Unable to reach the authentication service. Please check your Supabase connection and try again.");
@@ -183,9 +187,11 @@ export default function TenantRoleLayout({
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Checking session...</div>
-      </div>
+      <TenantLoadingScreen
+        branding={access?.branding}
+        label="Checking session"
+        useStoredBranding
+      />
     );
   }
 
@@ -210,6 +216,8 @@ export default function TenantRoleLayout({
       >
         <Navbar
           branding={access?.branding}
+          organizationName={access?.org.name}
+          organizationSlug={access?.org.slug}
           profile={{
             displayName: access?.user.fullName,
             email: access?.user.email,
@@ -242,6 +250,8 @@ export default function TenantRoleLayout({
     >
       <Navbar
         branding={access?.branding}
+        organizationName={access?.org.name}
+        organizationSlug={access?.org.slug}
         profile={{
           displayName: access?.user.fullName,
           email: access?.user.email,
@@ -256,8 +266,6 @@ export default function TenantRoleLayout({
           items={sidebarItems}
           title={access?.role.name ? `${access.role.name} Menu` : title || role}
           iconSvg={iconSvg || ICON_SVGS.people}
-          branding={access?.branding}
-          organizationName={access?.org.name}
           profile={{
             displayName: access?.user.fullName,
             email: access?.user.email,

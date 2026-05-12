@@ -3,8 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
+import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -66,6 +68,7 @@ function TenantPasswordSetupContent() {
 
             if (response.ok && payload?.branding) {
               setBranding(payload.branding);
+              saveStoredTenantBranding(payload.branding);
             }
           } catch {
             setBranding(null);
@@ -164,9 +167,11 @@ function TenantPasswordSetupContent() {
 
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Checking session...</div>
-      </div>
+      <TenantLoadingScreen
+        branding={branding}
+        label="Checking session"
+        useStoredBranding
+      />
     );
   }
 
@@ -243,11 +248,7 @@ function TenantPasswordSetupContent() {
 export default function TenantPasswordSetupPage() {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-sm text-gray-500">Loading password setup...</div>
-        </div>
-      }
+      fallback={<TenantLoadingScreen label="Loading password setup" useStoredBranding />}
     >
       <TenantPasswordSetupContent />
     </Suspense>

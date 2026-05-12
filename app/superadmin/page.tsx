@@ -11,6 +11,7 @@ import OrganizationTable from "@/components/superadmin/organization";
 import Sidebar from "@/components/superadmin/sidebar";
 import SuperAdminSettings from "@/components/superadmin/settings";
 import SubscriptionCards from "@/components/superadmin/subscription";
+import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -114,13 +115,28 @@ export default function SuperAdminPage() {
           roleName: "Super Admin",
           avatarUrl: profile.avatarUrl,
         }}
-        onLogout={() => {
-          supabase.auth.signOut();
+        onLogout={async () => {
+          await recordSuperAdminActivity({
+            action: "logged out",
+            target: "Superadmin portal",
+            targetType: "session",
+            status: "success",
+          });
+          await supabase.auth.signOut();
           router.replace("/superadmin/login");
         }}
       />
       <div className="flex min-h-0 flex-1">
-        <Sidebar activeKey={activeKey} setActiveKey={setActiveKey} />
+        <Sidebar
+          activeKey={activeKey}
+          setActiveKey={setActiveKey}
+          profile={{
+            displayName: profile.displayName,
+            email: profile.email,
+            roleName: "Super Admin",
+            avatarUrl: profile.avatarUrl,
+          }}
+        />
         <div className="flex-1 overflow-y-auto bg-gray-50">{ContentComponent}</div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { TenantBranding } from "@/lib/tenantBranding";
 import { ICON_SVGS } from "@/public/icons";
 
 
@@ -17,8 +16,6 @@ interface SidebarProps {
   title?: string;
   iconSvg?: string;
   profile?: Partial<SidebarProfile>;
-  branding?: Partial<TenantBranding> | null;
-  organizationName?: string;
 }
 
 type SidebarProfile = {
@@ -47,8 +44,6 @@ export default function Sidebar({
   title = "Super Admin",
   iconSvg,
   profile: profileInput,
-  branding,
-  organizationName,
 }: SidebarProps) {
   const [minimized, setMinimized] = useState(false);
   const [profileOverride, setProfileOverride] = useState<Partial<SidebarProfile>>({});
@@ -65,9 +60,6 @@ export default function Sidebar({
   const displayName = profile.displayName || "User";
   const displayRole = profile.roleName || fallbackRoleName;
   const profileFallbackIcon = ICON_SVGS.user || iconSvg || ICON_SVGS.people;
-  const orgLogoUrl = branding?.logoUrl || "";
-  const orgLogoAlt = branding?.logoAlt || organizationName || "Organization logo";
-  const shouldShowOrgBrand = Boolean(orgLogoUrl || organizationName);
 
   useEffect(() => {
     const handleProfileUpdated = (event: Event) => {
@@ -90,43 +82,6 @@ export default function Sidebar({
     <aside
       className={`${minimized ? "w-[4.5rem]" : "w-64"} min-h-screen shrink-0 overflow-hidden bg-[var(--color-card)] flex flex-col items-start py-4 px-2 shadow-md transition-all duration-300`}
     >
-      {shouldShowOrgBrand ? (
-        <div className="w-full px-1 pb-3">
-          <div
-            className={`flex w-full items-center rounded-lg bg-[var(--color-primary)] px-2 py-2 text-white transition-all duration-300 ${
-              minimized ? "justify-center" : "gap-3"
-            }`}
-          >
-            {orgLogoUrl ? (
-              <span
-                className="h-11 w-11 shrink-0 rounded-md bg-white bg-contain bg-center bg-no-repeat"
-                style={{ backgroundImage: `url("${orgLogoUrl}")` }}
-                role="img"
-                aria-label={orgLogoAlt}
-              />
-            ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-white/15">
-                <span
-                  className="flex h-5 w-5 items-center justify-center"
-                  dangerouslySetInnerHTML={{ __html: ICON_SVGS.settings }}
-                />
-              </span>
-            )}
-
-            {!minimized ? (
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold leading-5" title={organizationName}>
-                  {organizationName || "Organization"}
-                </p>
-                <p className="mt-0.5 text-[11px] font-semibold leading-[14px] text-white/75">
-                  Branded workspace
-                </p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
       <div className="w-full px-1 pb-3">
         <div
           className={`flex w-full items-center rounded-lg px-2 py-2 transition-all duration-300 ${
@@ -149,7 +104,7 @@ export default function Sidebar({
             ) : (
               <span
                 dangerouslySetInnerHTML={{ __html: profileFallbackIcon }}
-                className="flex h-5 w-5 items-center justify-center"
+                className="themed-svg-icon flex h-5 w-5 items-center justify-center"
               />
             )}
           </button>
@@ -196,7 +151,7 @@ export default function Sidebar({
           >
             {item.icon && (
               <span
-                className="w-5 h-5 flex items-center justify-center"
+                className="themed-svg-icon w-5 h-5 flex items-center justify-center"
                 style={{ color: activeKey === item.key ? "#fff" : "var(--color-primary)" }}
                 dangerouslySetInnerHTML={{ __html: item.icon }}
               />

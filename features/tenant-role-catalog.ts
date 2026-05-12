@@ -73,12 +73,9 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
   {
     key: "vpaa",
     name: "VPAA",
-    description: "Reviews academic approvals, load planning, and operations.",
+    description: "Reviews final academic approvals and monitors teaching load schedules.",
     featureKeys: [
       "higher-dean-vpaa-approvals",
-      "higher-faculty-load-assignment",
-      "higher-subject-management",
-      "higher-room-schedule-management",
       "higher-teaching-load-view",
     ],
   },

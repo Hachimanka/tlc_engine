@@ -1,4 +1,5 @@
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
+import AcademicApprovalsDashboard from "@/components/Features/College/academic-approvals/AcademicApprovalsDashboard";
 import { ICON_SVGS } from "@/public/icons";
 
 export default function SubjectRoomPage() {
@@ -11,9 +12,7 @@ export default function SubjectRoomPage() {
       requiredFeatureKey="higher-dean-vpaa-approvals"
       contentClassName="p-6"
     >
-      <div className="text-[28px] font-semibold text-[var(--color-high-emphasis)]">
-        VPAA
-      </div>
+      <AcademicApprovalsDashboard />
     </TenantRoleLayout>
   );
 }

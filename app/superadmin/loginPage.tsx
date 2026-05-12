@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
 
 
@@ -36,6 +37,12 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 			setError("You do not have access to the superadmin portal.");
 			return;
 		}
+		await recordSuperAdminActivity({
+			action: "logged in",
+			target: "Superadmin portal",
+			targetType: "session",
+			status: "success",
+		});
 		onLogin();
 	};
 

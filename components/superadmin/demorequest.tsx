@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
 type DemoRequest = {
 	id: string;
@@ -167,6 +168,18 @@ function AddDemoModal({ onClose, onAdded }: {
 		setSaving(false);
 		if (error) { setErrors({ general: error.message }); return; }
 		onAdded(data);
+		void recordSuperAdminActivity({
+			action: "created",
+			target: data.institution_name,
+			targetType: "demo_request",
+			status: "success",
+			metadata: {
+				demo_request_id: data.id,
+				requester: data.full_name,
+				requester_email: data.email,
+				initial_status: data.status,
+			},
+		});
 	};
 
 	const inputCls = (key: string) =>
@@ -418,6 +431,18 @@ export default function DemoRequestTable() {
 			return;
 		}
 		await fetchData();
+		void recordSuperAdminActivity({
+			action: "updated",
+			target: selectedRequest.institution_name,
+			targetType: "demo_request",
+			status: "success",
+			metadata: {
+				demo_request_id: selectedRequest.id,
+				field: "status",
+				previous_status: selectedRequest.status,
+				new_status: status,
+			},
+		});
 		setSelectedRequest(prev => prev ? { ...prev, status } : null);
 	};
 
@@ -439,9 +464,21 @@ export default function DemoRequestTable() {
 		setConversionResult(null);
 
 		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData.session?.access_token;
+
+			if (!token) {
+				setActionError("Your session expired. Please log in again.");
+				setActionLoading(false);
+				return;
+			}
+
 			const res = await fetch("/api/superadmin/convert", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					demoRequestId: selectedRequest.id,
 					plan: selectedPlan,

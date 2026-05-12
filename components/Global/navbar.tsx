@@ -11,6 +11,8 @@ type NavbarProps = {
   onLogout?: () => void;
   profile?: Partial<NavbarProfile>;
   branding?: Partial<TenantBranding> | null;
+  organizationName?: string;
+  organizationSlug?: string;
 };
 
 type NavbarProfile = {
@@ -27,7 +29,13 @@ const defaultProfile: NavbarProfile = {
   avatarUrl: "",
 };
 
-export default function Navbar({ onLogout, profile: profileInput, branding }: NavbarProps) {
+export default function Navbar({
+  onLogout,
+  profile: profileInput,
+  branding,
+  organizationName,
+  organizationSlug,
+}: NavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
@@ -51,6 +59,9 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
   };
   const logoUrl = branding?.logoUrl || "";
   const logoAlt = branding?.logoAlt || "TLC Logo";
+  const hasTenantBrand = Boolean(organizationName || logoUrl);
+  const tenantBrandName = organizationName || logoAlt || "Institution Workspace";
+  const normalizedOrganizationSlug = organizationSlug?.trim();
 
   const clearAvatarObjectUrl = () => {
     if (avatarObjectUrlRef.current) {
@@ -61,6 +72,9 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
 
   const resolveLogoutRedirect = () => {
     if (pathname?.startsWith("/superadmin")) return "/superadmin/login";
+    if (normalizedOrganizationSlug) {
+      return `/login?slug=${encodeURIComponent(normalizedOrganizationSlug)}`;
+    }
     if (pathname?.startsWith("/tenant")) return "/login";
     return "/";
   };
@@ -125,6 +139,7 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
     setDraftAvatarFile(file);
     setDraftAvatarUrl(nextPreviewUrl);
     setSettingsError("");
+    setSettingsSuccess("");
   };
 
   const handleSaveSettings = async (event: FormEvent<HTMLFormElement>) => {
@@ -244,14 +259,33 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
   return (
     <>
     <nav className="h-15 flex items-center justify-between bg-[var(--color-primary)] px-4">
-      <div className="flex items-center gap-2 ml-10">
-        {logoUrl ? (
-          <span
-            className="h-10 w-10 rounded-md bg-contain bg-center bg-no-repeat"
-            style={{ backgroundImage: `url("${logoUrl}")` }}
-            role="img"
-            aria-label={logoAlt}
-          />
+      <div className="ml-2 flex min-w-0 items-center gap-2 sm:ml-10">
+        {hasTenantBrand ? (
+          <div className="flex h-12 min-w-0 max-w-[min(360px,calc(100vw-11rem))] items-center gap-3 py-1.5 text-white">
+            {logoUrl ? (
+              <span
+                className="h-9 w-9 shrink-0 rounded-md bg-white bg-contain bg-center bg-no-repeat"
+                style={{ backgroundImage: `url("${logoUrl}")` }}
+                role="img"
+                aria-label={logoAlt}
+              />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-white">
+                <span
+                  className="themed-svg-icon flex h-5 w-5 items-center justify-center"
+                  dangerouslySetInnerHTML={{ __html: ICON_SVGS.settings }}
+                />
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold leading-5" title={tenantBrandName}>
+                {tenantBrandName}
+              </p>
+              <p className="truncate text-[11px] font-semibold leading-4 text-white/75">
+                Branded workspace
+              </p>
+            </div>
+          </div>
         ) : (
           <Image src="/navbar/tlclogo.png" alt="Logo" width={40} height={40} />
         )}
@@ -286,8 +320,12 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
               <span
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-default)]"
                 aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: ICON_SVGS.user }}
-              />
+              >
+                <span
+                  className="themed-svg-icon flex h-4 w-4 items-center justify-center text-[var(--color-primary)]"
+                  dangerouslySetInnerHTML={{ __html: ICON_SVGS.user }}
+                />
+              </span>
             )}
             <span className="min-w-0 truncate text-[11px] font-semibold text-[var(--color-primary)]">
               {profile.displayName}
@@ -382,7 +420,10 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
               <input
                 id="profile-name"
                 value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
+                onChange={(event) => {
+                  setDraftName(event.target.value);
+                  setSettingsSuccess("");
+                }}
                 className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
               />
             </div>
@@ -407,20 +448,32 @@ export default function Navbar({ onLogout, profile: profileInput, branding }: Na
             </div>
 
             <div className="flex justify-end gap-2 pt-3">
-              <button
-                type="button"
-                onClick={closeSettings}
-                className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSavingSettings}
-                className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSavingSettings ? "Saving..." : "Save Settings"}
-              </button>
+              {settingsSuccess ? (
+                <button
+                  type="button"
+                  onClick={closeSettings}
+                  className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)]"
+                >
+                  Close
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeSettings}
+                    className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isSavingSettings ? "Saving..." : "Save Settings"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </form>

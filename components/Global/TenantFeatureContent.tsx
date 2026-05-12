@@ -21,6 +21,7 @@ import DepedRequestForm from "@/components/Features/Deped/view-teaching-load/com
 import DepedTeachingLoadTable from "@/components/Features/Deped/view-teaching-load/components/TeachingLoadTable";
 import CollegeRoomsTable from "@/components/Features/College/manage-room/components/RoomsTable";
 import CollegeSubjectManagementTable from "@/components/Features/College/manage-subject/components/SubjectManagementTable";
+import AcademicApprovalsDashboard from "@/components/Features/College/academic-approvals/AcademicApprovalsDashboard";
 import CollegeExportForm from "@/components/Features/College/view-teaching-load/components/ExportForm";
 import CollegeRequestForm from "@/components/Features/College/view-teaching-load/components/RequestForm";
 import CollegeTeachingLoadTable from "@/components/Features/College/view-teaching-load/components/TeachingLoadTable";
@@ -326,7 +327,7 @@ function renderFeatureContent(featureKey: FeatureKey, children: ReactNode) {
     "higher-teaching-load-view": <CollegeTeachingLoadContent />,
     "higher-subject-management": <CollegeSubjectManagementTable />,
     "higher-room-schedule-management": <CollegeRoomsTable />,
-    "higher-dean-vpaa-approvals": <PlaceholderContent title="Dean / VPAA Approvals" />,
+    "higher-dean-vpaa-approvals": <AcademicApprovalsDashboard />,
     "deped-teacher-load-assignment": (
       <PageShell title="Teacher Load Assignment">
         <DepedDepartmentFacultyTable />

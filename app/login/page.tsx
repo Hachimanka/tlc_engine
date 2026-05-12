@@ -3,10 +3,16 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
+import {
+  clearStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
+import { ICON_SVGS } from "@/public/icons";
 
 type UserMetadata = {
   first_login?: boolean;
@@ -25,6 +31,7 @@ function LoginContent() {
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const logoUrl = branding?.logoUrl || "";
   const logoAlt = branding?.logoAlt || "TLC Logo";
+  const hasInstitutionBranding = Boolean(branding);
 
   const getAssignedFeatureRedirect = async () => {
     try {
@@ -86,9 +93,17 @@ function LoginContent() {
 
   useEffect(() => {
     const loadPublicBranding = async () => {
-      const slug = searchParams?.get("org") || searchParams?.get("slug");
+      const querySlug = searchParams?.get("org") || searchParams?.get("slug");
+      const host = window.location.hostname;
+      const subdomain = host.split(".")[0];
+      const slug =
+        querySlug ||
+        (!["admin", "localhost", "www", "yourapp"].includes(subdomain) && host.includes(".")
+          ? subdomain
+          : "");
 
       if (!slug) {
+        clearStoredTenantBranding();
         return;
       }
 
@@ -98,9 +113,11 @@ function LoginContent() {
 
         if (response.ok && payload?.branding) {
           setBranding(payload.branding);
+          saveStoredTenantBranding(payload.branding);
         }
       } catch {
         setBranding(null);
+        clearStoredTenantBranding();
       }
     };
 
@@ -166,6 +183,10 @@ function LoginContent() {
     await redirectAfterLogin(data.user?.user_metadata as UserMetadata);
   };
 
+  if (loading) {
+    return <TenantLoadingScreen branding={branding} label="Signing in" />;
+  }
+
   return (
     <TenantBrandScope
       branding={branding}
@@ -183,6 +204,13 @@ function LoginContent() {
               role="img"
               aria-label={logoAlt}
             />
+          ) : hasInstitutionBranding ? (
+            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--color-default)] text-[var(--color-primary)]">
+              <span
+                className="themed-svg-icon flex h-6 w-6 items-center justify-center"
+                dangerouslySetInnerHTML={{ __html: ICON_SVGS.settings }}
+              />
+            </span>
           ) : (
             <Image src="/navbar/tlclogo.png" alt="TLC Logo" width={48} height={48} />
           )}
@@ -235,11 +263,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-sm text-gray-500">Loading login...</div>
-        </div>
-      }
+      fallback={<TenantLoadingScreen label="Loading login" />}
     >
       <LoginContent />
     </Suspense>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
 import Employee from "@/components/Features/Tenant/Employee";
@@ -18,6 +19,7 @@ import {
 } from "@/config";
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
+import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -26,6 +28,7 @@ export default function TenantPage() {
   const [activeView, setActiveView] = useState<TenantAdminView>(() => getDefaultTenantAdminView());
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
   const [orgName, setOrgName] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
   const [roleName, setRoleName] = useState("Org Admin");
   const [profile, setProfile] = useState({
     displayName: "User",
@@ -128,6 +131,7 @@ export default function TenantPage() {
         const detectedType = payload.org?.institutionType ?? metadata?.institution_type ?? null;
         setInstitutionType(detectedType);
         setOrgName(payload.org?.name || "");
+        setOrgSlug(payload.org?.slug || "");
         setRoleName(payload.role?.name || "Org Admin");
         setProfile({
           displayName: payload.user?.fullName || user.email || "User",
@@ -135,6 +139,7 @@ export default function TenantPage() {
           avatarUrl: payload.user?.avatarUrl || "",
         });
         setBranding(payload.branding ?? null);
+        saveStoredTenantBranding(payload.branding ?? null);
         setActiveView(getDefaultTenantAdminView(detectedType));
 
         setCheckingAuth(false);
@@ -149,9 +154,11 @@ export default function TenantPage() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Checking session...</div>
-      </div>
+      <TenantLoadingScreen
+        branding={branding}
+        label="Checking session"
+        useStoredBranding
+      />
     );
   }
 
@@ -175,6 +182,8 @@ export default function TenantPage() {
     >
       <Navbar
         branding={branding}
+        organizationName={orgName}
+        organizationSlug={orgSlug}
         profile={{
           displayName: profile.displayName,
           email: profile.email,
@@ -189,8 +198,6 @@ export default function TenantPage() {
           items={sidebarItems}
           title={`${roleName} Menu`}
           iconSvg={ICON_SVGS.people}
-          branding={branding}
-          organizationName={orgName}
           profile={{
             displayName: profile.displayName,
             email: profile.email,

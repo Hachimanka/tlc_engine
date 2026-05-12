@@ -168,21 +168,42 @@ export default function ActivityLogsTable() {
 	async function fetchLogs() {
 		setLoading(true);
 		setError("");
-		const { data, error } = await supabase
-			.from("activity_logs")
-			.select("*")
-			.order("created_at", { ascending: false });
-		if (error) {
+
+		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData.session?.access_token;
+
+			if (!token) {
+				setError("Your session expired. Please log in again.");
+				setLogs([]);
+				return;
+			}
+
+			const response = await fetch("/api/superadmin/activity-logs?limit=250", {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+			const payload: { logs?: ActivityLog[]; error?: string } = await response
+				.json()
+				.catch(() => ({}));
+
+			if (!response.ok) {
+				setError(payload.error || "Failed to load activity logs.");
+				setLogs([]);
+				return;
+			}
+
+			setLogs(payload.logs || []);
+		} catch {
 			setError("Failed to load activity logs.");
 			setLogs([]);
-		} else {
-			setLogs(data || []);
+		} finally {
+			setLoading(false);
 		}
-		setLoading(false);
 	}
 
 	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
 		fetchLogs();
 	}, []);
 
@@ -243,6 +264,13 @@ export default function ActivityLogsTable() {
 					label={actionLabel} options={ACTION_OPTIONS}
 					value={actionFilter} onChange={setActionFilter}
 				/>
+				<button
+					className="shrink-0 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
+					onClick={fetchLogs}
+					disabled={loading}
+				>
+					Refresh
+				</button>
 			</div>
 
 			{/* Table */}

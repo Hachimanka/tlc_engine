@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ICON_SVGS } from "@/public/icons";
 
 
@@ -15,7 +15,15 @@ interface SidebarProps {
   items?: SidebarItem[];
   title?: string;
   iconSvg?: string;
+  profile?: Partial<SidebarProfile>;
 }
+
+type SidebarProfile = {
+  displayName: string;
+  email: string;
+  roleName: string;
+  avatarUrl: string;
+};
 
 const defaultSidebarItems: SidebarItem[] = [
   { key: "dashboard", label: "Dashboard", icon: ICON_SVGS.menu },
@@ -27,9 +35,46 @@ const defaultSidebarItems: SidebarItem[] = [
   { key: "settings", label: "Settings", icon: ICON_SVGS.settings },
 ];
 
-export default function Sidebar({ activeKey, setActiveKey, items, title = "Super Admin", iconSvg }: SidebarProps) {
+export default function Sidebar({
+  activeKey,
+  setActiveKey,
+  items,
+  title = "Super Admin",
+  iconSvg,
+  profile: profileInput,
+}: SidebarProps) {
   const [minimized, setMinimized] = useState(false);
+  const [profileOverride, setProfileOverride] = useState<Partial<SidebarProfile>>({});
   const sidebarItems = items || defaultSidebarItems;
+  const profile = {
+    displayName: title,
+    email: "",
+    roleName: title,
+    avatarUrl: "",
+    ...profileInput,
+    ...profileOverride,
+  };
+  const profileFallbackIcon = iconSvg || ICON_SVGS.user;
+
+  useEffect(() => {
+    const handleProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<Partial<SidebarProfile>>).detail;
+
+      if (!detail) {
+        return;
+      }
+
+      setProfileOverride((current) => ({
+        ...current,
+        displayName: detail.displayName ?? current.displayName,
+        avatarUrl: detail.avatarUrl ?? current.avatarUrl,
+      }));
+    };
+
+    window.addEventListener("tlc-profile-updated", handleProfileUpdated);
+
+    return () => window.removeEventListener("tlc-profile-updated", handleProfileUpdated);
+  }, []);
 
   return (
     <aside
@@ -44,11 +89,19 @@ export default function Sidebar({ activeKey, setActiveKey, items, title = "Super
             aria-label="Toggle sidebar"
             style={{ padding: 0 }}
           >
-            <span
-              dangerouslySetInnerHTML={{ __html: iconSvg || ICON_SVGS.people }}
-              className="w-5 h-5 flex items-center justify-center"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            />
+            {profile.avatarUrl ? (
+              <span
+                className="h-10 w-10 rounded-full bg-cover bg-center"
+                style={{ backgroundImage: `url("${profile.avatarUrl}")` }}
+                aria-hidden="true"
+              />
+            ) : (
+              <span
+                dangerouslySetInnerHTML={{ __html: profileFallbackIcon }}
+                className="w-5 h-5 flex items-center justify-center"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              />
+            )}
           </button>
           <span
             className="text-lg font-bold text-teal-800 whitespace-nowrap transition-opacity duration-300 pl-2"

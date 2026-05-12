@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getBootstrapSystemRoleDefinitions } from "@/features/tenant-role-catalog";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  authenticateSuperAdmin,
+  tryCreateSuperAdminActivityLog,
+} from "@/lib/superadminActivityLogs";
 
 export const runtime = "nodejs";
 
@@ -44,6 +48,12 @@ const generateTempPassword = () => {
 };
 
 export async function POST(req: Request) {
+  const auth = await authenticateSuperAdmin(req);
+
+  if (auth.error) {
+    return auth.error;
+  }
+
   let payload: ConvertRequest = {};
 
   try {
@@ -225,6 +235,22 @@ export async function POST(req: Request) {
   const warning = updateError
     ? "Organization created, but demo request status update failed."
     : undefined;
+
+  await tryCreateSuperAdminActivityLog(auth.user, {
+    action: "converted",
+    target: orgName,
+    targetType: "demo_request",
+    status: warning ? "warning" : "success",
+    metadata: {
+      demo_request_id: demoRequestId,
+      organization_id: createdOrg.id,
+      admin_email: adminEmail,
+      subscription_plan: plan,
+      subscription_start: subscriptionStart,
+      subscription_end: subscriptionEnd,
+      warning: warning ?? null,
+    },
+  });
 
   return NextResponse.json({
     orgId: createdOrg.id,

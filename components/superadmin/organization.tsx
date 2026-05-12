@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
 type Organization = {
 	id: string;
@@ -160,6 +161,18 @@ function AddOrgModal({ onClose, onAdded }: {
 		setSaving(false);
 		if (error) { setErrors({ general: error.message }); return; }
 		onAdded(data);
+		void recordSuperAdminActivity({
+			action: "created",
+			target: data.name,
+			targetType: "organization",
+			status: "success",
+			metadata: {
+				organization_id: data.id,
+				admin_email: data.admin_email,
+				contact_email: data.contact_email,
+				subscription_plan: data.subscription_plan,
+			},
+		});
 	};
 
 	const inputCls = (key: string) =>
@@ -405,6 +418,18 @@ export default function OrganizationTable() {
 		const updated = { ...selectedOrg, address: addressValue };
 		setSelectedOrg(updated);
 		setOrganizations(prev => prev.map(o => o.id === selectedOrg.id ? updated : o));
+		void recordSuperAdminActivity({
+			action: "updated",
+			target: selectedOrg.name,
+			targetType: "organization",
+			status: "success",
+			metadata: {
+				organization_id: selectedOrg.id,
+				field: "address",
+				previous_address: selectedOrg.address || null,
+				new_address: addressValue || null,
+			},
+		});
 		setEditingAddress(false);
 	};
 

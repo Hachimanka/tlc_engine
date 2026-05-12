@@ -2,12 +2,30 @@ import React, { useEffect, useState, type ChangeEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Section = "profile" | "security" | "notifications" | "system" | "danger";
+type Section = "profile" | "security" | "admins" | "notifications" | "system" | "danger";
 
 type ProfileResponse = {
 	displayName?: string;
 	email?: string;
 	avatarUrl?: string;
+};
+
+type ActivityLogPreview = {
+	id: string;
+	action: string;
+	target: string | null;
+	target_type: string | null;
+	status: string;
+	created_at: string;
+};
+
+type SuperAdminAccount = {
+	id: string;
+	email: string;
+	fullName: string;
+	accountStatus: string;
+	createdAt: string | null;
+	lastSignInAt: string | null;
 };
 
 const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800 bg-white";
@@ -16,6 +34,7 @@ const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-s
 const Icons = {
 	profile: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	security: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2L4 6v6c0 5 3.6 9.3 8 10.5C16.4 21.3 20 17 20 12V6l-8-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+	admins: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2l7 3v6c0 4.8-3 9.1-7 10.5C8 20.1 5 15.8 5 11V5l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M8.5 15c.7-1.4 2-2.2 3.5-2.2s2.8.8 3.5 2.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	notifications: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 	system: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.8"/></svg>,
 	danger: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
@@ -23,6 +42,9 @@ const Icons = {
 	eyeOff: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	check: <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 	save: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><polyline points="7 3 7 8 15 8" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+	plus: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>,
+	copy: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke="currentColor" strokeWidth="1.8"/></svg>,
+	close: <svg width="17" height="17" fill="none" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>,
 };
 
 // ─── Toggle Switch ────────────────────────────────────────────────────────────
@@ -129,6 +151,53 @@ function SaveButton({ onClick, saving, success, label = "Save Changes" }: {
 	);
 }
 
+function formatRelativeTime(value: string) {
+	const timestamp = new Date(value).getTime();
+
+	if (!Number.isFinite(timestamp)) {
+		return "Unknown time";
+	}
+
+	const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+
+	if (seconds < 60) return "Just now";
+
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
+
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+
+	return new Date(value).toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	});
+}
+
+function formatDateTime(value: string | null) {
+	if (!value) {
+		return "Never";
+	}
+
+	const timestamp = new Date(value).getTime();
+
+	if (!Number.isFinite(timestamp)) {
+		return "Unknown";
+	}
+
+	return new Date(value).toLocaleString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
 export default function SuperAdminSettings() {
 	const [activeSection, setActiveSection] = useState<Section>("profile");
 
@@ -156,6 +225,21 @@ export default function SuperAdminSettings() {
 	const [twoFactor, setTwoFactor] = useState(false);
 	const [sessionTimeout, setSessionTimeout] = useState("60");
 
+	// Super Admins
+	const [superAdmins, setSuperAdmins] = useState<SuperAdminAccount[]>([]);
+	const [adminsLoading, setAdminsLoading] = useState(false);
+	const [adminsError, setAdminsError] = useState("");
+	const [adminModalOpen, setAdminModalOpen] = useState(false);
+	const [newAdminName, setNewAdminName] = useState("");
+	const [newAdminEmail, setNewAdminEmail] = useState("");
+	const [createAdminError, setCreateAdminError] = useState("");
+	const [createAdminLoading, setCreateAdminLoading] = useState(false);
+	const [createdAdmin, setCreatedAdmin] = useState<{
+		user: SuperAdminAccount;
+		tempPassword: string;
+	} | null>(null);
+	const [copiedAdminField, setCopiedAdminField] = useState("");
+
 	// Notifications
 	const [notifDemoRequest, setNotifDemoRequest] = useState(true);
 	const [notifNewOrg, setNotifNewOrg] = useState(true);
@@ -173,6 +257,9 @@ export default function SuperAdminSettings() {
 	const [platformName, setPlatformName] = useState("EduAdmin Platform");
 	const [systemSaving, setSystemSaving] = useState(false);
 	const [systemSuccess, setSystemSuccess] = useState(false);
+	const [recentLogs, setRecentLogs] = useState<ActivityLogPreview[]>([]);
+	const [logsLoading, setLogsLoading] = useState(false);
+	const [logsError, setLogsError] = useState("");
 
 	// Danger
 	const [confirmDelete, setConfirmDelete] = useState("");
@@ -180,6 +267,7 @@ export default function SuperAdminSettings() {
 	const navItems: { key: Section; label: string; icon: React.ReactNode }[] = [
 		{ key: "profile", label: "Profile", icon: Icons.profile },
 		{ key: "security", label: "Security", icon: Icons.security },
+		{ key: "admins", label: "Super Admins", icon: Icons.admins },
 		{ key: "notifications", label: "Notifications", icon: Icons.notifications },
 		{ key: "system", label: "System", icon: Icons.system },
 		{ key: "danger", label: "Danger Zone", icon: Icons.danger },
@@ -222,6 +310,92 @@ export default function SuperAdminSettings() {
 
 		loadProfile();
 	}, []);
+
+	const loadRecentLogs = async () => {
+		setLogsLoading(true);
+		setLogsError("");
+
+		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData.session?.access_token;
+
+			if (!token) {
+				setLogsError("Your session expired. Please log in again.");
+				setRecentLogs([]);
+				return;
+			}
+
+			const response = await fetch("/api/superadmin/activity-logs?limit=5", {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+			const payload: { logs?: ActivityLogPreview[]; error?: string } = await response
+				.json()
+				.catch(() => ({}));
+
+			if (!response.ok) {
+				setLogsError(payload.error || "Unable to load recent activity.");
+				setRecentLogs([]);
+				return;
+			}
+
+			setRecentLogs(payload.logs || []);
+		} catch {
+			setLogsError("Unable to load recent activity.");
+			setRecentLogs([]);
+		} finally {
+			setLogsLoading(false);
+		}
+	};
+
+	const loadSuperAdmins = async () => {
+		setAdminsLoading(true);
+		setAdminsError("");
+
+		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData.session?.access_token;
+
+			if (!token) {
+				setAdminsError("Your session expired. Please log in again.");
+				setSuperAdmins([]);
+				return;
+			}
+
+			const response = await fetch("/api/superadmin/users", {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+			const payload: { users?: SuperAdminAccount[]; error?: string } = await response
+				.json()
+				.catch(() => ({}));
+
+			if (!response.ok) {
+				setAdminsError(payload.error || "Unable to load super admin accounts.");
+				setSuperAdmins([]);
+				return;
+			}
+
+			setSuperAdmins(payload.users || []);
+		} catch {
+			setAdminsError("Unable to load super admin accounts.");
+			setSuperAdmins([]);
+		} finally {
+			setAdminsLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		if (activeSection === "system") {
+			loadRecentLogs();
+		}
+
+		if (activeSection === "admins") {
+			loadSuperAdmins();
+		}
+	}, [activeSection]);
 
 	useEffect(() => {
 		return () => {
@@ -340,6 +514,92 @@ export default function SuperAdminSettings() {
 		setTimeout(() => setPasswordSuccess(false), 3000);
 	};
 
+	const resetAdminForm = () => {
+		setNewAdminName("");
+		setNewAdminEmail("");
+		setCreateAdminError("");
+		setCreateAdminLoading(false);
+		setCreatedAdmin(null);
+		setCopiedAdminField("");
+	};
+
+	const closeAdminModal = () => {
+		resetAdminForm();
+		setAdminModalOpen(false);
+	};
+
+	const handleCopyAdminValue = async (label: string, value: string) => {
+		try {
+			await navigator.clipboard.writeText(value);
+			setCopiedAdminField(label);
+			setTimeout(() => setCopiedAdminField(""), 1800);
+		} catch {
+			setCopiedAdminField("Copy failed");
+		}
+	};
+
+	const handleCreateSuperAdmin = async (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const fullName = newAdminName.trim();
+		const adminEmail = newAdminEmail.trim();
+
+		if (!fullName || !adminEmail) {
+			setCreateAdminError("Full name and email are required.");
+			return;
+		}
+
+		setCreateAdminLoading(true);
+		setCreateAdminError("");
+		setCopiedAdminField("");
+
+		try {
+			const { data: sessionData } = await supabase.auth.getSession();
+			const token = sessionData.session?.access_token;
+
+			if (!token) {
+				setCreateAdminError("Your session expired. Please log in again.");
+				return;
+			}
+
+			const response = await fetch("/api/superadmin/users", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					fullName,
+					email: adminEmail,
+				}),
+			});
+			const payload: {
+				user?: SuperAdminAccount;
+				tempPassword?: string;
+				error?: string;
+			} = await response.json().catch(() => ({}));
+
+			if (!response.ok || !payload.user || !payload.tempPassword) {
+				setCreateAdminError(payload.error || "Unable to create super admin account.");
+				return;
+			}
+
+			setCreatedAdmin({
+				user: payload.user,
+				tempPassword: payload.tempPassword,
+			});
+			setSuperAdmins((current) => [
+				payload.user as SuperAdminAccount,
+				...current.filter((admin) => admin.id !== payload.user?.id),
+			]);
+			setNewAdminName("");
+			setNewAdminEmail("");
+		} catch {
+			setCreateAdminError("Unable to create super admin account.");
+		} finally {
+			setCreateAdminLoading(false);
+		}
+	};
+
 	const handleSystemSave = async () => {
 		setSystemSaving(true);
 		setSystemSuccess(false);
@@ -360,6 +620,162 @@ export default function SuperAdminSettings() {
 
 	return (
 		<div className="w-full px-8 py-6">
+			{adminModalOpen && (
+				<div
+					className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
+					onClick={() => {
+						if (!createdAdmin) {
+							closeAdminModal();
+						}
+					}}
+				>
+					<div
+						className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="superadmin-modal-title"
+						onClick={(event) => event.stopPropagation()}
+					>
+						<div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+							<div>
+								<h2 id="superadmin-modal-title" className="text-lg font-bold text-teal-800">
+									Add Super Admin
+								</h2>
+								<p className="mt-1 text-xs text-gray-400">Create a same-level platform admin account.</p>
+							</div>
+							<button
+								type="button"
+								className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+								onClick={closeAdminModal}
+								aria-label="Close"
+							>
+								{Icons.close}
+							</button>
+						</div>
+
+						{createdAdmin ? (
+							<div className="space-y-4 px-6 py-5">
+								<div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+									<p className="text-sm font-bold text-green-700">Super admin account created.</p>
+									<p className="mt-1 text-xs text-green-700">Share this temporary password securely. It is shown only once.</p>
+								</div>
+
+								<div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+									<div>
+										<p className="text-xs font-bold uppercase tracking-widest text-gray-400">Account</p>
+										<p className="mt-1 text-sm font-semibold text-gray-800">{createdAdmin.user.fullName}</p>
+										<div className="mt-2 flex items-center gap-2">
+											<input
+												value={createdAdmin.user.email}
+												readOnly
+												className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+											/>
+											<button
+												type="button"
+												className="inline-flex items-center gap-1 rounded-lg border border-teal-200 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50"
+												onClick={() => handleCopyAdminValue("Email", createdAdmin.user.email)}
+											>
+												{Icons.copy} Copy
+											</button>
+										</div>
+									</div>
+
+									<div>
+										<p className="text-xs font-bold uppercase tracking-widest text-gray-400">Temporary Password</p>
+										<div className="mt-2 flex items-center gap-2">
+											<input
+												value={createdAdmin.tempPassword}
+												readOnly
+												className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-teal-700"
+											/>
+											<button
+												type="button"
+												className="inline-flex items-center gap-1 rounded-lg border border-teal-200 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50"
+												onClick={() => handleCopyAdminValue("Password", createdAdmin.tempPassword)}
+											>
+												{Icons.copy} Copy
+											</button>
+										</div>
+									</div>
+								</div>
+
+								{copiedAdminField ? (
+									<p className="text-xs text-teal-600">
+										{copiedAdminField === "Copy failed" ? copiedAdminField : `${copiedAdminField} copied`}
+									</p>
+								) : null}
+
+								<div className="flex justify-end gap-2">
+									<button
+										type="button"
+										className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+										onClick={resetAdminForm}
+									>
+										Add another
+									</button>
+									<button
+										type="button"
+										className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800"
+										onClick={closeAdminModal}
+									>
+										Done
+									</button>
+								</div>
+							</div>
+						) : (
+							<form className="space-y-4 px-6 py-5" onSubmit={handleCreateSuperAdmin}>
+								{createAdminError ? (
+									<p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+										{createAdminError}
+									</p>
+								) : null}
+
+								<Field label="Full Name">
+									<input
+										className={INPUT_CLASS}
+										value={newAdminName}
+										onChange={(event) => setNewAdminName(event.target.value)}
+										placeholder="e.g., Maria Santos"
+									/>
+								</Field>
+
+								<Field label="Email Address" hint="Used to log in to the superadmin portal">
+									<input
+										className={INPUT_CLASS}
+										type="email"
+										value={newAdminEmail}
+										onChange={(event) => setNewAdminEmail(event.target.value)}
+										placeholder="admin@example.com"
+									/>
+								</Field>
+
+								<div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+									This creates a same-level superadmin account. Share the temporary password privately.
+								</div>
+
+								<div className="flex justify-end gap-2 pt-1">
+									<button
+										type="button"
+										className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+										onClick={closeAdminModal}
+										disabled={createAdminLoading}
+									>
+										Cancel
+									</button>
+									<button
+										type="submit"
+										className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+										disabled={createAdminLoading}
+									>
+										{createAdminLoading ? "Creating..." : <>{Icons.plus} Create Account</>}
+									</button>
+								</div>
+							</form>
+						)}
+					</div>
+				</div>
+			)}
+
 			{/* Header */}
 			<div className="border-b border-teal-200 mb-6">
 				<h1 className="text-2xl font-bold text-teal-800 pb-2">SETTINGS</h1>
@@ -534,6 +950,89 @@ export default function SuperAdminSettings() {
 						</>
 					)}
 
+					{/* Super Admins */}
+					{activeSection === "admins" && (
+						<SectionCard title="Super Admin Accounts" icon={Icons.admins}>
+							<div className="flex flex-col gap-4">
+								<div className="flex flex-wrap items-start justify-between gap-3">
+									<div>
+										<p className="text-sm text-gray-500">
+											{superAdmins.length} platform admin account{superAdmins.length === 1 ? "" : "s"}
+										</p>
+										<p className="mt-1 text-xs text-gray-400">
+											Only create accounts for trusted platform operators.
+										</p>
+									</div>
+									<button
+										type="button"
+										className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+										onClick={() => {
+											resetAdminForm();
+											setAdminModalOpen(true);
+										}}
+									>
+										{Icons.plus} Add Super Admin
+									</button>
+								</div>
+
+								{adminsError ? (
+									<p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+										{adminsError}
+									</p>
+								) : null}
+
+								{adminsLoading ? (
+									<p className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500">
+										Loading super admin accounts...
+									</p>
+								) : superAdmins.length === 0 ? (
+									<p className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-400">
+										No super admin accounts found.
+									</p>
+								) : (
+									<div className="overflow-x-auto rounded-xl border border-gray-100">
+										<table className="w-full min-w-[720px] text-left text-sm">
+											<thead className="bg-gray-50 text-xs font-bold uppercase tracking-widest text-gray-400">
+												<tr>
+													<th className="px-4 py-3">Admin</th>
+													<th className="px-4 py-3">Status</th>
+													<th className="px-4 py-3">Created</th>
+													<th className="px-4 py-3">Last Sign-In</th>
+												</tr>
+											</thead>
+											<tbody className="divide-y divide-gray-100">
+												{superAdmins.map((admin) => {
+													const status = admin.accountStatus || "active";
+													const active = status.toLowerCase() === "active";
+
+													return (
+														<tr key={admin.id} className="bg-white">
+															<td className="px-4 py-3">
+																<p className="font-semibold text-gray-800">{admin.fullName}</p>
+																<p className="text-xs text-gray-400">{admin.email}</p>
+															</td>
+															<td className="px-4 py-3">
+																<span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+																	active
+																		? "bg-green-100 text-green-700"
+																		: "bg-gray-100 text-gray-600"
+																}`}>
+																	{status}
+																</span>
+															</td>
+															<td className="px-4 py-3 text-gray-500">{formatDateTime(admin.createdAt)}</td>
+															<td className="px-4 py-3 text-gray-500">{formatDateTime(admin.lastSignInAt)}</td>
+														</tr>
+													);
+												})}
+											</tbody>
+										</table>
+									</div>
+								)}
+							</div>
+						</SectionCard>
+					)}
+
 					{/* ── Notifications ── */}
 					{activeSection === "notifications" && (
 						<SectionCard title="Notification Preferences" icon={Icons.notifications}>
@@ -614,26 +1113,35 @@ export default function SuperAdminSettings() {
 							<SectionCard title="Audit & Logs" icon={Icons.system}>
 								<div className="flex flex-col gap-3">
 									<p className="text-sm text-gray-500">Recent super admin activity on this platform.</p>
-									{[
-										{ action: "Updated subscription plan for Cebu Tech", time: "2 hours ago", type: "edit" },
-										{ action: "Converted demo request — fsdf", time: "5 hours ago", type: "convert" },
-										{ action: "Added organization manually", time: "Yesterday", type: "add" },
-										{ action: "Changed platform support email", time: "3 days ago", type: "edit" },
-										{ action: "Enabled maintenance mode", time: "1 week ago", type: "warning" },
-									].map((log, i) => (
-										<div key={i} className="flex items-start gap-3 text-sm py-2 border-b border-gray-50 last:border-0">
-											<span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
-												log.type === "edit" ? "bg-blue-400" :
-												log.type === "convert" ? "bg-teal-400" :
-												log.type === "add" ? "bg-green-400" :
-												"bg-yellow-400"
-											}`} />
-											<div className="flex-1">
-												<p className="text-gray-700">{log.action}</p>
-												<p className="text-xs text-gray-400">{log.time}</p>
+									{logsLoading ? (
+										<p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">Loading recent activity...</p>
+									) : logsError ? (
+										<p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">{logsError}</p>
+									) : recentLogs.length === 0 ? (
+										<p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-400">No activity has been recorded yet.</p>
+									) : recentLogs.map(log => {
+										const actionKey = log.action.toLowerCase();
+										const dotClass =
+											log.status === "failed" ? "bg-red-400" :
+											log.status === "warning" ? "bg-yellow-400" :
+											actionKey.includes("convert") ? "bg-teal-400" :
+											actionKey.includes("create") ? "bg-green-400" :
+											actionKey.includes("log") ? "bg-gray-400" :
+											"bg-blue-400";
+
+										return (
+											<div key={log.id} className="flex items-start gap-3 text-sm py-2 border-b border-gray-50 last:border-0">
+												<span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+												<div className="flex-1">
+													<p className="text-gray-700">
+														<span className="capitalize">{log.action}</span>
+														{log.target ? <span> - {log.target}</span> : null}
+													</p>
+													<p className="text-xs text-gray-400">{formatRelativeTime(log.created_at)}</p>
+												</div>
 											</div>
-										</div>
-									))}
+										);
+									})}
 								</div>
 							</SectionCard>
 						</>
