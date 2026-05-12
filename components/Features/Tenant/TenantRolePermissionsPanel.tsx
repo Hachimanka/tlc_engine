@@ -14,7 +14,6 @@ type TenantUser = {
   id: string;
   fullName: string;
   schoolEmail: string;
-  department?: string | null;
   roleId: string;
   roleName: string;
   roleKey: string;
@@ -37,7 +36,6 @@ type UserPayload = {
   full_name: string;
   email: string;
   employee_id?: string | null;
-  department?: string | null;
   role_id: string;
   status?: string;
   roles?: unknown;
@@ -165,7 +163,6 @@ export default function TenantRolePermissionsPanel() {
         fullName: user.full_name,
         schoolEmail: user.email,
         employeeId: user.employee_id ?? null,
-        department: user.department ?? null,
         roleId: user.role_id,
         roleKey: role?.key ?? "",
         roleName: role?.name ?? "Unassigned",
@@ -474,8 +471,6 @@ export default function TenantRolePermissionsPanel() {
                     <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
                     <th className="px-4 py-3 text-xs font-semibold">Name</th>
                     <th className="px-4 py-3 text-xs font-semibold">Email</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Department</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Role</th>
                     <th className="px-4 py-3 text-xs font-semibold">Status</th>
                   </tr>
                 </thead>
@@ -490,12 +485,6 @@ export default function TenantRolePermissionsPanel() {
                       </td>
                       <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
                         {user.schoolEmail}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                        {user.department || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-medium text-[var(--color-primary)]">
-                        {user.roleName}
                       </td>
                       <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
                         {user.status}

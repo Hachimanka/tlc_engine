@@ -11,9 +11,7 @@ export type RoleOption = {
 
 export type AddUserPayload = {
   fullName: string;
-  department: string;
-  roleId?: string;
-  customRoleName?: string;
+  roleId: string;
 };
 
 export type CreatedUser = {
@@ -21,7 +19,6 @@ export type CreatedUser = {
   fullName: string;
   email: string;
   employeeId?: string | null;
-  department?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -72,9 +69,7 @@ export default function AddUserModal({
   onCreate,
 }: AddUserModalProps) {
   const [fullName, setFullName] = useState("");
-  const [department, setDepartment] = useState("");
   const [roleId, setRoleId] = useState("");
-  const [customRoleName, setCustomRoleName] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ tempPassword: string; user: CreatedUser } | null>(null);
@@ -87,9 +82,7 @@ export default function AddUserModal({
 
   const resetForm = useCallback(() => {
     setFullName("");
-    setDepartment("");
     setRoleId("");
-    setCustomRoleName("");
     setError("");
     setIsSubmitting(false);
     setSuccess(null);
@@ -122,12 +115,7 @@ export default function AddUserModal({
     return null;
   }
 
-  const isCustomRole = roleId === "custom";
-  const canSubmit = Boolean(
-    fullName.trim() &&
-      department.trim() &&
-      (isCustomRole ? customRoleName.trim() : roleId),
-  );
+  const canSubmit = Boolean(fullName.trim() && roleId);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -142,8 +130,7 @@ export default function AddUserModal({
     try {
       const result = await onCreate({
         fullName: fullName.trim(),
-        department: department.trim(),
-        ...(isCustomRole ? { customRoleName: customRoleName.trim() } : { roleId }),
+        roleId,
       });
       setSuccess(result);
     } catch (err) {
@@ -198,11 +185,6 @@ export default function AddUserModal({
                 <div className="text-xs text-[var(--color-low-emphasis)]">
                   {success.user.email} - {success.user.roleName}
                 </div>
-                {success.user.department ? (
-                  <div className="text-xs text-[var(--color-low-emphasis)]">
-                    {success.user.department}
-                  </div>
-                ) : null}
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">
@@ -248,19 +230,6 @@ export default function AddUserModal({
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="e.g., Maria Santos"
-                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="department" className="text-sm font-medium text-[#344054]">
-                Department
-              </label>
-              <input
-                id="department"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-                placeholder="e.g., Filipino Department"
                 className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
               />
             </div>
@@ -312,24 +281,8 @@ export default function AddUserModal({
                     {role.name}
                   </option>
                 ))}
-                <option value="custom">Custom role</option>
               </select>
             </div>
-
-            {isCustomRole ? (
-              <div className="space-y-2">
-                <label htmlFor="custom-role" className="text-sm font-medium text-[#344054]">
-                  Custom Role
-                </label>
-                <input
-                  id="custom-role"
-                  value={customRoleName}
-                  onChange={(event) => setCustomRoleName(event.target.value)}
-                  placeholder="e.g., Grade Level Coordinator"
-                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                />
-              </div>
-            ) : null}
 
             <div className="flex justify-end gap-2 pt-3">
               <button
