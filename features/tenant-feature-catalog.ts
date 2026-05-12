@@ -19,6 +19,8 @@ export type FeatureKey =
   | "higher-teaching-load-view"
   | "higher-subject-management"
   | "higher-room-schedule-management"
+  | "higher-subject-room-assignment"
+  | "higher-room-schedule-calendar"
   | "higher-academic-calendar"
   | "higher-grading-gwa"
   | "higher-dean-vpaa-approvals"
@@ -191,7 +193,7 @@ const higherEducationFeatures: FeatureDefinition[] = [
   {
     key: "higher-subject-management",
     label: "Subject Management",
-    description: "Create and review subjects, courses, and curriculum assignments.",
+    description: "Create subjects and submit them for Dean and VPAA approval.",
     group: "Academic Operations",
     institutionType: "higher_ed",
     status: "active",
@@ -201,11 +203,31 @@ const higherEducationFeatures: FeatureDefinition[] = [
   {
     key: "higher-room-schedule-management",
     label: "Room Management",
-    description: "Manage rooms, class schedules, and subject-room assignments.",
+    description: "Create and maintain rooms, buildings, capacity, and room status.",
     group: "Academic Operations",
     institutionType: "higher_ed",
     status: "active",
     href: "/tenant/college/manage-room",
+    iconName: "menu",
+  },
+  {
+    key: "higher-subject-room-assignment",
+    label: "Subject-Room Assignment",
+    description: "Assign approved subjects to rooms, class sections, and schedule blocks.",
+    group: "Academic Operations",
+    institutionType: "higher_ed",
+    status: "active",
+    href: "/tenant/college/assign-room",
+    iconName: "flow",
+  },
+  {
+    key: "higher-room-schedule-calendar",
+    label: "Room Schedule Calendar",
+    description: "View each room's weekly subject schedule before assigning new blocks.",
+    group: "Academic Operations",
+    institutionType: "higher_ed",
+    status: "active",
+    href: "/tenant/college/room-schedule",
     iconName: "menu",
   },
   {

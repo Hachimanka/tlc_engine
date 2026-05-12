@@ -1,18 +1,18 @@
-import SubjectManagementTable from "@/components/Features/College/manage-subject/components/SubjectManagementTable";
+import RoomScheduleCalendar from "@/components/Features/College/manage-room/components/RoomScheduleCalendar";
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import { ICON_SVGS } from "@/public/icons";
 
-export default function Page() {
+export default function CollegeRoomSchedulePage() {
   return (
     <TenantRoleLayout
       tenantType="College"
-      role="subject-manager"
+      role="subject-room-assigner"
       title="College Menu"
       iconSvg={ICON_SVGS.menu}
-      requiredFeatureKey="higher-subject-management"
+      requiredFeatureKey="higher-room-schedule-calendar"
       contentClassName="p-6"
     >
-      <SubjectManagementTable />
+      <RoomScheduleCalendar />
     </TenantRoleLayout>
   );
 }

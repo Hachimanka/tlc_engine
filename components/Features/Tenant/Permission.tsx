@@ -19,6 +19,7 @@ type PermissionProps = {
   features: FeatureDefinition[];
   selectedFeatureKeys: string[];
   hasChanges: boolean;
+  embedded?: boolean;
   isSaving: boolean;
   onFeatureToggle: (featureKey: FeatureKey, enabled: boolean) => void;
   onSave: () => void;
@@ -55,13 +56,20 @@ export default function Permission({
   features,
   selectedFeatureKeys,
   hasChanges,
+  embedded = false,
   isSaving,
   onFeatureToggle,
   onSave,
 }: PermissionProps) {
   if (!selectedRole) {
     return (
-      <section className="flex h-full min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+      <section
+        className={
+          embedded
+            ? "flex min-h-0 flex-1 items-center justify-center px-6 py-8"
+            : "flex min-h-0 flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        }
+      >
         <div className="max-w-sm text-center">
           <h2 className="text-lg font-semibold text-[var(--color-high-emphasis)]">
             Select a role
@@ -86,7 +94,13 @@ export default function Permission({
   const plannedCount = features.filter((feature) => feature.status === "planned").length;
 
   return (
-    <section className="flex h-full min-h-[520px] flex-1 flex-col rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+    <section
+      className={
+        embedded
+          ? "flex min-h-0 flex-1 flex-col"
+          : "flex min-h-0 flex-1 flex-col rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+      }
+    >
       <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

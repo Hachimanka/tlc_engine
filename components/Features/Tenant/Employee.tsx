@@ -7,6 +7,7 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
 type EmployeeRole = RoleOption;
@@ -16,6 +17,7 @@ type EmployeeUser = {
   fullName: string;
   email: string;
   employeeId?: string | null;
+  department?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -35,6 +37,7 @@ type UserPayload = {
   full_name: string;
   email: string;
   employee_id?: string | null;
+  department?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -58,6 +61,7 @@ const normalizeUser = (user: UserPayload): EmployeeUser => {
     fullName: user.full_name,
     email: user.email,
     employeeId: user.employee_id ?? null,
+    department: user.department ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -192,6 +196,7 @@ export default function Employee() {
         (employee.employeeId ?? "").toLowerCase().includes(normalizedSearch) ||
         employee.fullName.toLowerCase().includes(normalizedSearch) ||
         employee.email.toLowerCase().includes(normalizedSearch) ||
+        (employee.department ?? "").toLowerCase().includes(normalizedSearch) ||
         employee.roleName.toLowerCase().includes(normalizedSearch) ||
         staffGroup.toLowerCase().includes(normalizedSearch);
 
@@ -226,6 +231,7 @@ export default function Employee() {
       fullName: data.user.full_name,
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
+      department: data.user.department ?? null,
       roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
@@ -240,6 +246,7 @@ export default function Employee() {
         fullName: createdUser.fullName,
         email: createdUser.email,
         employeeId: createdUser.employeeId,
+        department: createdUser.department ?? null,
         roleId: createdUser.roleId,
         roleKey: createdUser.roleKey,
         roleName: createdUser.roleName,
@@ -254,11 +261,11 @@ export default function Employee() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="text-sm text-[var(--color-low-emphasis)]">
-          Loading faculty and staff...
-        </div>
-      </div>
+      <TenantLoadingScreen
+        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading faculty and staff"
+        useStoredBranding
+      />
     );
   }
 
@@ -308,7 +315,7 @@ export default function Employee() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, email, ID, group, or role..."
+            placeholder="Search name, email, ID, department, group, or role..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
           />
         </label>
@@ -358,6 +365,7 @@ export default function Employee() {
                 <th className="px-5 py-4 text-sm font-semibold">ID No.</th>
                 <th className="px-5 py-4 text-sm font-semibold">Name</th>
                 <th className="px-5 py-4 text-sm font-semibold">Email</th>
+                <th className="px-5 py-4 text-sm font-semibold">Department</th>
                 <th className="px-5 py-4 text-sm font-semibold">Group</th>
                 <th className="px-5 py-4 text-sm font-semibold">Role</th>
                 <th className="px-5 py-4 text-sm font-semibold">Status</th>
@@ -366,7 +374,7 @@ export default function Employee() {
             <tbody className="divide-y divide-[var(--color-default)] bg-white">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
                     No faculty or staff profiles found.
                   </td>
                 </tr>
@@ -384,6 +392,9 @@ export default function Employee() {
                       </td>
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {employee.email}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                        {employee.department || "-"}
                       </td>
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {staffGroup}

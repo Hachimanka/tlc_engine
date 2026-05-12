@@ -10,6 +10,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import {
   DEFAULT_TENANT_BRANDING,
@@ -313,12 +314,11 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[360px] items-center justify-center rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="inline-flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading branding...
-        </div>
-      </div>
+      <TenantLoadingScreen
+        className="flex min-h-[360px] items-center justify-center rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading branding"
+        useStoredBranding
+      />
     );
   }
 

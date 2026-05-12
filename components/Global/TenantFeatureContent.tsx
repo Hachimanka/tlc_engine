@@ -20,6 +20,8 @@ import DepedExportForm from "@/components/Features/Deped/view-teaching-load/comp
 import DepedRequestForm from "@/components/Features/Deped/view-teaching-load/components/RequestForm";
 import DepedTeachingLoadTable from "@/components/Features/Deped/view-teaching-load/components/TeachingLoadTable";
 import CollegeRoomsTable from "@/components/Features/College/manage-room/components/RoomsTable";
+import CollegeRoomScheduleCalendar from "@/components/Features/College/manage-room/components/RoomScheduleCalendar";
+import CollegeSubjectRoomAssignmentTable from "@/components/Features/College/manage-room/components/SubjectRoomAssignmentTable";
 import CollegeSubjectManagementTable from "@/components/Features/College/manage-subject/components/SubjectManagementTable";
 import AcademicApprovalsDashboard from "@/components/Features/College/academic-approvals/AcademicApprovalsDashboard";
 import CollegeExportForm from "@/components/Features/College/view-teaching-load/components/ExportForm";
@@ -327,6 +329,8 @@ function renderFeatureContent(featureKey: FeatureKey, children: ReactNode) {
     "higher-teaching-load-view": <CollegeTeachingLoadContent />,
     "higher-subject-management": <CollegeSubjectManagementTable />,
     "higher-room-schedule-management": <CollegeRoomsTable />,
+    "higher-subject-room-assignment": <CollegeSubjectRoomAssignmentTable />,
+    "higher-room-schedule-calendar": <CollegeRoomScheduleCalendar />,
     "higher-dean-vpaa-approvals": <AcademicApprovalsDashboard />,
     "deped-teacher-load-assignment": (
       <PageShell title="Teacher Load Assignment">

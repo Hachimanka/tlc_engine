@@ -93,12 +93,31 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
   {
     key: "department_head",
     name: "Department Head / Program Chair",
-    description: "Manages program faculty loads, subjects, rooms, and schedules.",
+    description: "Manages program faculty loads and reviews teaching schedules.",
     featureKeys: [
       "higher-faculty-load-assignment",
-      "higher-subject-management",
-      "higher-room-schedule-management",
       "higher-teaching-load-view",
+    ],
+  },
+  {
+    key: "subject_manager",
+    name: "Subject Manager",
+    description: "Creates subjects and submits them for academic approval.",
+    featureKeys: ["higher-subject-management"],
+  },
+  {
+    key: "room_manager",
+    name: "Room Manager",
+    description: "Creates and maintains rooms, buildings, capacity, and room status.",
+    featureKeys: ["higher-room-schedule-management"],
+  },
+  {
+    key: "subject_room_assigner",
+    name: "Subject-Room Assigner",
+    description: "Assigns approved subjects to rooms and checks room schedules.",
+    featureKeys: [
+      "higher-subject-room-assignment",
+      "higher-room-schedule-calendar",
     ],
   },
   {
@@ -108,15 +127,6 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
     featureKeys: [
       "higher-faculty-load-assignment",
       "higher-teaching-load-view",
-    ],
-  },
-  {
-    key: "subject_room_manager",
-    name: "Subject & Room Manager",
-    description: "Manages subjects, rooms, and schedule assignments.",
-    featureKeys: [
-      "higher-subject-management",
-      "higher-room-schedule-management",
     ],
   },
   {
@@ -142,7 +152,7 @@ const legacyRoleTargets: Partial<
   },
   higher_ed: {
     teacher: "faculty",
-    coordinator: "subject_room_manager",
+    coordinator: "subject_room_assigner",
     department_head: "department_head",
     dean: "dean",
     vpaa: "vpaa",
@@ -152,6 +162,23 @@ const legacyRoleTargets: Partial<
 
 export function normalizeRoleKey(value: string) {
   return value.toLowerCase().trim().replace(/-/g, "_");
+}
+
+export const departmentRequiredRoleKeys = new Set([
+  "faculty",
+  "teacher",
+  "department_head",
+  "load_manager",
+  "subject_room_manager",
+  "load_admin",
+]);
+
+export function isDepartmentRequiredRole(roleKey?: string | null) {
+  if (!roleKey) {
+    return false;
+  }
+
+  return departmentRequiredRoleKeys.has(normalizeRoleKey(roleKey));
 }
 
 export function getBootstrapSystemRoleDefinitions(): SystemRoleDefinition[] {

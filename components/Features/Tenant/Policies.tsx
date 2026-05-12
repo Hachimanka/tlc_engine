@@ -14,6 +14,7 @@ import {
   Save,
   SlidersHorizontal,
 } from "lucide-react";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
 type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
@@ -843,12 +844,11 @@ export default function Policies() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading policies...
-        </div>
-      </div>
+      <TenantLoadingScreen
+        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading policies"
+        useStoredBranding
+      />
     );
   }
 
