@@ -84,6 +84,129 @@ const buildDefaultDraft = (orgName = "Institution") => ({
   logoAlt: orgName,
 });
 
+type RgbColor = {
+  r: number;
+  g: number;
+  b: number;
+};
+
+const clampColor = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const rgbToHex = ({ r, g, b }: RgbColor) =>
+  `#${[r, g, b].map((value) => clampColor(value).toString(16).padStart(2, "0")).join("")}`;
+
+const mixColors = (color: RgbColor, target: RgbColor, amount: number): RgbColor => ({
+  r: color.r + (target.r - color.r) * amount,
+  g: color.g + (target.g - color.g) * amount,
+  b: color.b + (target.b - color.b) * amount,
+});
+
+const getLuminance = ({ r, g, b }: RgbColor) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+const getSaturation = ({ r, g, b }: RgbColor) => {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+
+  return max === 0 ? 0 : (max - min) / max;
+};
+
+const quantizeColor = ({ r, g, b }: RgbColor): RgbColor => ({
+  r: Math.round(r / 24) * 24,
+  g: Math.round(g / 24) * 24,
+  b: Math.round(b / 24) * 24,
+});
+
+const loadImageFromFile = (file: File) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Unable to read logo colors."));
+    };
+    image.src = url;
+  });
+
+const extractBrandColorsFromLogo = async (file: File) => {
+  const image = await loadImageFromFile(file);
+  const canvas = document.createElement("canvas");
+  const size = 96;
+
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!context) {
+    throw new Error("Unable to analyze logo colors.");
+  }
+
+  context.clearRect(0, 0, size, size);
+  context.drawImage(image, 0, 0, size, size);
+
+  const pixels = context.getImageData(0, 0, size, size).data;
+  const colorCounts = new Map<string, { color: RgbColor; count: number; score: number }>();
+
+  for (let index = 0; index < pixels.length; index += 16) {
+    const alpha = pixels[index + 3];
+
+    if (alpha < 180) {
+      continue;
+    }
+
+    const color = quantizeColor({
+      r: pixels[index],
+      g: pixels[index + 1],
+      b: pixels[index + 2],
+    });
+    const luminance = getLuminance(color);
+    const saturation = getSaturation(color);
+
+    if (luminance > 0.94 || luminance < 0.08 || saturation < 0.12) {
+      continue;
+    }
+
+    const key = rgbToHex(color);
+    const existing = colorCounts.get(key);
+    const score = saturation * 1.8 + (1 - Math.abs(luminance - 0.45)) + 0.2;
+
+    if (existing) {
+      existing.count += 1;
+      existing.score += score;
+    } else {
+      colorCounts.set(key, { color, count: 1, score });
+    }
+  }
+
+  const rankedColors = [...colorCounts.values()]
+    .filter((entry) => entry.count >= 2)
+    .sort((a, b) => b.score * b.count - a.score * a.count)
+    .map((entry) => entry.color);
+  const primary = rankedColors[0] ?? { r: 0, g: 107, b: 95 };
+  const secondary = rankedColors.find((color) => rgbToHex(color) !== rgbToHex(primary)) ?? primary;
+  const accent =
+    rankedColors.find((color) => {
+      const primaryDistance =
+        Math.abs(color.r - primary.r) + Math.abs(color.g - primary.g) + Math.abs(color.b - primary.b);
+      return primaryDistance > 90;
+    }) ?? secondary;
+
+  return {
+    primaryColor: rgbToHex(primary),
+    lightPrimaryColor: rgbToHex(mixColors(primary, { r: 255, g: 255, b: 255 }, 0.18)),
+    secondaryColor: rgbToHex(secondary),
+    accentColor: rgbToHex(accent),
+    defaultColor: rgbToHex(mixColors(primary, { r: 255, g: 255, b: 255 }, 0.78)),
+    backgroundColor: rgbToHex(mixColors(primary, { r: 255, g: 255, b: 255 }, 0.94)),
+    cardColor: "#ffffff",
+  };
+};
+
 export default function Branding({ onBrandingUpdated }: BrandingProps) {
   const [orgName, setOrgName] = useState("Institution");
   const [draft, setDraft] = useState<TenantBranding>(() => buildDefaultDraft());
@@ -165,7 +288,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
     setMessage("");
   };
 
-  const handleLogoChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -186,11 +309,25 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
       URL.revokeObjectURL(logoPreviewUrl);
     }
 
+    const nextPreviewUrl = URL.createObjectURL(file);
+
     setLogoFile(file);
-    setLogoPreviewUrl(URL.createObjectURL(file));
+    setLogoPreviewUrl(nextPreviewUrl);
     setRemoveLogo(false);
     setError("");
-    setMessage("");
+
+    try {
+      const extractedColors = await extractBrandColorsFromLogo(file);
+
+      setDraft((current) => ({
+        ...current,
+        ...extractedColors,
+      }));
+      setMessage("Brand colors were updated from the uploaded logo. Review and save to apply them.");
+    } catch {
+      setMessage("");
+      setError("Logo uploaded, but its colors could not be analyzed. You can still set colors manually.");
+    }
   };
 
   const removeCurrentLogo = () => {
@@ -526,15 +663,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
             </div>
           </div>
         </div>
-        <div className="grid gap-4 bg-[var(--color-background)] p-5 md:grid-cols-3">
-          <div className="rounded-lg bg-[var(--color-card)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
-              Primary action
-            </p>
-            <button className="mt-3 rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white">
-              Save Changes
-            </button>
-          </div>
+        <div className="grid gap-4 bg-[var(--color-background)] p-5 md:grid-cols-2">
           <div className="rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] p-4">
             <p className="text-sm font-bold text-[var(--color-high-emphasis)]">
               Card surface

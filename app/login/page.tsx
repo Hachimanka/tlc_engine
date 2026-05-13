@@ -53,7 +53,7 @@ function LoginContent() {
         return "/login";
       }
 
-      return payload.firstActiveHref || "/login";
+      return payload.firstActiveHref || "/tenant/no-access";
     } catch {
       return "/login";
     }

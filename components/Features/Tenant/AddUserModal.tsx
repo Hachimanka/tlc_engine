@@ -8,11 +8,13 @@ export type RoleOption = {
   key: string;
   name: string;
   description?: string | null;
+  featureKeys?: string[];
 };
 
 export type AddUserPayload = {
   fullName: string;
   roleId: string;
+  customRoleName?: string | null;
   department?: string | null;
 };
 
@@ -35,6 +37,8 @@ type AddUserModalProps = {
   onClose: () => void;
   onCreate: (payload: AddUserPayload) => Promise<{ tempPassword: string; user: CreatedUser }>;
 };
+
+const CUSTOM_ROLE_ID = "__custom__";
 
 const normalizeNamePart = (value: string) =>
   value
@@ -73,10 +77,13 @@ export default function AddUserModal({
 }: AddUserModalProps) {
   const [fullName, setFullName] = useState("");
   const [roleId, setRoleId] = useState("");
+  const [customRoleName, setCustomRoleName] = useState("");
   const [department, setDepartment] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ tempPassword: string; user: CreatedUser } | null>(null);
+
+  const isCustomRole = roleId === CUSTOM_ROLE_ID;
 
   const roleOptions = useMemo(() => roles, [roles]);
   const selectedRole = useMemo(
@@ -92,6 +99,7 @@ export default function AddUserModal({
   const resetForm = useCallback(() => {
     setFullName("");
     setRoleId("");
+    setCustomRoleName("");
     setDepartment("");
     setError("");
     setIsSubmitting(false);
@@ -126,13 +134,20 @@ export default function AddUserModal({
   }
 
   const canSubmit = Boolean(
-    fullName.trim() && roleId && (!requiresDepartment || department.trim()),
+    fullName.trim() &&
+      roleId &&
+      (!isCustomRole || customRoleName.trim()) &&
+      (!requiresDepartment || department.trim()),
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) {
-      setError("Please complete all required fields.");
+      setError(
+        isCustomRole
+          ? "Please complete all required fields including the custom role name."
+          : "Please complete all required fields.",
+      );
       return;
     }
 
@@ -142,7 +157,8 @@ export default function AddUserModal({
     try {
       const result = await onCreate({
         fullName: fullName.trim(),
-        roleId,
+        roleId: isCustomRole ? "" : roleId,
+        customRoleName: isCustomRole ? customRoleName.trim() : null,
         department: requiresDepartment ? department.trim().replace(/\s+/g, " ") : null,
       });
       setSuccess(result);
@@ -161,6 +177,7 @@ export default function AddUserModal({
   const handleRoleChange = (nextRoleId: string) => {
     const nextRole = roleOptions.find((role) => role.id === nextRoleId);
     setRoleId(nextRoleId);
+    setCustomRoleName("");
 
     if (!isDepartmentRequiredRole(nextRole?.key)) {
       setDepartment("");
@@ -308,7 +325,27 @@ export default function AddUserModal({
                     {role.name}
                   </option>
                 ))}
+                <option value={CUSTOM_ROLE_ID}>Custom</option>
               </select>
+
+              {isCustomRole ? (
+                <div className="space-y-1">
+                  <label htmlFor="custom-role-name" className="text-sm font-medium text-[#344054]">
+                    Custom Role Name
+                  </label>
+                  <input
+                    id="custom-role-name"
+                    value={customRoleName}
+                    onChange={(event) => setCustomRoleName(event.target.value)}
+                    placeholder="e.g., Guidance Counselor"
+                    autoFocus
+                    className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                  />
+                  <p className="text-xs text-[var(--color-low-emphasis)]">
+                    Enter a role title that is not listed above.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             {requiresDepartment ? (
