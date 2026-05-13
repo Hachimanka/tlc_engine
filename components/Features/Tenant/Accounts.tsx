@@ -11,7 +11,9 @@ import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import { supabase } from "@/lib/supabaseClient";
 
-type AccountRole = RoleOption;
+type AccountRole = RoleOption & {
+  featureKeys?: string[];
+};
 
 type AccountUser = {
   id: string;
@@ -31,8 +33,14 @@ type RolePayload = {
   key: string;
   name: string;
   description?: string | null;
+  featureKeys?: string[];
   isSystem?: boolean;
   is_system?: boolean;
+};
+
+type CreateRoleResponse = {
+  role?: RolePayload;
+  error?: string;
 };
 
 type UserPayload = {
@@ -53,6 +61,10 @@ type EditAccountPayload = {
   roleId: string;
   department?: string | null;
   status: "active" | "disabled";
+};
+
+type CreateAccountPayload = AddUserPayload & {
+  customRoleName?: string | null;
 };
 
 const normalizeJoinedRole = (role: unknown) => {
@@ -96,6 +108,66 @@ const formatDate = (value?: string | null) => {
     day: "numeric",
     year: "numeric",
   }).format(date);
+};
+
+const normalizeAccessName = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const uniqueFeatureKeys = (featureKeys: string[]) => Array.from(new Set(featureKeys));
+
+const getInferredCustomRoleFeatureKeys = (roleName: string, roles: AccountRole[]) => {
+  const normalizedName = normalizeAccessName(roleName);
+  const assignableRoles = roles.filter(
+    (role) => role.key !== "org_admin" && (role.featureKeys?.length ?? 0) > 0,
+  );
+  const closeRole = assignableRoles.find((role) => {
+    const normalizedRoleName = normalizeAccessName(role.name);
+
+    return (
+      normalizedName === normalizedRoleName ||
+      normalizedName.includes(normalizedRoleName) ||
+      normalizedRoleName.includes(normalizedName)
+    );
+  });
+
+  if (closeRole?.featureKeys?.length) {
+    return closeRole.featureKeys;
+  }
+
+  const availableFeatureKeys = uniqueFeatureKeys(
+    assignableRoles.flatMap((role) => role.featureKeys ?? []),
+  );
+  const inferredFeatureKeys: string[] = [];
+
+  const addMatchingFeature = (matcher: (featureKey: string) => boolean) => {
+    inferredFeatureKeys.push(...availableFeatureKeys.filter(matcher));
+  };
+
+  if (normalizedName.includes("subject")) {
+    addMatchingFeature((featureKey) => featureKey.endsWith("subject-management"));
+  }
+
+  if (normalizedName.includes("room")) {
+    addMatchingFeature(
+      (featureKey) =>
+        featureKey.endsWith("room-management") ||
+        featureKey.endsWith("room-schedule-management"),
+    );
+  }
+
+  if (normalizedName.includes("load")) {
+    addMatchingFeature((featureKey) => featureKey.includes("load-assignment"));
+  }
+
+  if (normalizedName.includes("teacher") || normalizedName.includes("faculty")) {
+    addMatchingFeature((featureKey) => featureKey.endsWith("teaching-load-view"));
+  }
+
+  if (normalizedName.includes("dean") || normalizedName.includes("vpaa")) {
+    addMatchingFeature((featureKey) => featureKey.includes("approvals"));
+  }
+
+  return uniqueFeatureKeys(inferredFeatureKeys);
 };
 
 function EditAccountModal({
@@ -375,6 +447,7 @@ export default function Accounts() {
       key: role.key,
       name: role.name,
       description: role.description ?? null,
+      featureKeys: role.featureKeys ?? [],
     }));
 
     const nextUsers = ((payload.users ?? []) as UserPayload[]).map(normalizeUser);
@@ -414,12 +487,50 @@ export default function Accounts() {
     });
   }, [roleFilter, search, statusFilter, users]);
 
-  const handleCreateUser = async (payload: AddUserPayload) => {
+  const handleCreateUser = async (payload: CreateAccountPayload) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
     if (!token) {
       throw new Error("Session expired. Please log in again.");
+    }
+
+    let roleId = payload.roleId;
+    const customRoleName = payload.customRoleName?.trim();
+
+    if (customRoleName) {
+      const featureKeys = getInferredCustomRoleFeatureKeys(customRoleName, roles);
+      const roleResponse = await fetch("/api/tenant/roles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: customRoleName,
+          description: "Custom role created from account creation.",
+          featureKeys,
+        }),
+      });
+
+      const roleData = (await roleResponse.json().catch(() => ({}))) as CreateRoleResponse;
+
+      if (!roleResponse.ok || !roleData.role?.id) {
+        throw new Error(roleData.error || "Failed to create custom role.");
+      }
+
+      const createdRole: AccountRole = {
+        id: roleData.role.id,
+        key: roleData.role.key,
+        name: roleData.role.name,
+        description: roleData.role.description ?? null,
+        featureKeys: roleData.role.featureKeys ?? featureKeys,
+      };
+
+      roleId = createdRole.id;
+      setRoles((current) =>
+        current.some((role) => role.id === createdRole.id) ? current : [...current, createdRole],
+      );
     }
 
     const response = await fetch("/api/tenant/users", {
@@ -428,7 +539,11 @@ export default function Accounts() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        roleId,
+        customRoleName: customRoleName || null,
+      }),
     });
 
     const data = await response.json().catch(() => ({}));
@@ -443,7 +558,7 @@ export default function Accounts() {
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
+      roleId: data.user.role?.id ?? data.user.role_id ?? roleId,
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name

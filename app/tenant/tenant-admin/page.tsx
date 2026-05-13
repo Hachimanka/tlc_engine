@@ -125,7 +125,7 @@ export default function TenantPage() {
         }
 
         if (!payload.isOrgAdmin) {
-          router.replace(payload.firstActiveHref || "/login");
+          router.replace(payload.firstActiveHref || "/tenant/no-access");
           return;
         }
 

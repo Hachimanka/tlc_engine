@@ -104,10 +104,6 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 			nextErrors.classDuration = "Class duration is required.";
 		}
 
-		if (!formValues.description.trim()) {
-			nextErrors.description = "Description is required.";
-		}
-
 		setErrors(nextErrors);
 		return Object.keys(nextErrors).length === 0;
 	};
@@ -138,10 +134,10 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 	return (
 		<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={handleCancel}>
 			<div
-				className="flex max-h-[92vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-2xl bg-white shadow-level-2"
+				className="flex max-h-[88vh] w-full max-w-[680px] flex-col overflow-hidden rounded-lg bg-white shadow-level-2"
 				onClick={(event) => event.stopPropagation()}
 			>
-				<div className="flex items-start justify-between border-b border-[var(--color-default)] px-6 py-5">
+				<div className="flex items-start justify-between border-b border-[var(--color-default)] px-5 py-4">
 					<div>
 						<h2 className="text-[20px] font-medium text-[var(--color-high-emphasis)]">Create Subject</h2>
 					</div>
@@ -153,13 +149,13 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 						className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-low-emphasis)] transition-colors hover:bg-[var(--color-default)] hover:text-[var(--color-high-emphasis)]"
 					>
 						<span aria-hidden="true" className="text-xl leading-none">
-							×
+							&times;
 						</span>
 					</button>
 				</div>
 
 				<form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-					<div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
+					<div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
 						<div className="space-y-2">
 							<label htmlFor="subjectTitle" className="text-sm font-medium text-[var(--color-high-emphasis)]">
 								Subject Title <span className="text-[#f04444]">*</span>
@@ -239,24 +235,24 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 								name="description"
 								value={formValues.description}
 								onChange={handleChange}
-								placeholder="Brief description of the request"
+								placeholder="Optional notes about the subject"
 								className="h-12 w-full resize-none rounded-md border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)]"
 							/>
 							{errors.description ? <p className="text-xs text-[#f04444]">{errors.description}</p> : null}
 						</div>
 					</div>
 
-					<div className="flex items-center justify-end gap-3 border-t border-[var(--color-default)] px-6 py-5">
+					<div className="flex items-center justify-end gap-3 border-t border-[var(--color-default)] px-5 py-4">
 						<button
 							type="button"
 							onClick={handleCancel}
-							className="min-w-[160px] rounded-md border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6]"
+							className="min-w-[120px] rounded-md border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6]"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
-							className="min-w-[280px] rounded-md bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-light-primary)]"
+							className="min-w-[190px] rounded-md bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-light-primary)]"
 						>
 							Submit for approval
 						</button>

@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  getAssignableFeatureKeysForInstitution,
   getFeatureKeysForInstitution,
   normalizeInstitutionType,
   type FeatureKey,
@@ -187,8 +188,50 @@ export async function loadTenantContext(
   };
 }
 
+const normalizeAccessName = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const inferFeatureKeysForCustomRole = (
+  roleName: string | undefined,
+  institutionType: InstitutionType,
+) => {
+  const normalizedName = normalizeAccessName(roleName ?? "");
+  const assignableKeys = getAssignableFeatureKeysForInstitution(institutionType);
+  const inferredKeys: FeatureKey[] = [];
+
+  const addMatchingFeature = (matcher: (featureKey: FeatureKey) => boolean) => {
+    inferredKeys.push(...assignableKeys.filter(matcher));
+  };
+
+  if (normalizedName.includes("subject")) {
+    addMatchingFeature((featureKey) => featureKey.endsWith("subject-management"));
+  }
+
+  if (normalizedName.includes("room")) {
+    addMatchingFeature(
+      (featureKey) =>
+        featureKey.endsWith("room-management") ||
+        featureKey.endsWith("room-schedule-management"),
+    );
+  }
+
+  if (normalizedName.includes("load")) {
+    addMatchingFeature((featureKey) => featureKey.includes("load-assignment"));
+  }
+
+  if (normalizedName.includes("teacher") || normalizedName.includes("faculty")) {
+    addMatchingFeature((featureKey) => featureKey.endsWith("teaching-load-view"));
+  }
+
+  if (normalizedName.includes("dean") || normalizedName.includes("vpaa")) {
+    addMatchingFeature((featureKey) => featureKey.includes("approvals"));
+  }
+
+  return Array.from(new Set(inferredKeys));
+};
+
 export async function getEnabledFeatureKeysForRole(
-  role: Pick<TenantRole, "id" | "key">,
+  role: Pick<TenantRole, "id" | "key"> & Partial<Pick<TenantRole, "name" | "is_system">>,
   institutionType: InstitutionType,
 ) {
   if (role.key === "org_admin") {
@@ -205,7 +248,13 @@ export async function getEnabledFeatureKeysForRole(
     throw new Error(error.message || "Failed to load feature permissions.");
   }
 
-  return (data ?? []).map((row) => row.feature_key as FeatureKey);
+  const featureKeys = (data ?? []).map((row) => row.feature_key as FeatureKey);
+
+  if (featureKeys.length > 0 || role.is_system) {
+    return featureKeys;
+  }
+
+  return inferFeatureKeysForCustomRole(role.name, institutionType);
 }
 
 export async function replaceRoleFeaturePermissions(

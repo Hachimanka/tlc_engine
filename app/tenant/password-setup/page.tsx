@@ -114,7 +114,7 @@ function TenantPasswordSetupContent() {
 
       return redirect && redirect !== "/tenant/tenant-admin"
         ? redirect
-        : payload.firstActiveHref || "/login";
+        : payload.firstActiveHref || "/tenant/no-access";
     } catch {
       return "/login";
     }

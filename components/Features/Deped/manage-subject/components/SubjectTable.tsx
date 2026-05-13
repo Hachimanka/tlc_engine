@@ -18,61 +18,7 @@ type SubjectTableProps = {
 	onCreateSubjectClick: () => void;
 };
 
-export const initialSubjectRows: SubjectRow[] = [
-	{
-		id: "sub-1",
-		subjectTitle: "Filipino",
-		department: "Filipino Department",
-		yearLevel: "Grade 7",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
-	{
-		id: "sub-2",
-		subjectTitle: "Filipino",
-		department: "Filipino Department",
-		yearLevel: "Grade 8",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
-	{
-		id: "sub-3",
-		subjectTitle: "English",
-		department: "English Department",
-		yearLevel: "Grade 9",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Approved",
-		description: "Description",
-	},
-	{
-		id: "sub-4",
-		subjectTitle: "MAPEH",
-		department: "MAPEH Department",
-		yearLevel: "Grade 7",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Rejected",
-		description: "Description",
-	},
-	{
-		id: "sub-5",
-		subjectTitle: "Math",
-		department: "Math Department",
-		yearLevel: "Grade 10",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
-];
-
-const initialDepartmentOptions = ["All Department", ...new Set(initialSubjectRows.map((row) => row.department))];
-const initialYearLevelOptions = ["All Level", ...new Set(initialSubjectRows.map((row) => row.yearLevel))];
+export const initialSubjectRows: SubjectRow[] = [];
 
 function getStatusClass(status: SubjectRow["status"]) {
 	switch (status) {
@@ -91,8 +37,14 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 	const [departmentFilter, setDepartmentFilter] = useState("All Department");
 	const [yearLevelFilter, setYearLevelFilter] = useState("All Level");
 
-	const departmentOptions = initialDepartmentOptions;
-	const yearLevelOptions = initialYearLevelOptions;
+	const departmentOptions = useMemo(
+		() => ["All Department", ...new Set(subjectRows.map((row) => row.department))],
+		[subjectRows],
+	);
+	const yearLevelOptions = useMemo(
+		() => ["All Level", ...new Set(subjectRows.map((row) => row.yearLevel))],
+		[subjectRows],
+	);
 
 	const filteredRows = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -250,31 +202,42 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-							{filteredRows.map((row) => (
-								<tr key={row.id} className="bg-white">
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.subjectTitle}
-									</td>
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.department}
-									</td>
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.yearLevel}
-									</td>
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.classDuration}
-									</td>
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.dateCreated}
-									</td>
-									<td className={`px-4 py-3 text-[12px] font-medium ${getStatusClass(row.status)}`}>
-										{row.status}
-									</td>
-									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.description}
+							{filteredRows.length === 0 ? (
+								<tr>
+									<td
+										colSpan={7}
+										className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]"
+									>
+										No subjects yet. Create a subject to add it to this table.
 									</td>
 								</tr>
-							))}
+							) : (
+								filteredRows.map((row) => (
+									<tr key={row.id} className="bg-white">
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.subjectTitle}
+										</td>
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.department}
+										</td>
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.yearLevel}
+										</td>
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.classDuration}
+										</td>
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.dateCreated}
+										</td>
+										<td className={`px-4 py-3 text-[12px] font-medium ${getStatusClass(row.status)}`}>
+											{row.status}
+										</td>
+										<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+											{row.description || "-"}
+										</td>
+									</tr>
+								))
+							)}
 						</tbody>
 					</table>
 				</div>
