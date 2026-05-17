@@ -46,18 +46,10 @@ const scheduleDays = [
   "Sunday",
 ];
 
-const defaultScheduleTimeSlots = [
-  "7:30-8:30",
-  "8:30-9:30",
-  "9:30-10:30",
-  "10:30-11:30",
-  "11:30-12:30",
-  "12:30-1:30",
-  "1:30-2:30",
-  "2:30-3:30",
-  "3:30-4:30",
-  "4:30-5:30",
-];
+const calendarRowHeight = 78;
+const calendarStartMinutes = 7 * 60;
+const calendarEndMinutes = 21 * 60;
+const timeColumnWidth = 150;
 
 const parseTimeToMinutes = (value: string) => {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
@@ -76,38 +68,28 @@ const parseTimeToMinutes = (value: string) => {
   return hours * 60 + minutes;
 };
 
-const formatClockTime = (value: string) => {
-  const minutes = parseTimeToMinutes(value);
-
-  if (minutes === null) {
-    return value;
-  }
-
+const formatMinutesAsClock = (minutes: number) => {
   const hour24 = Math.floor(minutes / 60);
   const minute = minutes % 60;
   const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+  const suffix = hour24 >= 12 ? "PM" : "AM";
 
-  return `${hour12}:${String(minute).padStart(2, "0")}`;
-};
-
-const formatAssignmentTime = (assignment: Pick<Assignment, "startTime" | "endTime">) =>
-  `${formatClockTime(assignment.startTime)}-${formatClockTime(assignment.endTime)}`;
-
-const getTimeSlotStart = (slot: string) => {
-  const start = slot.split("-")[0] ?? "";
-  const [hourValue = "0", minuteValue = "0"] = start.split(":");
-  let hour = Number(hourValue);
-  const minute = Number(minuteValue);
-
-  if (hour > 0 && hour < 7) {
-    hour += 12;
-  }
-
-  return hour * 60 + minute;
+  return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${suffix}`;
 };
 
 const getScheduleType = (assignment: Assignment) =>
   assignment.room?.type?.toLowerCase().includes("lab") ? "LAB" : "LEC";
+
+const getAssignmentRange = (assignment: Assignment) => {
+  const start = parseTimeToMinutes(assignment.startTime);
+  const end = parseTimeToMinutes(assignment.endTime);
+
+  if (start === null || end === null || end <= start) {
+    return null;
+  }
+
+  return { start, end };
+};
 
 export default function RoomScheduleCalendar() {
   const [rooms, setRooms] = useState<RoomOption[]>([]);
@@ -216,14 +198,23 @@ export default function RoomScheduleCalendar() {
     });
   }, [activeRoomId, assignments, sectionSearch, subjectFilter]);
   const timeSlots = useMemo(() => {
-    const slots = new Set(defaultScheduleTimeSlots);
-
-    for (const assignment of roomAssignments) {
-      slots.add(formatAssignmentTime(assignment));
+    const slots: { label: string; start: number; end: number }[] = [];
+    for (let start = calendarStartMinutes; start < calendarEndMinutes; start += 60) {
+      const end = start + 60;
+      slots.push({
+        label: `${formatMinutesAsClock(start)} - ${formatMinutesAsClock(end)}`,
+        start,
+        end,
+      });
     }
 
-    return Array.from(slots).sort((left, right) => getTimeSlotStart(left) - getTimeSlotStart(right));
-  }, [roomAssignments]);
+    return {
+      slots,
+      timelineStart: calendarStartMinutes,
+      timelineEnd: calendarEndMinutes,
+      height: slots.length * calendarRowHeight,
+    };
+  }, []);
 
   const clearFilters = () => {
     setBuildingFilter(allBuildingsValue);
@@ -235,7 +226,7 @@ export default function RoomScheduleCalendar() {
     const nextAssignments = new Map<string, Assignment[]>();
 
     for (const assignment of roomAssignments) {
-      const key = `${assignment.dayOfWeek}|${formatAssignmentTime(assignment)}`;
+      const key = assignment.dayOfWeek;
       const currentAssignments = nextAssignments.get(key) ?? [];
       currentAssignments.push(assignment);
       nextAssignments.set(key, currentAssignments);
@@ -378,67 +369,100 @@ export default function RoomScheduleCalendar() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] table-fixed border-collapse text-center">
-            <thead>
-              <tr>
-                <th className="w-[140px] border border-black bg-[#f8fafc] px-4 py-3 text-[15px] font-bold text-black">
-                  Time
-                </th>
-                {scheduleDays.map((day) => (
-                  <th
-                    key={day}
-                    className="border border-black bg-[#f8fafc] px-4 py-3 text-[15px] font-bold text-black"
-                  >
-                    {day}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {timeSlots.map((timeSlot) => (
-                <tr key={timeSlot}>
-                  <td className="border border-black bg-[#f8fafc] px-4 py-4 text-[15px] font-bold text-black">
-                    {timeSlot}
-                  </td>
-                  {scheduleDays.map((day) => {
-                    const cellAssignments = assignmentsByCell.get(`${day}|${timeSlot}`) ?? [];
+          <div
+            className="grid min-w-[1180px] text-center"
+            style={{
+              gridTemplateColumns: `${timeColumnWidth}px repeat(${scheduleDays.length}, minmax(140px, 1fr))`,
+            }}
+          >
+            <div className="sticky left-0 z-30 border border-black bg-[#f8fafc] px-4 py-3 text-[15px] font-bold text-black">
+              Time
+            </div>
+            {scheduleDays.map((day) => (
+              <div
+                key={day}
+                className="border-y border-r border-black bg-[#f8fafc] px-4 py-3 text-[15px] font-bold text-black"
+              >
+                {day}
+              </div>
+            ))}
+
+            <div className="sticky left-0 z-20 bg-white">
+              {timeSlots.slots.map((timeSlot) => (
+                <div
+                  key={timeSlot.label}
+                  className="flex items-center justify-center border-x border-b border-black bg-[#f8fafc] px-3 text-[15px] font-bold text-black"
+                  style={{ height: calendarRowHeight }}
+                >
+                  {timeSlot.label}
+                </div>
+              ))}
+            </div>
+
+            {scheduleDays.map((day) => {
+              const dayAssignments = assignmentsByCell.get(day) ?? [];
+
+              return (
+                <div
+                  key={day}
+                  className="relative border-r border-black bg-white"
+                  style={{ height: timeSlots.height }}
+                >
+                  {timeSlots.slots.map((timeSlot) => (
+                    <div
+                      key={`${day}-${timeSlot.label}`}
+                      className="border-b border-black"
+                      style={{ height: calendarRowHeight }}
+                    />
+                  ))}
+
+                  {dayAssignments.map((assignment) => {
+                    const range = getAssignmentRange(assignment);
+
+                    if (!range) {
+                      return null;
+                    }
+
+                    if (
+                      range.end <= timeSlots.timelineStart ||
+                      range.start >= timeSlots.timelineEnd
+                    ) {
+                      return null;
+                    }
+
+                    const visibleStart = Math.max(range.start, timeSlots.timelineStart);
+                    const visibleEnd = Math.min(range.end, timeSlots.timelineEnd);
+                    const top =
+                      ((visibleStart - timeSlots.timelineStart) / 60) * calendarRowHeight;
+                    const height = Math.max(
+                      34,
+                      ((visibleEnd - visibleStart) / 60) * calendarRowHeight,
+                    );
 
                     return (
-                      <td
-                        key={`${timeSlot}-${day}`}
-                        className="h-[68px] border border-black bg-white p-0 align-middle"
+                      <div
+                        key={assignment.id}
+                        className="absolute left-0 right-0 mx-0 flex flex-col items-center justify-center overflow-hidden bg-[var(--color-primary)] px-2 py-1 text-center text-white"
+                        style={{ top, height }}
                       >
-                      {cellAssignments.length > 0 ? (
-                          <div className="flex min-h-[68px] w-full flex-col gap-1">
-                            {cellAssignments.map((assignment) => (
-                              <div
-                                key={assignment.id}
-                                className="flex min-h-[68px] w-full flex-col items-center justify-center bg-[var(--color-primary)] px-2 py-1 text-center text-white"
-                              >
-                                <p className="max-w-full truncate text-[13px] font-bold leading-4">
-                                  {assignment.subject?.code ?? "Subject"}
-                                </p>
-                                <div className="mt-1 flex max-w-full flex-wrap items-center justify-center gap-1">
-                                  <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
-                                    {getScheduleType(assignment)}
-                                  </span>
-                                  <span className="max-w-[110px] truncate text-[12px] font-semibold leading-4">
-                                    {assignment.section}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="min-h-[68px]" />
-                        )}
-                      </td>
+                        <p className="max-w-full truncate text-[13px] font-bold leading-4">
+                          {assignment.subject?.code ?? "Subject"}
+                        </p>
+                        <div className="mt-1 flex max-w-full flex-wrap items-center justify-center gap-1">
+                          <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                            {getScheduleType(assignment)}
+                          </span>
+                          <span className="max-w-[110px] truncate text-[12px] font-semibold leading-4">
+                            {assignment.section}
+                          </span>
+                        </div>
+                      </div>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
     </div>
