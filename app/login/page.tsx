@@ -10,6 +10,7 @@ import {
   clearStoredTenantBranding,
   saveStoredTenantBranding,
 } from "@/lib/tenantBrandingSession";
+import { getTenantSubdomain } from "@/lib/tenantHost";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 import { ICON_SVGS } from "@/public/icons";
@@ -100,13 +101,7 @@ function LoginContent() {
   useEffect(() => {
     const loadPublicBranding = async () => {
       const querySlug = searchParams?.get("org") || searchParams?.get("slug");
-      const host = window.location.hostname;
-      const subdomain = host.split(".")[0];
-      const slug =
-        querySlug ||
-        (!["admin", "localhost", "www", "yourapp"].includes(subdomain) && host.includes(".")
-          ? subdomain
-          : "");
+      const slug = querySlug || getTenantSubdomain(window.location.hostname);
 
       if (!slug) {
         clearStoredTenantBranding();
