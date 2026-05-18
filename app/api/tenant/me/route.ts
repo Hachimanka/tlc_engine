@@ -15,6 +15,9 @@ import { getTenantBrandingFromConfig } from "@/lib/tenantBrandingServer";
 
 export const runtime = "nodejs";
 
+const normalizeSlug = (value: string | null | undefined) =>
+  value?.trim().toLowerCase() || "";
+
 export async function GET(req: Request) {
   const result = await loadTenantContext(req);
 
@@ -23,6 +26,18 @@ export async function GET(req: Request) {
   }
 
   const { context } = result;
+  const { searchParams } = new URL(req.url);
+  const expectedSlug = normalizeSlug(searchParams.get("expectedSlug"));
+
+  if (expectedSlug && normalizeSlug(context.org.slug) !== expectedSlug) {
+    return NextResponse.json(
+      {
+        code: "ORG_SLUG_MISMATCH",
+        error: "This account does not belong to this organization.",
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const profile = await getUserProfileRow(context.authUser.id);

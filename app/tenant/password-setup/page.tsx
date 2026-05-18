@@ -7,6 +7,12 @@ import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  buildTenantLoginUrl,
+  buildTenantMeUrl,
+  getExpectedTenantSlug,
+  isOrgSlugMismatch,
+} from "@/lib/tenantRoute";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -30,11 +36,14 @@ function TenantPasswordSetupContent() {
 
   useEffect(() => {
     const checkSession = async () => {
+      const expectedSlug = getExpectedTenantSlug();
+      const loginUrl = buildTenantLoginUrl(expectedSlug);
+
       try {
         const { data, error: userError } = await supabase.auth.getUser();
         if (userError && isRecoverableSupabaseSessionError(userError)) {
           await supabase.auth.signOut({ scope: "local" });
-          router.replace("/login");
+          router.replace(loginUrl);
           return;
         }
 
@@ -43,36 +52,52 @@ function TenantPasswordSetupContent() {
         }
 
         if (!data?.user) {
-          router.replace("/login");
+          router.replace(loginUrl);
           return;
         }
 
         const userMetadata = data.user.user_metadata as UserMetadata;
 
-        if (userMetadata?.onboarding_complete === false && userMetadata?.role === "org_admin") {
-          router.replace("/tenant/onboarding");
-          return;
-        }
-
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
 
-        if (token) {
-          try {
-            const response = await fetch("/api/tenant/branding", {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            const payload = await response.json().catch(() => ({}));
+        if (!token) {
+          router.replace(loginUrl);
+          return;
+        }
 
-            if (response.ok && payload?.branding) {
-              setBranding(payload.branding);
-              saveStoredTenantBranding(payload.branding);
+        try {
+          const response = await fetch(buildTenantMeUrl(expectedSlug), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const payload = await response.json().catch(() => ({}));
+
+          if (!response.ok) {
+            if (isOrgSlugMismatch(payload)) {
+              await supabase.auth.signOut({ scope: "local" });
+              router.replace(loginUrl);
+              return;
             }
-          } catch {
-            setBranding(null);
+
+            throw new Error(payload?.error || "Unable to verify organization access.");
           }
+
+          if (payload?.branding) {
+            setBranding(payload.branding);
+            saveStoredTenantBranding(payload.branding);
+          }
+        } catch {
+          setBranding(null);
+          setError("Unable to verify organization access. Please try again.");
+          setCheckingSession(false);
+          return;
+        }
+
+        if (userMetadata?.onboarding_complete === false && userMetadata?.role === "org_admin") {
+          router.replace("/tenant/onboarding");
+          return;
         }
 
         setMetadata(userMetadata);
@@ -88,6 +113,7 @@ function TenantPasswordSetupContent() {
 
   const resolveRedirect = async () => {
     const redirect = searchParams?.get("redirect");
+    const expectedSlug = getExpectedTenantSlug();
 
     if (metadata?.role === "org_admin") {
       return redirect || "/tenant/tenant-admin";
@@ -98,10 +124,10 @@ function TenantPasswordSetupContent() {
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        return "/login";
+        return buildTenantLoginUrl(expectedSlug);
       }
 
-      const response = await fetch("/api/tenant/me", {
+      const response = await fetch(buildTenantMeUrl(expectedSlug), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -109,7 +135,11 @@ function TenantPasswordSetupContent() {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        return "/login";
+        if (isOrgSlugMismatch(payload)) {
+          await supabase.auth.signOut({ scope: "local" });
+        }
+
+        return buildTenantLoginUrl(expectedSlug);
       }
 
       const assignedRedirect = payload.firstActiveHref || "/tenant/no-access";
@@ -120,7 +150,7 @@ function TenantPasswordSetupContent() {
           ? redirect
           : assignedRedirect;
     } catch {
-      return "/login";
+      return buildTenantLoginUrl(expectedSlug);
     }
   };
 

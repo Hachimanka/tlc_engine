@@ -7,6 +7,12 @@ import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  buildTenantLoginUrl,
+  buildTenantMeUrl,
+  getExpectedTenantSlug,
+  isOrgSlugMismatch,
+} from "@/lib/tenantRoute";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 import { ICON_SVGS } from "@/public/icons";
@@ -35,12 +41,15 @@ export default function TenantNoAccessPage() {
 
   useEffect(() => {
     const checkAccess = async () => {
+      const expectedSlug = getExpectedTenantSlug();
+      const loginUrl = buildTenantLoginUrl(expectedSlug);
+
       try {
         const { data, error: userError } = await supabase.auth.getUser();
 
         if (userError && isRecoverableSupabaseSessionError(userError)) {
           await supabase.auth.signOut({ scope: "local" });
-          router.replace("/login");
+          router.replace(loginUrl);
           return;
         }
 
@@ -49,7 +58,7 @@ export default function TenantNoAccessPage() {
         }
 
         if (!data?.user) {
-          router.replace("/login");
+          router.replace(loginUrl);
           return;
         }
 
@@ -57,11 +66,11 @@ export default function TenantNoAccessPage() {
         const token = sessionData?.session?.access_token;
 
         if (!token) {
-          router.replace("/login");
+          router.replace(loginUrl);
           return;
         }
 
-        const response = await fetch("/api/tenant/me", {
+        const response = await fetch(buildTenantMeUrl(expectedSlug), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -69,6 +78,12 @@ export default function TenantNoAccessPage() {
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+          if (isOrgSlugMismatch(payload)) {
+            await supabase.auth.signOut({ scope: "local" });
+            router.replace(loginUrl);
+            return;
+          }
+
           setError(payload?.error || "Unable to load your account access.");
           setIsLoading(false);
           return;
