@@ -1,5 +1,5 @@
 -- Adds Higher Ed college/department hierarchy for tenant admin.
--- Run in Supabase SQL editor before using the Departments hierarchy UI.
+-- Run in Supabase SQL editor before using the Colleges & Departments hierarchy UI.
 
 create table if not exists public.org_colleges (
   id uuid primary key default gen_random_uuid(),

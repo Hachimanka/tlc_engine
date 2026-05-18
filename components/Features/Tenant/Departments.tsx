@@ -237,6 +237,16 @@ export default function Departments() {
   const chairCandidates = useMemo(() => leaderCandidates(users, "department_head"), [users]);
   const assignablePeople = useMemo(() => activeAssignablePeople(users), [users]);
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
+  const leadershipAssignedUserIds = useMemo(
+    () =>
+      new Set(
+        [
+          ...colleges.map((college) => college.deanUserId),
+          ...departments.map((department) => department.chairUserId),
+        ].filter((userId): userId is string => Boolean(userId)),
+      ),
+    [colleges, departments],
+  );
 
   const departmentsByCollege = useMemo(() => {
     const grouped = new Map<string, Department[]>();
@@ -279,7 +289,7 @@ export default function Departments() {
 
     for (const user of activeAssignablePeople(users)) {
       const legacyDepartment = user.department?.trim();
-      if (user.departmentId || !legacyDepartment) {
+      if (leadershipAssignedUserIds.has(user.id) || user.departmentId || !legacyDepartment) {
         continue;
       }
 
@@ -289,14 +299,17 @@ export default function Departments() {
     return Array.from(grouped.entries())
       .map(([name, people]) => ({ name, people: sortPeople(people) }))
       .sort((left, right) => left.name.localeCompare(right.name));
-  }, [users]);
+  }, [leadershipAssignedUserIds, users]);
 
   const unassignedPeople = useMemo(
     () =>
       activeAssignablePeople(users).filter(
-        (user) => !user.departmentId && !user.department?.trim(),
+        (user) =>
+          !leadershipAssignedUserIds.has(user.id) &&
+          !user.departmentId &&
+          !user.department?.trim(),
       ),
-    [users],
+    [leadershipAssignedUserIds, users],
   );
 
   const applyPayload = useCallback((payload: HierarchyPayload) => {
@@ -522,6 +535,7 @@ export default function Departments() {
     onChange: (value: string) => void,
     candidates: Person[],
     label: string,
+    emptyLabel: string,
   ) => (
     <select
       value={value}
@@ -529,7 +543,7 @@ export default function Departments() {
       className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
       aria-label={label}
     >
-      <option value="">No assigned leader</option>
+      <option value="">{emptyLabel}</option>
       {candidates.map((person) => (
         <option key={person.id} value={person.id}>
           {person.fullName} - {person.roleName}
@@ -599,6 +613,7 @@ export default function Departments() {
                   setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
                 chairCandidates,
                 "Department chair",
+                "No assigned chair",
               )}
             </div>
           ) : (
@@ -772,6 +787,7 @@ export default function Departments() {
                     setCollegeDraft((current) => ({ ...current, deanUserId: value })),
                   deanCandidates,
                   "College dean",
+                  "No assigned dean",
                 )}
               </div>
             ) : (
@@ -947,7 +963,7 @@ export default function Departments() {
     return (
       <TenantLoadingScreen
         className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading departments"
+        label="Loading colleges and departments"
         useStoredBranding
       />
     );
@@ -965,7 +981,7 @@ export default function Departments() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-black">Departments</h1>
+          <h1 className="text-2xl font-bold text-black">Colleges & Departments</h1>
           <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
             {colleges.length} college{colleges.length === 1 ? "" : "s"} and{" "}
             {departments.length} department{departments.length === 1 ? "" : "s"}
@@ -1021,6 +1037,7 @@ export default function Departments() {
             (value) => setCollegeForm((current) => ({ ...current, deanUserId: value })),
             deanCandidates,
             "College dean",
+            "No assigned dean",
           )}
           <button
             type="submit"
@@ -1085,6 +1102,7 @@ export default function Departments() {
                 setDepartmentForm((current) => ({ ...current, chairUserId: value })),
               chairCandidates,
               "Department chair",
+              "No assigned chair",
             )}
           </div>
           <button

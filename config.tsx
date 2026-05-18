@@ -80,7 +80,7 @@ export const NavItems = (
       position: "top",
     },
     {
-      name: "Departments",
+      name: "Colleges & Departments",
       href: "/tenant/tenant-admin",
       view: "departments" as TenantAdminView,
       icon: <AppIcon name="flow" className="w-5 h-5" />,
