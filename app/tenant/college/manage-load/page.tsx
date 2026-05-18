@@ -1,4 +1,5 @@
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
+import DepartmentFacultyTable from "@/components/Features/College/manage-load/components/DepartmentFacultyTable";
 import { ICON_SVGS } from "@/public/icons";
 
 export default function SubjectRoomPage() {
@@ -9,10 +10,10 @@ export default function SubjectRoomPage() {
       title="College Menu"
       iconSvg={ICON_SVGS.menu}
       requiredFeatureKey="higher-faculty-load-assignment"
-      contentClassName="p-6"
+      contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
     >
-      <div className="text-[28px] font-semibold text-[var(--color-high-emphasis)]">
-        LOAD MANAGER
+      <div className="mx-auto w-full max-w-[1180px]">
+        <DepartmentFacultyTable />
       </div>
     </TenantRoleLayout>
   );
