@@ -67,6 +67,7 @@ export default function ExportFrom({
   approvedBy = "CRISTOPHER C. PIODOS",
   approvedPosition = "Acting Secondary School Principal",
   address = "Public Schools District Supervisor",
+  rows = teacherLoadRows,
 }: ExportFromProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -172,7 +173,7 @@ export default function ExportFrom({
                             };
                             const dayAbbr = dayMap[dayName];
 
-                            const matchedRow = teacherLoadRows.find((row) => {
+                            const matchedRow = rows.find((row) => {
                               const [daysPart, timePart] =
                                 row.schedule.split(" ");
                               return (

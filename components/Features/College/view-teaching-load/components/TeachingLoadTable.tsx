@@ -1,7 +1,7 @@
   "use client";
 
 import TeachingScheduleGrid from "@/components/Features/TeachingScheduleGrid";
-import { teacherLoadRows } from "./teacher-load-data-college";
+import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data-college";
 
 const collegeScheduleTimeSlots = [
   "7:30-8:30",
@@ -15,10 +15,14 @@ const collegeScheduleTimeSlots = [
   "3:30-4:30",
 ];
 
-export default function TeachingLoadTable() {
+type TeachingLoadTableProps = {
+  rows?: TeacherLoadRow[];
+};
+
+export default function TeachingLoadTable({ rows = teacherLoadRows }: TeachingLoadTableProps) {
   return (
     <div className="space-y-4">
-      <TeachingScheduleGrid rows={teacherLoadRows} timeSlots={collegeScheduleTimeSlots} />
+      <TeachingScheduleGrid rows={rows} timeSlots={collegeScheduleTimeSlots} />
 
       <div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
         <div className="overflow-x-auto">
@@ -46,7 +50,17 @@ export default function TeachingLoadTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-              {teacherLoadRows.map((row) => (
+              {rows.length === 0 ? (
+                <tr className="bg-white">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-center text-[12px] font-medium text-[var(--color-low-emphasis)]"
+                  >
+                    No subjects assigned yet.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
                 <tr key={row.id} className="bg-white">
                   <td className="px-4 py-3 text-[12px] font-semibold text-[var(--color-high-emphasis)]">
                     {row.subjectTitle}
@@ -67,7 +81,8 @@ export default function TeachingLoadTable() {
                     {row.students}
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

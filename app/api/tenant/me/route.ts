@@ -49,6 +49,7 @@ export async function GET(req: Request) {
         id: context.authUser.id,
         fullName: profile?.display_name || context.orgUser.full_name,
         email: context.orgUser.email,
+        department: context.orgUser.department,
         avatarUrl,
       },
       role: {
