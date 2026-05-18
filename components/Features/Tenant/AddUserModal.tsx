@@ -22,6 +22,7 @@ export type AddUserPayload = {
   customRoleFeatureKeys?: string[];
   customRoleRequiresDepartment?: boolean;
   department?: string | null;
+  departmentId?: string | null;
 };
 
 export type CreatedUser = {
@@ -30,16 +31,25 @@ export type CreatedUser = {
   email: string;
   employeeId?: string | null;
   department?: string | null;
+  departmentId?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
   description: string;
 };
 
+export type DepartmentOption = {
+  id: string;
+  name: string;
+  code?: string | null;
+  collegeId?: string | null;
+};
+
 type AddUserModalProps = {
   isOpen: boolean;
   roles: RoleOption[];
   features: FeatureDefinition[];
+  departments?: DepartmentOption[];
   emailDomain?: string | null;
   onClose: () => void;
   onCreate: (payload: AddUserPayload) => Promise<{ tempPassword: string; user: CreatedUser }>;
@@ -105,6 +115,7 @@ export default function AddUserModal({
   isOpen,
   roles,
   features,
+  departments = [],
   emailDomain,
   onClose,
   onCreate,
@@ -115,6 +126,7 @@ export default function AddUserModal({
   const [customRoleFeatureKeys, setCustomRoleFeatureKeys] = useState<string[]>([]);
   const [customRoleRequiresDepartment, setCustomRoleRequiresDepartment] = useState(false);
   const [department, setDepartment] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,6 +147,7 @@ export default function AddUserModal({
   const departmentIsRequired = isCustomRole
     ? customRoleRequiresDepartment
     : selectedRoleRequiresDepartment;
+  const hasManagedDepartments = departments.length > 0;
   const assignableFeatures = useMemo(
     () =>
       features.filter(
@@ -158,6 +171,7 @@ export default function AddUserModal({
     setCustomRoleFeatureKeys([]);
     setCustomRoleRequiresDepartment(false);
     setDepartment("");
+    setDepartmentId("");
     setIsRoleMenuOpen(false);
     setError("");
     setIsSubmitting(false);
@@ -196,7 +210,7 @@ export default function AddUserModal({
       (isCustomRole
         ? customRoleName.trim() && customRoleFeatureKeys.length > 0
         : roleId) &&
-      (!departmentIsRequired || department.trim()),
+      (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -204,6 +218,8 @@ export default function AddUserModal({
     if (!canSubmit) {
       setError(
         departmentIsRequired && !department.trim()
+          ? "Department is required for this role."
+          : departmentIsRequired && hasManagedDepartments && !departmentId
           ? "Department is required for this role."
           : isCustomRole && customRoleFeatureKeys.length === 0
           ? "Select at least one feature for this custom role."
@@ -226,7 +242,12 @@ export default function AddUserModal({
         customRoleRequiresDepartment: isCustomRole
           ? customRoleRequiresDepartment
           : undefined,
-        department: department.trim() ? department.trim().replace(/\s+/g, " ") : null,
+        department: hasManagedDepartments
+          ? null
+          : department.trim()
+          ? department.trim().replace(/\s+/g, " ")
+          : null,
+        departmentId: hasManagedDepartments ? departmentId || null : undefined,
       });
       setSuccess(result);
     } catch (err) {
@@ -562,13 +583,33 @@ export default function AddUserModal({
                   <span className="ml-1 text-[var(--color-primary)]">*</span>
                 ) : null}
               </label>
-              <input
-                id="department"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-                placeholder="e.g., Computer Engineering"
-                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-              />
+              {hasManagedDepartments ? (
+                <select
+                  id="department"
+                  value={departmentId}
+                  onChange={(event) => setDepartmentId(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                >
+                  <option value="">
+                    {departmentIsRequired ? "Select a department" : "No department"}
+                  </option>
+                  {departments.map((departmentOption) => (
+                    <option key={departmentOption.id} value={departmentOption.id}>
+                      {departmentOption.code
+                        ? `${departmentOption.code} - ${departmentOption.name}`
+                        : departmentOption.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="department"
+                  value={department}
+                  onChange={(event) => setDepartment(event.target.value)}
+                  placeholder="e.g., Computer Engineering"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              )}
               <p className="text-xs text-[var(--color-low-emphasis)]">
                 {departmentIsRequired
                   ? "Required because the selected role needs a department."

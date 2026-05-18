@@ -7,6 +7,7 @@ import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
+import Departments from "@/components/Features/Tenant/Departments";
 import Employee from "@/components/Features/Tenant/Employee";
 import Policies from "@/components/Features/Tenant/Policies";
 import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
@@ -50,6 +51,7 @@ export default function TenantPage() {
     const iconMap: Record<TenantAdminView, string> = {
       accounts: ICON_SVGS.people,
       "manage-users": ICON_SVGS.people,
+      departments: ICON_SVGS.flow,
       policies: ICON_SVGS.file,
       employees: ICON_SVGS.files,
       branding: ICON_SVGS.settings,
@@ -66,6 +68,7 @@ export default function TenantPage() {
     accounts: <Accounts />,
     policies: <Policies />,
     "manage-users": <TenantRolePermissionsPanel />,
+    departments: <Departments />,
     employees: <Employee />,
     branding: <Branding onBrandingUpdated={setBranding} />,
   }[activeView];

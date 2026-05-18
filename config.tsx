@@ -2,7 +2,13 @@ import { AppIcon } from "@/public/icons";
 
 export type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
 
-export type TenantAdminView = "accounts" | "policies" | "manage-users" | "employees" | "branding";
+export type TenantAdminView =
+  | "accounts"
+  | "policies"
+  | "manage-users"
+  | "departments"
+  | "employees"
+  | "branding";
 
 const getTenantAdminLabels = (institutionType?: InstitutionType) => {
   if (institutionType === "higher_ed") {
@@ -25,6 +31,10 @@ const getTenantAdminLabels = (institutionType?: InstitutionType) => {
 };
 
 const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView[] => {
+  if (institutionType === "higher_ed") {
+    return ["accounts", "manage-users", "departments", "employees", "policies", "branding"];
+  }
+
   if (institutionType === "tesda" || institutionType === "training") {
     return ["accounts", "employees", "manage-users", "policies", "branding"];
   }
@@ -70,6 +80,15 @@ export const NavItems = (
       position: "top",
     },
     {
+      name: "Departments",
+      href: "/tenant/tenant-admin",
+      view: "departments" as TenantAdminView,
+      icon: <AppIcon name="flow" className="w-5 h-5" />,
+      active: activeView === "departments",
+      position: "top",
+      institutionTypes: ["higher_ed"],
+    },
+    {
       name: labels.employees,
       href: "/tenant/tenant-admin",
       view: "employees" as TenantAdminView,
@@ -87,5 +106,14 @@ export const NavItems = (
     },
   ];
 
-  return items.sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
+  return items
+    .filter((item) => {
+      if (!("institutionTypes" in item)) {
+        return true;
+      }
+
+      const institutionTypes = item.institutionTypes;
+      return Boolean(institutionType && institutionTypes?.includes(institutionType));
+    })
+    .sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
 };

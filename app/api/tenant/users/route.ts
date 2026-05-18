@@ -24,6 +24,7 @@ type CreateUserRequest = {
   customRoleFeatureKeys?: string[];
   customRoleRequiresDepartment?: boolean;
   department?: string | null;
+  departmentId?: string | null;
 };
 
 const normalizeIdentifierPart = (value: string) =>
@@ -71,6 +72,31 @@ const normalizeDepartment = (value?: string | null) => {
   return value.trim().replace(/\s+/g, " ");
 };
 
+type ManagedDepartmentRow = {
+  id: string;
+  name: string;
+};
+
+const loadManagedDepartment = async (orgId: string, departmentId?: string | null) => {
+  const normalizedId = normalizeDepartment(departmentId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name")
+    .eq("id", normalizedId)
+    .eq("org_id", orgId)
+    .maybeSingle<ManagedDepartmentRow>();
+
+  if (error || !data?.id) {
+    throw new Error("Selected department was not found in this organization.");
+  }
+
+  return data;
+};
+
 const slugifyRoleKey = (value: string) =>
   value
     .toLowerCase()
@@ -112,6 +138,13 @@ type TenantRoleRow = {
   key: string;
   name: string;
   requires_department?: boolean | null;
+};
+
+type DepartmentOptionRow = {
+  id: string;
+  name: string;
+  code?: string | null;
+  college_id?: string | null;
 };
 
 const createCustomRole = async (
@@ -252,7 +285,7 @@ export async function GET(req: Request) {
 
   const { data: users, error: usersError } = await supabaseAdmin
     .from("org_users")
-    .select("id, full_name, email, employee_id, department, status, role_id, created_at, roles(id, key, name)")
+    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)")
     .eq("org_id", context.org.id)
     .order("created_at", { ascending: false });
 
@@ -265,6 +298,25 @@ export async function GET(req: Request) {
     .select("admin_email, slug")
     .eq("id", context.org.id)
     .single();
+
+  let departments: DepartmentOptionRow[] = [];
+
+  if (context.institutionType === "higher_ed") {
+    const { data: departmentRows, error: departmentsError } = await supabaseAdmin
+      .from("org_departments")
+      .select("id, name, code, college_id")
+      .eq("org_id", context.org.id)
+      .order("name", { ascending: true });
+
+    if (departmentsError) {
+      return NextResponse.json(
+        { error: departmentsError.message || "Failed to load departments." },
+        { status: 500 },
+      );
+    }
+
+    departments = departmentRows ?? [];
+  }
 
   const roleIds = (roles ?? []).map((role) => role.id);
   const permissionsByRole = new Map<string, string[]>();
@@ -305,6 +357,12 @@ export async function GET(req: Request) {
         role.key === "org_admin"
           ? allFeatureKeys
           : permissionsByRole.get(role.id) ?? [],
+    })),
+    departments: departments.map((department) => ({
+      id: department.id,
+      name: department.name,
+      code: department.code ?? null,
+      collegeId: department.college_id ?? null,
     })),
     users: users ?? [],
   });
@@ -398,7 +456,24 @@ export async function POST(req: Request) {
 
   const roleRequiresDepartment =
     Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
-  const department = normalizeDepartment(payload.department) || null;
+  let managedDepartment: ManagedDepartmentRow | null = null;
+
+  try {
+    managedDepartment = await loadManagedDepartment(context.org.id, payload.departmentId);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Selected department was not found in this organization.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const department = managedDepartment?.name ?? (normalizeDepartment(payload.department) || null);
+  const departmentId = managedDepartment?.id ?? null;
 
   if (roleRequiresDepartment && !department) {
     return NextResponse.json(
@@ -448,6 +523,7 @@ export async function POST(req: Request) {
       institution_type: orgInfo?.institution_type ?? context.institutionType,
       account_status: "active",
       department,
+      department_id: departmentId,
       full_name: fullName,
       first_login: false,
       onboarding_complete: true,
@@ -476,12 +552,13 @@ export async function POST(req: Request) {
         email,
         employee_id: employeeId,
         department,
+        department_id: departmentId,
         status: "active",
         created_at: now,
         updated_at: now,
       },
     ])
-    .select("id, full_name, email, employee_id, department, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
     .single();
 
   if (orgUserError || !orgUserRow) {

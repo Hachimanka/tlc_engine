@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Pencil, RefreshCw, Search, UserPlus } from "lucide-react";
 import AddUserModal, {
+  type DepartmentOption,
   type AddUserPayload,
   type CreatedUser,
   type RoleOption,
@@ -20,6 +21,7 @@ type AccountUser = {
   email: string;
   employeeId?: string | null;
   department?: string | null;
+  departmentId?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -44,6 +46,7 @@ type UserPayload = {
   email: string;
   employee_id?: string | null;
   department?: string | null;
+  department_id?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -55,6 +58,7 @@ type EditAccountPayload = {
   fullName: string;
   roleId: string;
   department?: string | null;
+  departmentId?: string | null;
   status: "active" | "disabled";
 };
 
@@ -76,6 +80,7 @@ const normalizeUser = (user: UserPayload): AccountUser => {
     email: user.email,
     employeeId: user.employee_id ?? null,
     department: user.department ?? null,
+    departmentId: user.department_id ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -108,17 +113,20 @@ const roleRequiresDepartment = (role?: AccountRole | null) =>
 function EditAccountModal({
   user,
   roles,
+  departments,
   onClose,
   onSave,
 }: {
   user: AccountUser;
   roles: AccountRole[];
+  departments: DepartmentOption[];
   onClose: () => void;
   onSave: (payload: EditAccountPayload) => Promise<void>;
 }) {
   const [fullName, setFullName] = useState(user.fullName);
   const [roleId, setRoleId] = useState(user.roleId);
   const [department, setDepartment] = useState(user.department ?? "");
+  const [departmentId, setDepartmentId] = useState(user.departmentId ?? "");
   const [status, setStatus] = useState<"active" | "disabled">(user.status);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -133,6 +141,7 @@ function EditAccountModal({
     [roleId, roleOptions],
   );
   const requiresDepartment = roleRequiresDepartment(selectedRole);
+  const hasManagedDepartments = departments.length > 0;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -156,7 +165,12 @@ function EditAccountModal({
     event.preventDefault();
     setError("");
 
-    if (!fullName.trim() || !roleId || (requiresDepartment && !department.trim())) {
+    if (
+      !fullName.trim() ||
+      !roleId ||
+      (requiresDepartment &&
+        !(hasManagedDepartments ? departmentId || user.department : department.trim()))
+    ) {
       setError(
         requiresDepartment
           ? "Full name, role, and department are required."
@@ -168,12 +182,27 @@ function EditAccountModal({
     setIsSaving(true);
 
     try {
-      await onSave({
+      const nextPayload: EditAccountPayload = {
         fullName: fullName.trim(),
         roleId,
-        department: department.trim() ? department.trim().replace(/\s+/g, " ") : null,
         status,
-      });
+      };
+
+      if (hasManagedDepartments) {
+        if (departmentId) {
+          nextPayload.departmentId = departmentId;
+        } else if (user.departmentId) {
+          nextPayload.departmentId = null;
+        } else {
+          nextPayload.department = user.department ?? null;
+        }
+      } else {
+        nextPayload.department = department.trim()
+          ? department.trim().replace(/\s+/g, " ")
+          : null;
+      }
+
+      await onSave(nextPayload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update account.");
     } finally {
@@ -296,13 +325,39 @@ function EditAccountModal({
                   <span className="ml-1 text-[var(--color-primary)]">*</span>
                 ) : null}
               </label>
-              <input
-                id="edit-department"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-                placeholder="e.g., Mathematics Department"
-                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-              />
+              {hasManagedDepartments ? (
+                <select
+                  id="edit-department"
+                  value={departmentId}
+                  onChange={(event) => setDepartmentId(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                >
+                  <option value="">
+                    {user.departmentId
+                      ? "No department"
+                      : user.department
+                      ? `Keep legacy: ${user.department}`
+                      : requiresDepartment
+                      ? "Select a department"
+                      : "No department"}
+                  </option>
+                  {departments.map((departmentOption) => (
+                    <option key={departmentOption.id} value={departmentOption.id}>
+                      {departmentOption.code
+                        ? `${departmentOption.code} - ${departmentOption.name}`
+                        : departmentOption.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="edit-department"
+                  value={department}
+                  onChange={(event) => setDepartment(event.target.value)}
+                  placeholder="e.g., Mathematics Department"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              )}
               <p className="text-xs text-[var(--color-low-emphasis)]">
                 {requiresDepartment
                   ? "Required because the selected role needs a department."
@@ -337,6 +392,7 @@ export default function Accounts() {
   const [users, setUsers] = useState<AccountUser[]>([]);
   const [roles, setRoles] = useState<AccountRole[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
+  const [managedDepartments, setManagedDepartments] = useState<DepartmentOption[]>([]);
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -392,6 +448,7 @@ export default function Accounts() {
 
     setRoles(nextRoles);
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
+    setManagedDepartments((payload.departments ?? []) as DepartmentOption[]);
     setUsers(nextUsers);
     setOrgEmailDomain(payload.org?.emailDomain ?? null);
     setIsLoading(false);
@@ -466,6 +523,7 @@ export default function Accounts() {
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
+      departmentId: data.user.department_id ?? null,
       roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
@@ -501,6 +559,7 @@ export default function Accounts() {
         email: createdUser.email,
         employeeId: createdUser.employeeId,
         department: createdUser.department ?? null,
+        departmentId: data.user.department_id ?? null,
         roleId: createdUser.roleId,
         roleKey: createdUser.roleKey,
         roleName: createdUser.roleName,
@@ -604,6 +663,7 @@ export default function Accounts() {
         isOpen={isAddUserOpen}
         roles={assignableRoles}
         features={features}
+        departments={managedDepartments}
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}
@@ -614,6 +674,7 @@ export default function Accounts() {
           key={editUser.id}
           user={editUser}
           roles={roles}
+          departments={managedDepartments}
           onClose={() => setEditUser(null)}
           onSave={(payload) => handleSaveAccount(editUser, payload)}
         />

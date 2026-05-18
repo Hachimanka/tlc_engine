@@ -9,6 +9,7 @@ type UpdateUserRequest = {
   fullName?: string;
   roleId?: string;
   department?: string | null;
+  departmentId?: string | null;
   status?: "active" | "disabled";
 };
 
@@ -21,6 +22,7 @@ type OrgUserRow = {
   email: string;
   employee_id?: string | null;
   department?: string | null;
+  department_id?: string | null;
   status?: string | null;
   created_at?: string | null;
 };
@@ -38,6 +40,31 @@ const normalizeDepartment = (value?: string | null) => {
   }
 
   return value.trim().replace(/\s+/g, " ");
+};
+
+type ManagedDepartmentRow = {
+  id: string;
+  name: string;
+};
+
+const loadManagedDepartment = async (orgId: string, departmentId?: string | null) => {
+  const normalizedId = normalizeDepartment(departmentId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name")
+    .eq("id", normalizedId)
+    .eq("org_id", orgId)
+    .maybeSingle<ManagedDepartmentRow>();
+
+  if (error || !data?.id) {
+    throw new Error("Selected department was not found in this organization.");
+  }
+
+  return data;
 };
 
 export async function PATCH(
@@ -66,7 +93,7 @@ export async function PATCH(
 
   const { data: targetUser, error: targetError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, status, created_at")
+    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
@@ -128,9 +155,34 @@ export async function PATCH(
 
   const requiresDepartment =
     Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
+  const departmentIdWasProvided =
+    typeof payload.departmentId === "string" || payload.departmentId === null;
+  let managedDepartment: ManagedDepartmentRow | null = null;
+
+  if (departmentIdWasProvided && payload.departmentId) {
+    try {
+      managedDepartment = await loadManagedDepartment(context.org.id, payload.departmentId);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Selected department was not found in this organization.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const requestedDepartment =
     typeof payload.department === "string" ? payload.department : targetUser.department;
-  const nextDepartment = normalizeDepartment(requestedDepartment) || null;
+  const nextDepartment = departmentIdWasProvided
+    ? managedDepartment?.name ?? null
+    : normalizeDepartment(requestedDepartment) || null;
+  const nextDepartmentId = departmentIdWasProvided
+    ? managedDepartment?.id ?? null
+    : targetUser.department_id ?? null;
 
   if (requiresDepartment && !nextDepartment) {
     return NextResponse.json(
@@ -147,12 +199,13 @@ export async function PATCH(
       full_name: nextFullName,
       role_id: roleRow.id,
       department: nextDepartment,
+      department_id: nextDepartmentId,
       status: nextStatus,
       updated_at: now,
     })
     .eq("id", targetUser.id)
     .eq("org_id", context.org.id)
-    .select("id, full_name, email, employee_id, department, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
     .single();
 
   if (updateError || !updatedUser) {
@@ -174,6 +227,7 @@ export async function PATCH(
         role_name: roleRow.name,
         account_status: nextStatus,
         department: nextDepartment,
+        department_id: nextDepartmentId,
         full_name: nextFullName,
       },
     },
