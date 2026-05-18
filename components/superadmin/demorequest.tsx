@@ -367,7 +367,6 @@ export default function DemoRequestTable() {
 	const [addModalOpen, setAddModalOpen] = useState(false);
 	const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
 	const [copiedField, setCopiedField] = useState("");
-	const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "yourapp.com";
 
 	async function fetchData() {
 		setLoading(true);
@@ -523,7 +522,7 @@ export default function DemoRequestTable() {
 
 	const selectedLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
 	const loginUrl = conversionResult?.slug
-		? `https://${conversionResult.slug}.${appDomain}/login`
+		? `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
 		: "";
 
 	return (
@@ -840,7 +839,7 @@ export default function DemoRequestTable() {
 									</button>
 								</div>
 								<p className="text-[11px] text-gray-400 mt-1">
-									Example: https://{conversionResult.slug}.{appDomain}/login
+									Example: {loginUrl || `/login?slug=${conversionResult.slug}`}
 								</p>
 							</div>
 						</div>
