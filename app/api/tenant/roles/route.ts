@@ -5,6 +5,7 @@ import {
   getFeatureKeysForInstitution,
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
+import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   reconcileInstitutionSystemRoles,
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
 
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
-    .select("id, key, name, description, is_system, created_at")
+    .select("id, key, name, description, is_system, requires_department, created_at")
     .eq("org_id", context.org.id)
     .order("created_at", { ascending: true });
 
@@ -131,6 +132,8 @@ export async function GET(req: Request) {
       name: role.name,
       description: role.description,
       isSystem: Boolean(role.is_system),
+      requiresDepartment:
+        Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
       featureKeys:
         role.key === "org_admin"
           ? allKeys
@@ -175,11 +178,12 @@ export async function POST(req: Request) {
         name,
         description: payload.description?.trim() || null,
         is_system: false,
+        requires_department: false,
         created_at: now,
         updated_at: now,
       },
     ])
-    .select("id, key, name, description, is_system")
+    .select("id, key, name, description, is_system, requires_department")
     .single();
 
   if (roleError || !role) {
@@ -219,6 +223,8 @@ export async function POST(req: Request) {
       name: role.name,
       description: role.description,
       isSystem: Boolean(role.is_system),
+      requiresDepartment:
+        Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
       featureKeys,
     },
   });

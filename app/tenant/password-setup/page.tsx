@@ -112,9 +112,13 @@ function TenantPasswordSetupContent() {
         return "/login";
       }
 
-      return redirect && redirect !== "/tenant/tenant-admin"
-        ? redirect
-        : payload.firstActiveHref || "/login";
+      const assignedRedirect = payload.firstActiveHref || "/tenant/no-access";
+
+      return assignedRedirect === "/tenant/no-access"
+        ? assignedRedirect
+        : redirect && redirect !== "/tenant/tenant-admin"
+          ? redirect
+          : assignedRedirect;
     } catch {
       return "/login";
     }

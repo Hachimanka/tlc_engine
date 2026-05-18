@@ -29,6 +29,7 @@ type RoleRow = {
   id: string;
   key: string;
   name: string;
+  requires_department?: boolean | null;
 };
 
 const normalizeDepartment = (value?: string | null) => {
@@ -85,7 +86,7 @@ export async function PATCH(
   const nextRoleId = payload.roleId?.trim() || targetUser.role_id;
   const { data: roleRow, error: roleError } = await supabaseAdmin
     .from("roles")
-    .select("id, key, name")
+    .select("id, key, name, requires_department")
     .eq("id", nextRoleId)
     .eq("org_id", context.org.id)
     .maybeSingle<RoleRow>();
@@ -125,10 +126,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Full name is required." }, { status: 400 });
   }
 
-  const requiresDepartment = isDepartmentRequiredRole(roleRow.key);
+  const requiresDepartment =
+    Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
   const requestedDepartment =
     typeof payload.department === "string" ? payload.department : targetUser.department;
-  const nextDepartment = requiresDepartment ? normalizeDepartment(requestedDepartment) : null;
+  const nextDepartment = normalizeDepartment(requestedDepartment) || null;
 
   if (requiresDepartment && !nextDepartment) {
     return NextResponse.json(
@@ -191,6 +193,7 @@ export async function PATCH(
         id: roleRow.id,
         key: roleRow.key,
         name: roleRow.name,
+        requiresDepartment: requiresDepartment,
       },
     },
   });

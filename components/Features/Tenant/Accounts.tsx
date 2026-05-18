@@ -9,6 +9,7 @@ import AddUserModal, {
 } from "./AddUserModal";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
+import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountRole = RoleOption;
@@ -33,6 +34,8 @@ type RolePayload = {
   description?: string | null;
   isSystem?: boolean;
   is_system?: boolean;
+  requiresDepartment?: boolean;
+  requires_department?: boolean;
 };
 
 type UserPayload = {
@@ -98,6 +101,10 @@ const formatDate = (value?: string | null) => {
   }).format(date);
 };
 
+const roleRequiresDepartment = (role?: AccountRole | null) =>
+  Boolean(role?.requiresDepartment ?? role?.requires_department) ||
+  isDepartmentRequiredRole(role?.key);
+
 function EditAccountModal({
   user,
   roles,
@@ -125,7 +132,7 @@ function EditAccountModal({
     () => roleOptions.find((role) => role.id === roleId) ?? null,
     [roleId, roleOptions],
   );
-  const requiresDepartment = isDepartmentRequiredRole(selectedRole?.key);
+  const requiresDepartment = roleRequiresDepartment(selectedRole);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -164,7 +171,7 @@ function EditAccountModal({
       await onSave({
         fullName: fullName.trim(),
         roleId,
-        department: requiresDepartment ? department.trim().replace(/\s+/g, " ") : null,
+        department: department.trim() ? department.trim().replace(/\s+/g, " ") : null,
         status,
       });
     } catch (err) {
@@ -175,12 +182,7 @@ function EditAccountModal({
   };
 
   const handleRoleChange = (nextRoleId: string) => {
-    const nextRole = roleOptions.find((role) => role.id === nextRoleId);
     setRoleId(nextRoleId);
-
-    if (!isDepartmentRequiredRole(nextRole?.key)) {
-      setDepartment("");
-    }
   };
 
   return (
@@ -287,20 +289,26 @@ function EditAccountModal({
               </select>
             </div>
 
-            {requiresDepartment ? (
-              <div className="space-y-2 sm:col-span-2">
-                <label htmlFor="edit-department" className="text-sm font-medium text-[#344054]">
-                  Department
-                </label>
-                <input
-                  id="edit-department"
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
-                  placeholder="e.g., Mathematics Department"
-                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                />
-              </div>
-            ) : null}
+            <div className="space-y-2 sm:col-span-2">
+              <label htmlFor="edit-department" className="text-sm font-medium text-[#344054]">
+                Department
+                {requiresDepartment ? (
+                  <span className="ml-1 text-[var(--color-primary)]">*</span>
+                ) : null}
+              </label>
+              <input
+                id="edit-department"
+                value={department}
+                onChange={(event) => setDepartment(event.target.value)}
+                placeholder="e.g., Mathematics Department"
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+              />
+              <p className="text-xs text-[var(--color-low-emphasis)]">
+                {requiresDepartment
+                  ? "Required because the selected role needs a department."
+                  : "Optional. Leave blank if this account is not assigned to a department."}
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3">
@@ -328,9 +336,11 @@ function EditAccountModal({
 export default function Accounts() {
   const [users, setUsers] = useState<AccountUser[]>([]);
   const [roles, setRoles] = useState<AccountRole[]>([]);
+  const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -375,11 +385,13 @@ export default function Accounts() {
       key: role.key,
       name: role.name,
       description: role.description ?? null,
+      requiresDepartment: Boolean(role.requiresDepartment ?? role.requires_department),
     }));
 
     const nextUsers = ((payload.users ?? []) as UserPayload[]).map(normalizeUser);
 
     setRoles(nextRoles);
+    setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setUsers(nextUsers);
     setOrgEmailDomain(payload.org?.emailDomain ?? null);
     setIsLoading(false);
@@ -395,10 +407,19 @@ export default function Accounts() {
     [roles],
   );
 
+  const departmentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(users.map((user) => (user.department ?? "").trim()).filter(Boolean)),
+      ).sort((left, right) => left.localeCompare(right)),
+    [users],
+  );
+
   const filteredUsers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
     return users.filter((user) => {
+      const userDepartment = (user.department ?? "").trim();
       const matchesSearch =
         !normalizedSearch ||
         user.fullName.toLowerCase().includes(normalizedSearch) ||
@@ -408,11 +429,13 @@ export default function Accounts() {
         user.roleName.toLowerCase().includes(normalizedSearch);
 
       const matchesRole = roleFilter === "all" || user.roleId === roleFilter;
+      const matchesDepartment =
+        departmentFilter === "all" || userDepartment === departmentFilter;
       const matchesStatus = statusFilter === "all" || user.status === statusFilter;
 
-      return matchesSearch && matchesRole && matchesStatus;
+      return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
     });
-  }, [roleFilter, search, statusFilter, users]);
+  }, [departmentFilter, roleFilter, search, statusFilter, users]);
 
   const handleCreateUser = async (payload: AddUserPayload) => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -443,13 +466,33 @@ export default function Accounts() {
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
+      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name
         ? `${data.user.role.name} access`
         : "Role assignment not set.",
     };
+
+    if (
+      data.user.role?.id &&
+      !roles.some((role) => role.id === data.user.role.id)
+    ) {
+      setRoles((current) =>
+        [
+          ...current,
+          {
+            id: data.user.role.id,
+            key: data.user.role.key ?? "",
+            name: data.user.role.name ?? "Custom Role",
+            description: null,
+            requiresDepartment: Boolean(
+              data.user.role.requiresDepartment ?? data.user.role.requires_department,
+            ),
+          },
+        ].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+    }
 
     setUsers((current) => [
       {
@@ -560,6 +603,7 @@ export default function Accounts() {
       <AddUserModal
         isOpen={isAddUserOpen}
         roles={assignableRoles}
+        features={features}
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}
@@ -624,7 +668,7 @@ export default function Accounts() {
       ) : null}
 
       <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="grid gap-3 lg:grid-cols-[1fr_220px_180px]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px_180px]">
           <label className="flex h-11 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3">
             <Search className="h-4 w-4 shrink-0 text-[var(--color-low-emphasis)]" aria-hidden="true" />
             <span className="sr-only">Search accounts</span>
@@ -647,6 +691,20 @@ export default function Accounts() {
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={departmentFilter}
+            onChange={(event) => setDepartmentFilter(event.target.value)}
+            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+            aria-label="Filter by department"
+          >
+            <option value="all">All departments</option>
+            {departmentOptions.map((department) => (
+              <option key={department} value={department}>
+                {department}
               </option>
             ))}
           </select>

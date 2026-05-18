@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { randomInt } from "crypto";
-import { getFeatureKeysForInstitution } from "@/features/tenant-feature-catalog";
+import {
+  type FeatureKey,
+  getAssignableFeatureKeysForInstitution,
+  getFeatureKeysForInstitution,
+  getFeaturesForInstitution,
+} from "@/features/tenant-feature-catalog";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   reconcileInstitutionSystemRoles,
+  replaceRoleFeaturePermissions,
 } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateTempPassword } from "@/lib/tempPassword";
@@ -14,6 +20,9 @@ export const runtime = "nodejs";
 type CreateUserRequest = {
   fullName?: string;
   roleId?: string;
+  customRoleName?: string;
+  customRoleFeatureKeys?: string[];
+  customRoleRequiresDepartment?: boolean;
   department?: string | null;
 };
 
@@ -60,6 +69,86 @@ const normalizeDepartment = (value?: string | null) => {
   }
 
   return value.trim().replace(/\s+/g, " ");
+};
+
+const slugifyRoleKey = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .replace(/-/g, "_") || "custom_role";
+
+const buildUniqueRoleKey = async (orgId: string, name: string) => {
+  const baseKey = slugifyRoleKey(name);
+  let nextKey = baseKey;
+  let suffix = 2;
+
+  while (true) {
+    const { data, error } = await supabaseAdmin
+      .from("roles")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("key", nextKey)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || "Failed to check role uniqueness.");
+    }
+
+    if (!data?.id) {
+      return nextKey;
+    }
+
+    nextKey = `${baseKey}_${suffix}`;
+    suffix += 1;
+  }
+};
+
+type TenantRoleRow = {
+  id: string;
+  key: string;
+  name: string;
+  requires_department?: boolean | null;
+};
+
+const createCustomRole = async (
+  orgId: string,
+  roleName: string,
+  requiresDepartment: boolean,
+) => {
+  const now = new Date().toISOString();
+  const roleKey = await buildUniqueRoleKey(orgId, roleName);
+
+  const { data: role, error } = await supabaseAdmin
+    .from("roles")
+    .insert([
+      {
+        org_id: orgId,
+        key: roleKey,
+        name: roleName,
+        description: null,
+        is_system: false,
+        requires_department: requiresDepartment,
+        created_at: now,
+        updated_at: now,
+      },
+    ])
+    .select("id, key, name, requires_department")
+    .single<TenantRoleRow>();
+
+  if (error || !role) {
+    throw new Error(error?.message || "Failed to create custom role.");
+  }
+
+  return role;
+};
+
+const deleteCustomRole = async (roleId: string) => {
+  await supabaseAdmin.from("role_feature_permissions").delete().eq("role_id", roleId);
+  await supabaseAdmin.from("roles").delete().eq("id", roleId);
 };
 
 const buildUniqueAccountEmail = async (
@@ -153,7 +242,7 @@ export async function GET(req: Request) {
 
   const { data: roles, error: rolesError } = await supabaseAdmin
     .from("roles")
-    .select("id, key, name, description, is_system")
+    .select("id, key, name, description, is_system, requires_department")
     .eq("org_id", context.org.id)
     .order("name", { ascending: true });
 
@@ -207,8 +296,11 @@ export async function GET(req: Request) {
     org: {
       emailDomain: getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug),
     },
+    features: getFeaturesForInstitution(context.institutionType),
     roles: (roles ?? []).map((role) => ({
       ...role,
+      requiresDepartment:
+        Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
       featureKeys:
         role.key === "org_admin"
           ? allFeatureKeys
@@ -232,24 +324,69 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
+  const { context } = result;
   const fullName = payload.fullName?.trim();
   const roleId = payload.roleId?.trim();
+  const customRoleName = payload.customRoleName?.trim().replace(/\s+/g, " ");
+  const customRoleRequiresDepartment = payload.customRoleRequiresDepartment === true;
+  const allowedCustomFeatureKeys = new Set(
+    getAssignableFeatureKeysForInstitution(context.institutionType),
+  );
+  const customRoleFeatureKeys = (payload.customRoleFeatureKeys ?? []).filter((key) =>
+    allowedCustomFeatureKeys.has(key as FeatureKey),
+  );
 
-  if (!fullName || !roleId) {
+  if (!fullName || (!roleId && !customRoleName)) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
 
-  const { context } = result;
+  let roleRow: TenantRoleRow | null = null;
 
-  const { data: roleRow, error: roleError } = await supabaseAdmin
-    .from("roles")
-    .select("id, key, name")
-    .eq("id", roleId)
-    .eq("org_id", context.org.id)
-    .single();
+  if (customRoleName) {
+    if (customRoleFeatureKeys.length === 0) {
+      return NextResponse.json(
+        { error: "Select at least one feature for this custom role." },
+        { status: 400 },
+      );
+    }
 
-  if (roleError || !roleRow) {
-    return NextResponse.json({ error: "Role not found." }, { status: 404 });
+    try {
+      roleRow = await createCustomRole(
+        context.org.id,
+        customRoleName,
+        customRoleRequiresDepartment,
+      );
+      await replaceRoleFeaturePermissions(roleRow.id, customRoleFeatureKeys);
+    } catch (error) {
+      if (roleRow?.id) {
+        await deleteCustomRole(roleRow.id);
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create custom role.",
+        },
+        { status: 500 },
+      );
+    }
+  } else if (roleId) {
+    const { data, error } = await supabaseAdmin
+      .from("roles")
+      .select("id, key, name, requires_department")
+      .eq("id", roleId)
+      .eq("org_id", context.org.id)
+      .single<TenantRoleRow>();
+
+    if (error || !data) {
+      return NextResponse.json({ error: "Role not found." }, { status: 404 });
+    }
+
+    roleRow = data;
+  }
+
+  if (!roleRow) {
+    return NextResponse.json({ error: "Role is required." }, { status: 400 });
   }
 
   if (roleRow.key === "org_admin") {
@@ -259,10 +396,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const requiresDepartment = isDepartmentRequiredRole(roleRow.key);
-  const department = requiresDepartment ? normalizeDepartment(payload.department) : null;
+  const roleRequiresDepartment =
+    Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
+  const department = normalizeDepartment(payload.department) || null;
 
-  if (requiresDepartment && !department) {
+  if (roleRequiresDepartment && !department) {
     return NextResponse.json(
       { error: "Department is required for this role." },
       { status: 400 },
@@ -318,6 +456,9 @@ export async function POST(req: Request) {
   });
 
   if (createUserError || !createdUser?.user) {
+    if (customRoleName) {
+      await deleteCustomRole(roleRow.id);
+    }
     const status = createUserError?.message?.toLowerCase().includes("already") ? 409 : 500;
     return NextResponse.json({ error: createUserError?.message || "Failed to create user." }, { status });
   }
@@ -345,6 +486,9 @@ export async function POST(req: Request) {
 
   if (orgUserError || !orgUserRow) {
     await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    if (customRoleName) {
+      await deleteCustomRole(roleRow.id);
+    }
     return NextResponse.json({ error: orgUserError?.message || "Failed to save user." }, { status: 500 });
   }
 
@@ -356,6 +500,7 @@ export async function POST(req: Request) {
         id: roleRow.id,
         key: roleRow.key,
         name: roleRow.name,
+        requiresDepartment: roleRequiresDepartment,
       },
     },
   });

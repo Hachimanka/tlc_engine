@@ -3,6 +3,7 @@ import {
   getAssignableFeatureKeysForInstitution,
   type FeatureKey,
 } from "@/features/tenant-feature-catalog";
+import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   replaceRoleFeaturePermissions,
@@ -32,7 +33,7 @@ export async function PATCH(
 
   const { data: role, error: roleError } = await supabaseAdmin
     .from("roles")
-    .select("id, key, name, description, is_system, org_id")
+    .select("id, key, name, description, is_system, requires_department, org_id")
     .eq("id", roleId)
     .eq("org_id", context.org.id)
     .single();
@@ -107,6 +108,8 @@ export async function PATCH(
       name: nextName,
       description: nextDescription,
       isSystem: Boolean(role.is_system),
+      requiresDepartment:
+        Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
       featureKeys,
     },
   });

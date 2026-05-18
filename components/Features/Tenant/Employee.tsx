@@ -8,6 +8,7 @@ import AddUserModal, {
   type RoleOption,
 } from "./AddUserModal";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
 
 type EmployeeRole = RoleOption;
@@ -30,6 +31,8 @@ type RolePayload = {
   key: string;
   name: string;
   description?: string | null;
+  requiresDepartment?: boolean;
+  requires_department?: boolean;
 };
 
 type UserPayload = {
@@ -115,6 +118,7 @@ const getStaffGroup = (roleKey: string, roleName: string) => {
 export default function Employee() {
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [roles, setRoles] = useState<EmployeeRole[]>([]);
+  const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("All Groups");
@@ -154,6 +158,7 @@ export default function Employee() {
       key: role.key,
       name: role.name,
       description: role.description ?? null,
+      requiresDepartment: Boolean(role.requiresDepartment ?? role.requires_department),
     }));
 
     const nextEmployees = ((payload.users ?? []) as UserPayload[])
@@ -161,6 +166,7 @@ export default function Employee() {
       .filter((user) => user.roleKey !== "org_admin");
 
     setRoles(nextRoles);
+    setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setEmployees(nextEmployees);
     setOrgEmailDomain(payload.org?.emailDomain ?? null);
     setIsLoading(false);
@@ -232,13 +238,33 @@ export default function Employee() {
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId,
+      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name
         ? `${data.user.role.name} access`
         : "Role assignment not set.",
     };
+
+    if (
+      data.user.role?.id &&
+      !roles.some((role) => role.id === data.user.role.id)
+    ) {
+      setRoles((current) =>
+        [
+          ...current,
+          {
+            id: data.user.role.id,
+            key: data.user.role.key ?? "",
+            name: data.user.role.name ?? "Custom Role",
+            description: null,
+            requiresDepartment: Boolean(
+              data.user.role.requiresDepartment ?? data.user.role.requires_department,
+            ),
+          },
+        ].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+    }
 
     setEmployees((current) => [
       {
@@ -282,6 +308,7 @@ export default function Employee() {
       <AddUserModal
         isOpen={isAddUserOpen}
         roles={assignableRoles}
+        features={features}
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}

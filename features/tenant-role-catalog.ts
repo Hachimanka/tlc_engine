@@ -108,17 +108,8 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
   {
     key: "room_manager",
     name: "Room Manager",
-    description: "Creates and maintains rooms, buildings, capacity, and room status.",
+    description: "Creates rooms and assigns approved subjects to room schedules.",
     featureKeys: ["higher-room-schedule-management"],
-  },
-  {
-    key: "subject_room_assigner",
-    name: "Subject-Room Assigner",
-    description: "Assigns approved subjects to rooms and checks room schedules.",
-    featureKeys: [
-      "higher-subject-room-assignment",
-      "higher-room-schedule-calendar",
-    ],
   },
   {
     key: "load_manager",
@@ -152,7 +143,6 @@ const legacyRoleTargets: Partial<
   },
   higher_ed: {
     teacher: "faculty",
-    coordinator: "subject_room_assigner",
     department_head: "department_head",
     dean: "dean",
     vpaa: "vpaa",

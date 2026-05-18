@@ -53,7 +53,7 @@ function LoginContent() {
         return "/login";
       }
 
-      return payload.firstActiveHref || "/login";
+      return payload.firstActiveHref || "/tenant/no-access";
     } catch {
       return "/login";
     }
@@ -88,7 +88,13 @@ function LoginContent() {
     }
 
     const assignedRedirect = await getAssignedFeatureRedirect();
-    router.replace(redirect && redirect !== "/tenant/tenant-admin" ? redirect : assignedRedirect);
+    router.replace(
+      assignedRedirect === "/tenant/no-access"
+        ? assignedRedirect
+        : redirect && redirect !== "/tenant/tenant-admin"
+          ? redirect
+          : assignedRedirect,
+    );
   };
 
   useEffect(() => {
