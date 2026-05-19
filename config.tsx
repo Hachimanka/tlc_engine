@@ -32,7 +32,7 @@ const getTenantAdminLabels = (institutionType?: InstitutionType) => {
 
 const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView[] => {
   if (institutionType === "higher_ed") {
-    return ["accounts", "manage-users", "departments", "employees", "policies", "branding"];
+    return ["accounts", "manage-users", "departments", "policies", "branding"];
   }
 
   if (institutionType === "tesda" || institutionType === "training") {
@@ -95,6 +95,7 @@ export const NavItems = (
       icon: <AppIcon name="files" className="w-5 h-5" />,
       active: activeView === "employees",
       position: "top",
+      hiddenForInstitutionTypes: ["higher_ed"],
     },
     {
       name: "Branding",
@@ -109,6 +110,13 @@ export const NavItems = (
   return items
     .filter((item) => {
       if (!("institutionTypes" in item)) {
+        if ("hiddenForInstitutionTypes" in item) {
+          return !(
+            institutionType &&
+            item.hiddenForInstitutionTypes?.includes(institutionType)
+          );
+        }
+
         return true;
       }
 
