@@ -237,6 +237,15 @@ export default function Departments() {
   const chairCandidates = useMemo(() => leaderCandidates(users, "department_head"), [users]);
   const assignablePeople = useMemo(() => activeAssignablePeople(users), [users]);
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
+  const deanCollegeByUserId = useMemo(
+    () =>
+      new Map(
+        colleges
+          .filter((college) => college.deanUserId)
+          .map((college) => [college.deanUserId as string, college.id]),
+      ),
+    [colleges],
+  );
   const leadershipAssignedUserIds = useMemo(
     () =>
       new Set(
@@ -552,6 +561,12 @@ export default function Departments() {
     </select>
   );
 
+  const getAvailableDeanCandidates = (currentCollegeId?: string) =>
+    deanCandidates.filter((person) => {
+      const assignedCollegeId = deanCollegeByUserId.get(person.id);
+      return !assignedCollegeId || assignedCollegeId === currentCollegeId;
+    });
+
   const renderDepartment = (department: Department) => {
     const people = usersByDepartment.get(department.id) ?? [];
     const chair = department.chairUserId ? usersById.get(department.chairUserId) : null;
@@ -784,8 +799,8 @@ export default function Departments() {
                 {renderLeaderSelect(
                   collegeDraft.deanUserId,
                   (value) =>
-                    setCollegeDraft((current) => ({ ...current, deanUserId: value })),
-                  deanCandidates,
+                  setCollegeDraft((current) => ({ ...current, deanUserId: value })),
+                  getAvailableDeanCandidates(college.id),
                   "College dean",
                   "No assigned dean",
                 )}
@@ -1035,7 +1050,7 @@ export default function Departments() {
           {renderLeaderSelect(
             collegeForm.deanUserId,
             (value) => setCollegeForm((current) => ({ ...current, deanUserId: value })),
-            deanCandidates,
+            getAvailableDeanCandidates(),
             "College dean",
             "No assigned dean",
           )}

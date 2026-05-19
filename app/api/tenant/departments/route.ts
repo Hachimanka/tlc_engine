@@ -136,6 +136,38 @@ async function validateUser(orgId: string, userId?: string | null) {
   return data;
 }
 
+async function validateUniqueDean(
+  orgId: string,
+  deanUserId?: string | null,
+  excludeCollegeId?: string | null,
+) {
+  const normalizedDeanUserId = normalizeOptionalId(deanUserId);
+  if (!normalizedDeanUserId) {
+    return;
+  }
+
+  let query = supabaseAdmin
+    .from("org_colleges")
+    .select("id, name")
+    .eq("org_id", orgId)
+    .eq("dean_user_id", normalizedDeanUserId);
+
+  const normalizedExcludeId = normalizeOptionalId(excludeCollegeId);
+  if (normalizedExcludeId) {
+    query = query.neq("id", normalizedExcludeId);
+  }
+
+  const { data, error } = await query.maybeSingle<{ id: string; name: string }>();
+
+  if (error) {
+    throw new Error(error.message || "Failed to validate Dean assignment.");
+  }
+
+  if (data?.id) {
+    throw new Error(`This Dean is already assigned to ${data.name}.`);
+  }
+}
+
 async function validateCollege(orgId: string, collegeId?: string | null) {
   const normalizedCollegeId = normalizeOptionalId(collegeId);
   if (!normalizedCollegeId) {
@@ -248,6 +280,7 @@ export async function POST(req: Request) {
   try {
     if (payload.entity === "college") {
       const dean = await validateUser(context.org.id, payload.deanUserId);
+      await validateUniqueDean(context.org.id, dean?.id);
       const { error } = await supabaseAdmin.from("org_colleges").insert([
         {
           org_id: context.org.id,
@@ -338,6 +371,7 @@ export async function PATCH(req: Request) {
       }
 
       const dean = await validateUser(context.org.id, payload.deanUserId);
+      await validateUniqueDean(context.org.id, dean?.id, id);
       const { error } = await supabaseAdmin
         .from("org_colleges")
         .update({
