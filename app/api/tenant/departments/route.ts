@@ -22,6 +22,7 @@ type DepartmentRow = {
   id: string;
   name: string;
   code?: string | null;
+  chair_user_id?: string | null;
 };
 
 type OrgUserRow = {
@@ -29,6 +30,7 @@ type OrgUserRow = {
   auth_user_id: string;
   full_name: string;
   department?: string | null;
+  department_id?: string | null;
 };
 
 const jsonError = (error: string, status: number) =>
@@ -124,7 +126,7 @@ async function validateUser(orgId: string, userId?: string | null) {
 
   const { data, error } = await supabaseAdmin
     .from("org_users")
-    .select("id, auth_user_id, full_name, department")
+    .select("id, auth_user_id, full_name, department, department_id")
     .eq("id", normalizedUserId)
     .eq("org_id", orgId)
     .maybeSingle<OrgUserRow>();
@@ -136,35 +138,85 @@ async function validateUser(orgId: string, userId?: string | null) {
   return data;
 }
 
-async function validateUniqueDean(
+async function validateUserHierarchyAvailability(
   orgId: string,
-  deanUserId?: string | null,
-  excludeCollegeId?: string | null,
+  user: OrgUserRow | null,
+  options: {
+    excludeCollegeId?: string | null;
+    excludeDepartmentId?: string | null;
+    allowDepartmentId?: string | null;
+  } = {},
 ) {
-  const normalizedDeanUserId = normalizeOptionalId(deanUserId);
-  if (!normalizedDeanUserId) {
+  if (!user?.id) {
     return;
   }
 
-  let query = supabaseAdmin
+  let collegeQuery = supabaseAdmin
     .from("org_colleges")
     .select("id, name")
     .eq("org_id", orgId)
-    .eq("dean_user_id", normalizedDeanUserId);
+    .eq("dean_user_id", user.id)
+    .limit(1);
 
-  const normalizedExcludeId = normalizeOptionalId(excludeCollegeId);
-  if (normalizedExcludeId) {
-    query = query.neq("id", normalizedExcludeId);
+  const normalizedExcludeCollegeId = normalizeOptionalId(options.excludeCollegeId);
+  if (normalizedExcludeCollegeId) {
+    collegeQuery = collegeQuery.neq("id", normalizedExcludeCollegeId);
   }
 
-  const { data, error } = await query.maybeSingle<{ id: string; name: string }>();
+  const { data: college, error: collegeError } =
+    await collegeQuery.maybeSingle<{ id: string; name: string }>();
 
-  if (error) {
-    throw new Error(error.message || "Failed to validate Dean assignment.");
+  if (collegeError) {
+    throw new Error(collegeError.message || "Failed to validate leadership assignment.");
   }
 
-  if (data?.id) {
-    throw new Error(`This Dean is already assigned to ${data.name}.`);
+  if (college?.id) {
+    throw new Error(`This person is already assigned as Dean of ${college.name}.`);
+  }
+
+  let departmentQuery = supabaseAdmin
+    .from("org_departments")
+    .select("id, name")
+    .eq("org_id", orgId)
+    .eq("chair_user_id", user.id)
+    .limit(1);
+
+  const normalizedExcludeDepartmentId = normalizeOptionalId(options.excludeDepartmentId);
+  if (normalizedExcludeDepartmentId) {
+    departmentQuery = departmentQuery.neq("id", normalizedExcludeDepartmentId);
+  }
+
+  const { data: chairedDepartment, error: departmentError } =
+    await departmentQuery.maybeSingle<{ id: string; name: string }>();
+
+  if (departmentError) {
+    throw new Error(departmentError.message || "Failed to validate leadership assignment.");
+  }
+
+  if (chairedDepartment?.id) {
+    throw new Error(`This person is already assigned as Chair of ${chairedDepartment.name}.`);
+  }
+
+  const normalizedAllowedDepartmentId = normalizeOptionalId(options.allowDepartmentId);
+  if (user.department_id && user.department_id !== normalizedAllowedDepartmentId) {
+    const { data: assignedDepartment, error: assignedDepartmentError } = await supabaseAdmin
+      .from("org_departments")
+      .select("name")
+      .eq("id", user.department_id)
+      .eq("org_id", orgId)
+      .maybeSingle<{ name: string }>();
+
+    if (assignedDepartmentError) {
+      throw new Error(
+        assignedDepartmentError.message || "Failed to validate personnel assignment.",
+      );
+    }
+
+    throw new Error(
+      assignedDepartment?.name
+        ? `This person is already assigned to ${assignedDepartment.name}.`
+        : "This person is already assigned to another department.",
+    );
   }
 }
 
@@ -196,7 +248,7 @@ async function validateDepartment(orgId: string, departmentId?: string | null) {
 
   const { data, error } = await supabaseAdmin
     .from("org_departments")
-    .select("id, name, code")
+    .select("id, name, code, chair_user_id")
     .eq("id", normalizedDepartmentId)
     .eq("org_id", orgId)
     .maybeSingle<DepartmentRow>();
@@ -206,6 +258,46 @@ async function validateDepartment(orgId: string, departmentId?: string | null) {
   }
 
   return data;
+}
+
+async function assignUserToDepartment(
+  orgId: string,
+  user: OrgUserRow,
+  department: DepartmentRow,
+  now: string,
+) {
+  const { error } = await supabaseAdmin
+    .from("org_users")
+    .update({
+      department_id: department.id,
+      department: department.name,
+      updated_at: now,
+    })
+    .eq("id", user.id)
+    .eq("org_id", orgId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to assign department.");
+  }
+
+  const { data: authTarget } = await supabaseAdmin.auth.admin.getUserById(user.auth_user_id);
+  const metadata = authTarget?.user?.user_metadata ?? {};
+  const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+    user.auth_user_id,
+    {
+      user_metadata: {
+        ...metadata,
+        department: department.name,
+        department_id: department.id,
+      },
+    },
+  );
+
+  if (authUpdateError) {
+    throw new Error(
+      authUpdateError.message || "Department saved, but auth profile update failed.",
+    );
+  }
 }
 
 async function parsePayload(req: Request) {
@@ -280,7 +372,7 @@ export async function POST(req: Request) {
   try {
     if (payload.entity === "college") {
       const dean = await validateUser(context.org.id, payload.deanUserId);
-      await validateUniqueDean(context.org.id, dean?.id);
+      await validateUserHierarchyAvailability(context.org.id, dean);
       const { error } = await supabaseAdmin.from("org_colleges").insert([
         {
           org_id: context.org.id,
@@ -305,17 +397,22 @@ export async function POST(req: Request) {
         validateCollege(context.org.id, payload.collegeId),
         validateUser(context.org.id, payload.chairUserId),
       ]);
-      const { error } = await supabaseAdmin.from("org_departments").insert([
-        {
-          org_id: context.org.id,
-          college_id: collegeId,
-          name,
-          code: cleanNullableText(payload.code),
-          chair_user_id: chair?.id ?? null,
-          created_at: now,
-          updated_at: now,
-        },
-      ]);
+      await validateUserHierarchyAvailability(context.org.id, chair);
+      const { data: createdDepartment, error } = await supabaseAdmin
+        .from("org_departments")
+        .insert([
+          {
+            org_id: context.org.id,
+            college_id: collegeId,
+            name,
+            code: cleanNullableText(payload.code),
+            chair_user_id: chair?.id ?? null,
+            created_at: now,
+            updated_at: now,
+          },
+        ])
+        .select("id, name, code, chair_user_id")
+        .single<DepartmentRow>();
 
       if (error) {
         return jsonError(
@@ -324,6 +421,10 @@ export async function POST(req: Request) {
             : error.message || "Failed to create department.",
           500,
         );
+      }
+
+      if (chair && createdDepartment) {
+        await assignUserToDepartment(context.org.id, chair, createdDepartment, now);
       }
     }
 
@@ -371,7 +472,9 @@ export async function PATCH(req: Request) {
       }
 
       const dean = await validateUser(context.org.id, payload.deanUserId);
-      await validateUniqueDean(context.org.id, dean?.id, id);
+      await validateUserHierarchyAvailability(context.org.id, dean, {
+        excludeCollegeId: id,
+      });
       const { error } = await supabaseAdmin
         .from("org_colleges")
         .update({
@@ -397,10 +500,19 @@ export async function PATCH(req: Request) {
         return jsonError("Department name is required.", 400);
       }
 
-      const [collegeId, chair] = await Promise.all([
+      const [existingDepartment, collegeId, chair] = await Promise.all([
+        validateDepartment(context.org.id, id),
         validateCollege(context.org.id, payload.collegeId),
         validateUser(context.org.id, payload.chairUserId),
       ]);
+      if (!existingDepartment) {
+        return jsonError("Selected department was not found in this organization.", 404);
+      }
+
+      await validateUserHierarchyAvailability(context.org.id, chair, {
+        excludeDepartmentId: id,
+        allowDepartmentId: existingDepartment.chair_user_id === chair?.id ? id : null,
+      });
       const { error } = await supabaseAdmin
         .from("org_departments")
         .update({
@@ -421,6 +533,20 @@ export async function PATCH(req: Request) {
           500,
         );
       }
+
+      if (chair) {
+        await assignUserToDepartment(
+          context.org.id,
+          chair,
+          {
+            id,
+            name,
+            code: cleanNullableText(payload.code),
+            chair_user_id: chair.id,
+          },
+          now,
+        );
+      }
     } else if (payload.entity === "user") {
       const department = await validateDepartment(context.org.id, payload.departmentId);
       const user = await validateUser(context.org.id, id);
@@ -429,12 +555,19 @@ export async function PATCH(req: Request) {
         return jsonError("User was not found in this organization.", 404);
       }
 
-      const nextDepartment = department?.name ?? null;
+      if (department) {
+        await validateUserHierarchyAvailability(context.org.id, user, {
+          allowDepartmentId: department.id,
+        });
+        await assignUserToDepartment(context.org.id, user, department, now);
+        return NextResponse.json(await loadHierarchy(context.org.id));
+      }
+
       const { error } = await supabaseAdmin
         .from("org_users")
         .update({
-          department_id: department?.id ?? null,
-          department: nextDepartment,
+          department_id: null,
+          department: null,
           updated_at: now,
         })
         .eq("id", user.id)
@@ -451,8 +584,8 @@ export async function PATCH(req: Request) {
         {
           user_metadata: {
             ...metadata,
-            department: nextDepartment,
-            department_id: department?.id ?? null,
+            department: null,
+            department_id: null,
           },
         },
       );

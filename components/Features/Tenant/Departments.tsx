@@ -241,17 +241,7 @@ export default function Departments() {
 
   const deanCandidates = useMemo(() => leaderCandidates(users, "dean"), [users]);
   const chairCandidates = useMemo(() => leaderCandidates(users, "department_head"), [users]);
-  const assignablePeople = useMemo(() => activeAssignablePeople(users), [users]);
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
-  const deanCollegeByUserId = useMemo(
-    () =>
-      new Map(
-        colleges
-          .filter((college) => college.deanUserId)
-          .map((college) => [college.deanUserId as string, college.id]),
-      ),
-    [colleges],
-  );
   const leadershipAssignedUserIds = useMemo(
     () =>
       new Set(
@@ -259,8 +249,22 @@ export default function Departments() {
           ...colleges.map((college) => college.deanUserId),
           ...departments.map((department) => department.chairUserId),
         ].filter((userId): userId is string => Boolean(userId)),
-      ),
+    ),
     [colleges, departments],
+  );
+  const hierarchyAssignedUserIds = useMemo(
+    () =>
+      new Set([
+        ...Array.from(leadershipAssignedUserIds),
+        ...users
+          .filter((user) => user.departmentId || user.department?.trim())
+          .map((user) => user.id),
+      ]),
+    [leadershipAssignedUserIds, users],
+  );
+  const assignablePeople = useMemo(
+    () => activeAssignablePeople(users).filter((user) => !hierarchyAssignedUserIds.has(user.id)),
+    [hierarchyAssignedUserIds, users],
   );
 
   const departmentsByCollege = useMemo(() => {
@@ -317,14 +321,8 @@ export default function Departments() {
   }, [leadershipAssignedUserIds, users]);
 
   const unassignedPeople = useMemo(
-    () =>
-      activeAssignablePeople(users).filter(
-        (user) =>
-          !leadershipAssignedUserIds.has(user.id) &&
-          !user.departmentId &&
-          !user.department?.trim(),
-      ),
-    [leadershipAssignedUserIds, users],
+    () => assignablePeople,
+    [assignablePeople],
   );
   const editingCollege = useMemo(
     () => colleges.find((college) => college.id === editingCollegeId) ?? null,
@@ -609,11 +607,25 @@ export default function Departments() {
     </select>
   );
 
-  const getAvailableDeanCandidates = (currentCollegeId?: string) =>
-    deanCandidates.filter((person) => {
-      const assignedCollegeId = deanCollegeByUserId.get(person.id);
-      return !assignedCollegeId || assignedCollegeId === currentCollegeId;
-    });
+  const getAvailableLeaderCandidates = (candidates: Person[], currentUserId?: string | null) =>
+    candidates.filter(
+      (person) => person.id === currentUserId || !hierarchyAssignedUserIds.has(person.id),
+    );
+
+  const getAvailableDeanCandidates = (currentCollegeId?: string) => {
+    const currentDeanUserId =
+      colleges.find((college) => college.id === currentCollegeId)?.deanUserId ?? null;
+
+    return getAvailableLeaderCandidates(deanCandidates, currentDeanUserId);
+  };
+
+  const getAvailableChairCandidates = (currentDepartmentId?: string) => {
+    const currentChairUserId =
+      departments.find((department) => department.id === currentDepartmentId)?.chairUserId ??
+      null;
+
+    return getAvailableLeaderCandidates(chairCandidates, currentChairUserId);
+  };
 
   const renderDepartment = (department: Department) => {
     const people = usersByDepartment.get(department.id) ?? [];
@@ -1174,7 +1186,7 @@ export default function Departments() {
                 departmentDraft.chairUserId,
                 (value) =>
                   setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
-                chairCandidates,
+                getAvailableChairCandidates(editingDepartment.id),
                 "Department chair",
                 "No assigned chair",
               )}
@@ -1355,7 +1367,7 @@ export default function Departments() {
               departmentForm.chairUserId,
               (value) =>
                 setDepartmentForm((current) => ({ ...current, chairUserId: value })),
-              chairCandidates,
+              getAvailableChairCandidates(),
               "Department chair",
               "No assigned chair",
             )}
