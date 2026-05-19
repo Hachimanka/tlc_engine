@@ -16,7 +16,16 @@ export type AcademicRoomRow = {
   updated_at: string;
 };
 
-export type AcademicAssignmentRow = {
+export type AcademicSubjectOptionRow = {
+  id: string;
+  subject_title: string;
+  subject_code: string;
+  department: string | null;
+  year_level: string | null;
+  units: number | string | null;
+};
+
+export type AcademicRoomAssignmentRow = {
   id: string;
   section: string;
   day_of_week: string;
@@ -24,24 +33,16 @@ export type AcademicAssignmentRow = {
   end_time: string;
   created_at: string;
   updated_at: string;
-  subject?: {
-    id: string;
-    subject_title: string;
-    subject_code: string;
-    department: string;
-  } | null;
-  room?: {
-    id: string;
-    room_name: string;
-    building: string;
-    room_type?: string | null;
-  } | null;
+  subject: AcademicSubjectOptionRow | AcademicSubjectOptionRow[] | null;
+  room:
+    | Pick<AcademicRoomRow, "id" | "room_name" | "building" | "room_type">
+    | Pick<AcademicRoomRow, "id" | "room_name" | "building" | "room_type">[]
+    | null;
 };
 
 const roomManagerRoles = new Set(["room_manager", "subject_room_manager"]);
-const assignmentManagerRoles = new Set(["subject_room_assigner", "subject_room_manager"]);
 
-export const validDays = new Set([
+export const validRoomScheduleDays = new Set([
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -56,9 +57,6 @@ export const canUseHigherEdRooms = (context: TenantContext) =>
 
 export const canManageRooms = (context: TenantContext) =>
   context.isOrgAdmin || roomManagerRoles.has(context.role.key);
-
-export const canManageRoomAssignments = (context: TenantContext) =>
-  context.isOrgAdmin || assignmentManagerRoles.has(context.role.key);
 
 export const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
@@ -85,37 +83,41 @@ export const parsePositiveInteger = (value: unknown, fallback = 0) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-export const parseTimeToMinutes = (value: unknown) => {
-  if (typeof value !== "string") {
-    return null;
-  }
+export const normalizeTime = (value: unknown) => {
+  const normalized = normalizeText(value);
+  const match = normalized.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
 
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (!match) {
-    return null;
+    return "";
   }
 
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
 
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return "";
+  }
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+export const parseTimeToMinutes = (value: unknown) => {
+  const normalized = normalizeTime(value);
+
+  if (!normalized) {
     return null;
   }
 
+  const [hours, minutes] = normalized.split(":").map(Number);
   return hours * 60 + minutes;
 };
 
-export const normalizeTime = (value: string) => {
-  const [hours = "00", minutes = "00"] = value.split(":");
-  return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
-};
-
 export const rangesOverlap = (
-  leftStart: number,
-  leftEnd: number,
-  rightStart: number,
-  rightEnd: number,
-) => leftStart < rightEnd && rightStart < leftEnd;
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number,
+) => firstStart < secondEnd && secondStart < firstEnd;
 
 export const mapRoom = (row: AcademicRoomRow) => ({
   id: row.id,
@@ -128,28 +130,47 @@ export const mapRoom = (row: AcademicRoomRow) => ({
   updatedAt: row.updated_at,
 });
 
-export const mapAssignment = (row: AcademicAssignmentRow) => ({
+export const mapSubjectOption = (row: AcademicSubjectOptionRow) => ({
   id: row.id,
-  section: row.section,
-  dayOfWeek: row.day_of_week,
-  startTime: row.start_time?.slice(0, 5) ?? "",
-  endTime: row.end_time?.slice(0, 5) ?? "",
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-  subject: row.subject
-    ? {
-        id: row.subject.id,
-        title: row.subject.subject_title,
-        code: row.subject.subject_code,
-        department: row.subject.department,
-      }
-    : null,
-  room: row.room
-    ? {
-        id: row.room.id,
-        name: row.room.room_name,
-        building: row.room.building,
-        type: row.room.room_type ?? "",
-      }
-    : null,
+  title: row.subject_title,
+  code: row.subject_code,
+  department: row.department ?? "",
+  yearLevel: row.year_level ?? "",
+  units: Number(row.units ?? 0),
 });
+
+const firstOrNull = <T>(value: T | T[] | null | undefined) =>
+  Array.isArray(value) ? value[0] ?? null : value ?? null;
+
+export const mapRoomAssignment = (row: AcademicRoomAssignmentRow) => {
+  const subject = firstOrNull(row.subject);
+  const room = firstOrNull(row.room);
+
+  return {
+    id: row.id,
+    section: row.section,
+    dayOfWeek: row.day_of_week,
+    startTime: normalizeTime(row.start_time),
+    endTime: normalizeTime(row.end_time),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    subject: subject
+      ? {
+          id: subject.id,
+          title: subject.subject_title,
+          code: subject.subject_code,
+          department: subject.department ?? "",
+          yearLevel: subject.year_level ?? "",
+          units: Number(subject.units ?? 0),
+        }
+      : null,
+    room: room
+      ? {
+          id: room.id,
+          name: room.room_name,
+          building: room.building,
+          type: room.room_type,
+        }
+      : null,
+  };
+};

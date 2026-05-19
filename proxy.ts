@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  getTenantSubdomain,
+  isAdminHostname,
+  isLocalHostname,
+} from "@/lib/tenantHost";
 
 export const config = {
   matcher: [
@@ -18,6 +23,9 @@ export const config = {
 export function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const hostname = req.headers.get("host")?.split(":")[0] || "localhost";
+  const isLocalHost = isLocalHostname(hostname);
+  const tenantSubdomain = getTenantSubdomain(hostname);
+  const isAdminHost = isAdminHostname(hostname);
 
   if (url.pathname.startsWith("/_next") || url.pathname.startsWith("/api")) {
     return NextResponse.next();
@@ -83,16 +91,14 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(new URL(`/tenant/college/${collegeTarget}`, req.url));
   }
 
-  const subdomain = hostname.split(".")[0];
-
   if (
-    subdomain === "localhost" &&
+    isLocalHost &&
     (url.pathname.startsWith("/superadmin") || url.pathname.startsWith("/tenant"))
   ) {
     return NextResponse.next();
   }
 
-  if (subdomain === "localhost") {
+  if (isLocalHost) {
     if (url.pathname === "/") {
       return NextResponse.rewrite(new URL("/LandingPage", req.url));
     }
@@ -100,14 +106,30 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (subdomain === "admin") {
+  if (isAdminHost) {
+    if (url.pathname.startsWith("/superadmin")) {
+      return NextResponse.next();
+    }
+
     const newPath = url.pathname === "/" ? "/superadmin" : `/superadmin${url.pathname}`;
     return NextResponse.rewrite(new URL(newPath, req.url));
   }
 
-  if (subdomain !== "www" && subdomain !== "yourapp" && subdomain !== "localhost") {
+  if (tenantSubdomain) {
+    if (url.pathname === "/login" || url.pathname.startsWith("/tenant")) {
+      return NextResponse.next();
+    }
+
     const newPath = url.pathname === "/" ? "/login" : `/tenant${url.pathname}`;
     return NextResponse.rewrite(new URL(newPath, req.url));
+  }
+
+  if (
+    url.pathname === "/login" ||
+    url.pathname.startsWith("/tenant") ||
+    url.pathname.startsWith("/superadmin")
+  ) {
+    return NextResponse.next();
   }
 
   const newPath = url.pathname === "/" ? "/LandingPage" : `/LandingPage${url.pathname}`;

@@ -10,6 +10,13 @@ import {
   clearStoredTenantBranding,
   saveStoredTenantBranding,
 } from "@/lib/tenantBrandingSession";
+import {
+  buildTenantMeUrl,
+  getExpectedTenantSlug,
+  isOrgSlugMismatch,
+  normalizeTenantSlug,
+  ORG_SLUG_MISMATCH_MESSAGE,
+} from "@/lib/tenantRoute";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 import { ICON_SVGS } from "@/public/icons";
@@ -21,6 +28,18 @@ type UserMetadata = {
   role?: string;
 };
 
+type TenantAccessPayload = {
+  org?: {
+    slug?: string;
+  };
+  isOrgAdmin?: boolean;
+  firstActiveHref?: string;
+  error?: string;
+  code?: string;
+};
+
+const MISSING_ORG_LOGIN_LINK_MESSAGE = "Please use your organization login link.";
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,42 +47,59 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [requestedSlug, setRequestedSlug] = useState("");
+  const [slugResolved, setSlugResolved] = useState(false);
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const logoUrl = branding?.logoUrl || "";
   const logoAlt = branding?.logoAlt || "TLC Logo";
   const hasInstitutionBranding = Boolean(branding);
+  const isLoginDisabled = loading || !slugResolved || !requestedSlug;
 
-  const getAssignedFeatureRedirect = async () => {
+  const loadTenantAccessForSlug = async (expectedSlug: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        return "/login";
+        setError("Unable to verify your organization access. Please log in again.");
+        return null;
       }
 
-      const response = await fetch("/api/tenant/me", {
+      const response = await fetch(buildTenantMeUrl(expectedSlug), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = (await response.json().catch(() => ({}))) as TenantAccessPayload;
 
       if (!response.ok) {
-        return "/login";
+        await supabase.auth.signOut({ scope: "local" });
+        setError(
+          isOrgSlugMismatch(payload)
+            ? ORG_SLUG_MISMATCH_MESSAGE
+            : payload.error || "Unable to verify your organization access.",
+        );
+        return null;
       }
 
-      return payload.firstActiveHref || "/login";
+      if (normalizeTenantSlug(payload.org?.slug) !== normalizeTenantSlug(expectedSlug)) {
+        await supabase.auth.signOut({ scope: "local" });
+        setError(ORG_SLUG_MISMATCH_MESSAGE);
+        return null;
+      }
+
+      return payload;
     } catch {
-      return "/login";
+      await supabase.auth.signOut({ scope: "local" });
+      setError("Unable to verify your organization access. Please try again.");
+      return null;
     }
   };
 
-  const redirectAfterLogin = async (
+  const redirectAfterLogin = (
     metadata: UserMetadata | null | undefined,
-    options: { resolveAssignedFeature?: boolean } = {},
+    access: TenantAccessPayload,
   ) => {
-    const resolveAssignedFeature = options.resolveAssignedFeature ?? true;
     const redirect = searchParams?.get("redirect");
 
     if (metadata?.must_change_password === true) {
@@ -78,35 +114,23 @@ function LoginContent() {
       return;
     }
 
-    if (metadata?.role === "org_admin") {
+    if (access.isOrgAdmin || metadata?.role === "org_admin") {
       router.replace(redirect || "/tenant/tenant-admin");
       return;
     }
 
-    if (!resolveAssignedFeature) {
-      return;
-    }
-
-    const assignedRedirect = await getAssignedFeatureRedirect();
-    router.replace(redirect && redirect !== "/tenant/tenant-admin" ? redirect : assignedRedirect);
+    const assignedRedirect = access.firstActiveHref || "/tenant/no-access";
+    router.replace(
+      assignedRedirect === "/tenant/no-access"
+        ? assignedRedirect
+        : redirect && redirect !== "/tenant/tenant-admin"
+          ? redirect
+          : assignedRedirect,
+    );
   };
 
   useEffect(() => {
-    const loadPublicBranding = async () => {
-      const querySlug = searchParams?.get("org") || searchParams?.get("slug");
-      const host = window.location.hostname;
-      const subdomain = host.split(".")[0];
-      const slug =
-        querySlug ||
-        (!["admin", "localhost", "www", "yourapp"].includes(subdomain) && host.includes(".")
-          ? subdomain
-          : "");
-
-      if (!slug) {
-        clearStoredTenantBranding();
-        return;
-      }
-
+    const loadPublicBranding = async (slug: string) => {
       try {
         const response = await fetch(`/api/tenant/branding/public?slug=${encodeURIComponent(slug)}`);
         const payload = await response.json().catch(() => ({}));
@@ -121,7 +145,7 @@ function LoginContent() {
       }
     };
 
-    const checkSession = async () => {
+    const checkSession = async (slug: string) => {
       try {
         const { data, error: userError } = await supabase.auth.getUser();
         if (userError && !isRecoverableSupabaseSessionError(userError)) {
@@ -133,9 +157,13 @@ function LoginContent() {
         }
 
         if (data?.user) {
-          await redirectAfterLogin(data.user.user_metadata as UserMetadata, {
-            resolveAssignedFeature: false,
-          });
+          const access = await loadTenantAccessForSlug(slug);
+
+          if (!access) {
+            return;
+          }
+
+          redirectAfterLogin(data.user.user_metadata as UserMetadata, access);
           return;
         }
       } catch {
@@ -143,13 +171,29 @@ function LoginContent() {
       }
     };
 
-    loadPublicBranding();
-    checkSession();
+    const slug = getExpectedTenantSlug();
+    setRequestedSlug(slug);
+    setSlugResolved(true);
+
+    if (!slug) {
+      clearStoredTenantBranding();
+      setError(MISSING_ORG_LOGIN_LINK_MESSAGE);
+      return;
+    }
+
+    setError("");
+    loadPublicBranding(slug);
+    checkSession(slug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!requestedSlug) {
+      setError(MISSING_ORG_LOGIN_LINK_MESSAGE);
+      return;
+    }
+
     if (!email || !password) {
       setError("Please enter both email and password.");
       return;
@@ -173,14 +217,20 @@ function LoginContent() {
 
     const { data, error: signInError } = signInResult;
 
-    setLoading(false);
-
     if (signInError) {
+      setLoading(false);
       setError("Invalid credentials or user does not exist.");
       return;
     }
 
-    await redirectAfterLogin(data.user?.user_metadata as UserMetadata);
+    const access = await loadTenantAccessForSlug(requestedSlug);
+
+    if (!access) {
+      setLoading(false);
+      return;
+    }
+
+    redirectAfterLogin(data.user?.user_metadata as UserMetadata, access);
   };
 
   if (loading) {
@@ -233,6 +283,7 @@ function LoginContent() {
             onChange={(event) => setEmail(event.target.value)}
             placeholder="name@institution.edu"
             autoComplete="username"
+            disabled={isLoginDisabled}
           />
         </div>
 
@@ -245,15 +296,20 @@ function LoginContent() {
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
             autoComplete="current-password"
+            disabled={isLoginDisabled}
           />
         </div>
 
         <button
           type="submit"
           className="bg-[var(--color-primary)] text-white rounded px-6 py-2 font-medium shadow hover:bg-[var(--color-light-primary)] transition disabled:opacity-50"
-          disabled={loading}
+          disabled={isLoginDisabled}
         >
-          {loading ? "Signing in..." : "Login"}
+          {loading
+            ? "Signing in..."
+            : slugResolved && !requestedSlug
+              ? "Organization link required"
+              : "Login"}
         </button>
       </form>
     </TenantBrandScope>

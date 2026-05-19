@@ -21,6 +21,12 @@ import type {
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  buildTenantLoginUrl,
+  buildTenantMeUrl,
+  getExpectedTenantSlug,
+  isOrgSlugMismatch,
+} from "@/lib/tenantRoute";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -113,12 +119,17 @@ export default function TenantRoleLayout({
       setCheckingAuth(true);
       setAccessError("");
       setIsUnauthorized(false);
+      const expectedSlug = getExpectedTenantSlug();
+      const loginUrl = buildTenantLoginUrl(
+        expectedSlug,
+        pathname || "/tenant/tenant-admin",
+      );
 
       try {
         const { data, error: userError } = await supabase.auth.getUser();
         if (userError && isRecoverableSupabaseSessionError(userError)) {
           await supabase.auth.signOut({ scope: "local" });
-          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          router.replace(loginUrl);
           return;
         }
 
@@ -128,7 +139,7 @@ export default function TenantRoleLayout({
 
         const user = data?.user;
         if (!user) {
-          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          router.replace(loginUrl);
           return;
         }
 
@@ -138,25 +149,15 @@ export default function TenantRoleLayout({
           must_change_password?: boolean;
         };
 
-        if (metadata?.must_change_password === true) {
-          router.replace(`/tenant/password-setup?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
-          return;
-        }
-
-        if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
-          router.replace("/tenant/onboarding");
-          return;
-        }
-
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
 
         if (!token) {
-          router.replace(`/login?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          router.replace(loginUrl);
           return;
         }
 
-        const response = await fetch("/api/tenant/me", {
+        const response = await fetch(buildTenantMeUrl(expectedSlug), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -164,8 +165,24 @@ export default function TenantRoleLayout({
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+          if (isOrgSlugMismatch(payload)) {
+            await supabase.auth.signOut({ scope: "local" });
+            router.replace(buildTenantLoginUrl(expectedSlug));
+            return;
+          }
+
           setAccessError(payload?.error || "Unable to load your feature access.");
           setCheckingAuth(false);
+          return;
+        }
+
+        if (metadata?.must_change_password === true) {
+          router.replace(`/tenant/password-setup?redirect=${encodeURIComponent(pathname || "/tenant/tenant-admin")}`);
+          return;
+        }
+
+        if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
+          router.replace("/tenant/onboarding");
           return;
         }
 

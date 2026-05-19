@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getBootstrapSystemRoleDefinitions } from "@/features/tenant-role-catalog";
+import { buildOrganizationAcronym } from "@/lib/organizationNickname";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   authenticateSuperAdmin,
@@ -23,16 +24,6 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
-
-const buildAcronym = (name: string) => {
-  const words = name.split(" ").filter(Boolean);
-  const letters = words.filter((word) => word.length > 2).map((word) => word[0]?.toLowerCase());
-  const acronym = letters.join("");
-
-  if (acronym) return acronym;
-  if (words[0]) return words[0].slice(0, 3).toLowerCase();
-  return "org";
-};
 
 const buildNamePart = (name: string) =>
   name
@@ -85,7 +76,7 @@ export async function POST(req: Request) {
   const orgName = (demoRequest.institution_name || "Organization").trim();
   const requesterName = (demoRequest.full_name || "admin").trim();
   const slug = slugify(orgName);
-  const acronym = buildAcronym(orgName);
+  const acronym = buildOrganizationAcronym(orgName);
   const namePart = buildNamePart(requesterName);
   const adminEmail = `${namePart}@${acronym}.edu`;
 

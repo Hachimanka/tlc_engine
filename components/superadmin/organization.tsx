@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { buildOrganizationAcronym } from "@/lib/organizationNickname";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
@@ -110,7 +111,7 @@ function AddOrgModal({ onClose, onAdded }: {
 
 	// Auto-generate slug and admin_email when name changes
 	const handleNameChange = (name: string) => {
-		const acronym = name.split(" ").filter(w => w.length > 2).map(w => w[0].toLowerCase()).join("");
+		const acronym = name.trim() ? buildOrganizationAcronym(name) : "";
 		const namePart = form.admin_email.split("@")[0]; // preserve existing name part if set
 		setForm(f => ({
 			...f,
