@@ -13,6 +13,7 @@ import {
   Trash2,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
@@ -325,6 +326,15 @@ export default function Departments() {
       ),
     [leadershipAssignedUserIds, users],
   );
+  const editingCollege = useMemo(
+    () => colleges.find((college) => college.id === editingCollegeId) ?? null,
+    [colleges, editingCollegeId],
+  );
+  const editingDepartment = useMemo(
+    () => departments.find((department) => department.id === editingDepartmentId) ?? null,
+    [departments, editingDepartmentId],
+  );
+  const editPanelOpen = Boolean(editingCollege || editingDepartment);
 
   const applyPayload = useCallback((payload: HierarchyPayload) => {
     setColleges((payload.colleges ?? []).map(normalizeCollege));
@@ -467,6 +477,7 @@ export default function Departments() {
   };
 
   const startCollegeEdit = (college: College) => {
+    setEditingDepartmentId("");
     setEditingCollegeId(college.id);
     setCollegeDraft({
       name: college.name,
@@ -476,6 +487,7 @@ export default function Departments() {
   };
 
   const startDepartmentEdit = (department: Department) => {
+    setEditingCollegeId("");
     setEditingDepartmentId(department.id);
     setExpandedDepartmentIds((current) => ({ ...current, [department.id]: true }));
 
@@ -489,6 +501,13 @@ export default function Departments() {
       collegeId: department.collegeId ?? "",
       chairUserId: department.chairUserId ?? "",
     });
+  };
+
+  const closeEditPanel = () => {
+    setEditingCollegeId("");
+    setEditingDepartmentId("");
+    setCollegeDraft(emptyCollegeDraft);
+    setDepartmentDraft(emptyDepartmentDraft);
   };
 
   const saveCollege = async (collegeId: string) => {
@@ -510,7 +529,7 @@ export default function Departments() {
     );
 
     if (saved) {
-      setEditingCollegeId("");
+      closeEditPanel();
     }
   };
 
@@ -534,7 +553,7 @@ export default function Departments() {
     );
 
     if (saved) {
-      setEditingDepartmentId("");
+      closeEditPanel();
     }
   };
 
@@ -599,8 +618,8 @@ export default function Departments() {
   const renderDepartment = (department: Department) => {
     const people = usersByDepartment.get(department.id) ?? [];
     const chair = department.chairUserId ? usersById.get(department.chairUserId) : null;
-    const isEditing = editingDepartmentId === department.id;
-    const isExpanded = Boolean(expandedDepartmentIds[department.id] || isEditing);
+    const isSelected = editingDepartmentId === department.id;
+    const isExpanded = Boolean(expandedDepartmentIds[department.id]);
     const isAddingPersonnel = addingPersonnelDepartmentId === department.id;
     const groupedPeople = people
       .filter((person) => person.id !== department.chairUserId)
@@ -614,167 +633,92 @@ export default function Departments() {
     return (
       <div
         key={department.id}
-        className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white"
+        className={`overflow-hidden rounded-lg border border-[var(--color-default)] bg-white ${
+          isSelected ? "ring-2 ring-[rgba(0,107,95,0.24)]" : ""
+        }`}
       >
         <div
-          role={isEditing ? undefined : "button"}
-          tabIndex={isEditing ? undefined : 0}
-          aria-expanded={isEditing ? undefined : isExpanded}
-          onClick={isEditing ? undefined : () => toggleDepartment(department.id)}
-          onKeyDown={
-            isEditing
-              ? undefined
-              : (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    toggleDepartment(department.id);
-                  }
-                }
-          }
-          className={`flex flex-wrap items-start justify-between gap-3 bg-[#f8fafc] px-4 py-4 ${
-            isEditing ? "" : "cursor-pointer transition hover:bg-[#f1f5f9]"
-          }`}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          onClick={() => toggleDepartment(department.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              toggleDepartment(department.id);
+            }
+          }}
+          className="flex cursor-pointer flex-wrap items-start justify-between gap-3 bg-[#f8fafc] px-4 py-4 transition hover:bg-[#f1f5f9]"
         >
-          {isEditing ? (
-            <div className="grid flex-1 gap-3 lg:grid-cols-[1.4fr_120px_1fr_1.2fr]">
-              <input
-                value={departmentDraft.name}
-                onChange={(event) =>
-                  setDepartmentDraft((current) => ({ ...current, name: event.target.value }))
-                }
-                className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                aria-label="Department name"
-              />
-              <input
-                value={departmentDraft.code}
-                onChange={(event) =>
-                  setDepartmentDraft((current) => ({ ...current, code: event.target.value }))
-                }
-                className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                aria-label="Department code"
-                placeholder="Code"
-              />
-              <select
-                value={departmentDraft.collegeId}
-                onChange={(event) =>
-                  setDepartmentDraft((current) => ({
-                    ...current,
-                    collegeId: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                aria-label="Department college"
-              >
-                <option value="">Unassigned college</option>
-                {colleges.map((college) => (
-                  <option key={college.id} value={college.id}>
-                    {formatUnitName(college)}
-                  </option>
-                ))}
-              </select>
-              {renderLeaderSelect(
-                departmentDraft.chairUserId,
-                (value) =>
-                  setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
-                chairCandidates,
-                "Department chair",
-                "No assigned chair",
+          <div className="flex min-w-0 items-start gap-2">
+            <div className="mt-0.5 text-[var(--color-primary)]">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               )}
             </div>
-          ) : (
-            <div className="flex min-w-0 items-start gap-2">
-              <div className="mt-0.5 text-[var(--color-primary)]">
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
+                  {formatUnitName(department)}
+                </h3>
+                <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                  {people.length} personnel
+                </span>
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
-                    {formatUnitName(department)}
-                  </h3>
-                  <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                    {people.length} personnel
-                  </span>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
-                  <span>Chair: {chair?.fullName ?? "Unassigned"}</span>
-                </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
+                <span>Chair: {chair?.fullName ?? "Unassigned"}</span>
               </div>
             </div>
-          )}
+          </div>
 
           <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => saveDepartment(department.id)}
-                  disabled={Boolean(savingKey)}
-                  className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-primary)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:opacity-60"
-                >
-                  <Save className="h-3.5 w-3.5" aria-hidden="true" />
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingDepartmentId("")}
-                  className="h-9 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-high-emphasis)]"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setExpandedDepartmentIds((current) => ({
-                      ...current,
-                      [department.id]: true,
-                    }));
-                    setAddingPersonnelDepartmentId((current) =>
-                      current === department.id ? "" : department.id,
-                    );
-                  }}
-                  title="Add personnel"
-                  aria-label={`Add personnel to ${department.name}`}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-default)] text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    startDepartmentEdit(department);
-                  }}
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    mutateHierarchy(
-                      "DELETE",
-                      { entity: "department", id: department.id },
-                      `delete-department-${department.id}`,
-                    );
-                  }}
-                  disabled={Boolean(savingKey)}
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Delete
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpandedDepartmentIds((current) => ({
+                  ...current,
+                  [department.id]: true,
+                }));
+                setAddingPersonnelDepartmentId((current) =>
+                  current === department.id ? "" : department.id,
+                );
+              }}
+              title="Add personnel"
+              aria-label={`Add personnel to ${department.name}`}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-default)] text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                startDepartmentEdit(department);
+              }}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                mutateHierarchy(
+                  "DELETE",
+                  { entity: "department", id: department.id },
+                  `delete-department-${department.id}`,
+                );
+              }}
+              disabled={Boolean(savingKey)}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Delete
+            </button>
           </div>
         </div>
 
@@ -858,137 +802,80 @@ export default function Departments() {
   const renderCollege = (college: College) => {
     const dean = college.deanUserId ? usersById.get(college.deanUserId) : null;
     const collegeDepartments = departmentsByCollege.get(college.id) ?? [];
-    const isEditing = editingCollegeId === college.id;
-    const isExpanded = Boolean(expandedCollegeIds[college.id] || isEditing);
+    const isSelected = editingCollegeId === college.id;
+    const isExpanded = Boolean(expandedCollegeIds[college.id]);
 
     return (
       <section key={college.id} className="space-y-3">
         <div
-          role={isEditing ? undefined : "button"}
-          tabIndex={isEditing ? undefined : 0}
-          aria-expanded={isEditing ? undefined : isExpanded}
-          onClick={isEditing ? undefined : () => toggleCollege(college.id)}
-          onKeyDown={
-            isEditing
-              ? undefined
-              : (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    toggleCollege(college.id);
-                  }
-                }
-          }
-          className={`rounded-lg border border-[var(--color-default)] bg-white px-5 py-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${
-            isEditing ? "" : "cursor-pointer transition hover:bg-[#f8fafc]"
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          onClick={() => toggleCollege(college.id)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              toggleCollege(college.id);
+            }
+          }}
+          className={`cursor-pointer rounded-lg border border-[var(--color-default)] bg-white px-5 py-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition hover:bg-[#f8fafc] ${
+            isSelected ? "ring-2 ring-[rgba(0,107,95,0.24)]" : ""
           }`}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            {isEditing ? (
-              <div className="grid flex-1 gap-3 lg:grid-cols-[1.4fr_120px_1.2fr]">
-                <input
-                  value={collegeDraft.name}
-                  onChange={(event) =>
-                    setCollegeDraft((current) => ({ ...current, name: event.target.value }))
-                  }
-                  className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                  aria-label="College name"
-                />
-                <input
-                  value={collegeDraft.code}
-                  onChange={(event) =>
-                    setCollegeDraft((current) => ({ ...current, code: event.target.value }))
-                  }
-                  className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                  aria-label="College code"
-                  placeholder="Code"
-                />
-                {renderLeaderSelect(
-                  collegeDraft.deanUserId,
-                  (value) =>
-                    setCollegeDraft((current) => ({ ...current, deanUserId: value })),
-                  getAvailableDeanCandidates(college.id),
-                  "College dean",
-                  "No assigned dean",
+            <div className="flex min-w-0 items-start gap-2">
+              <div className="mt-1 text-[var(--color-primary)]">
+                {isExpanded ? (
+                  <ChevronDown className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
                 )}
               </div>
-            ) : (
-              <div className="flex min-w-0 items-start gap-2">
-                <div className="mt-1 text-[var(--color-primary)]">
-                  {isExpanded ? (
-                    <ChevronDown className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                  )}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Building2 className="h-5 w-5 text-[var(--color-primary)]" aria-hidden="true" />
+                  <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+                    {formatUnitName(college)}
+                  </h2>
+                  <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                    {collegeDepartments.length} departments
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Building2 className="h-5 w-5 text-[var(--color-primary)]" aria-hidden="true" />
-                    <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">
-                      {formatUnitName(college)}
-                    </h2>
-                    <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                      {collegeDepartments.length} departments
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
-                    <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                    Dean: {dean?.fullName ?? "Unassigned"}
-                  </div>
+                <div className="mt-2 flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
+                  <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                  Dean: {dean?.fullName ?? "Unassigned"}
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="flex gap-2">
-              {isEditing ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => saveCollege(college.id)}
-                    disabled={Boolean(savingKey)}
-                    className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--color-primary)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:opacity-60"
-                  >
-                    <Save className="h-3.5 w-3.5" aria-hidden="true" />
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingCollegeId("")}
-                    className="h-9 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-high-emphasis)]"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      startCollegeEdit(college);
-                    }}
-                    className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
-                  >
-                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      mutateHierarchy(
-                        "DELETE",
-                        { entity: "college", id: college.id },
-                        `delete-college-${college.id}`,
-                      );
-                    }}
-                    disabled={Boolean(savingKey)}
-                    className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Delete
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  startCollegeEdit(college);
+                }}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  mutateHierarchy(
+                    "DELETE",
+                    { entity: "college", id: college.id },
+                    `delete-college-${college.id}`,
+                  );
+                }}
+                disabled={Boolean(savingKey)}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -1093,6 +980,238 @@ export default function Departments() {
         ) : null}
       </section>
     );
+  };
+
+  const renderEditPanel = () => {
+    if (editingCollege) {
+      const dean = editingCollege.deanUserId ? usersById.get(editingCollege.deanUserId) : null;
+      const collegeDepartments = departmentsByCollege.get(editingCollege.id) ?? [];
+
+      return (
+        <>
+          <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-6">
+            <div className="flex items-start justify-between gap-3">
+              <span className="rounded-full bg-[#ecf8f6] px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
+                College
+              </span>
+              <button
+                type="button"
+                onClick={closeEditPanel}
+                className="rounded-lg p-1 text-[var(--color-low-emphasis)] transition hover:bg-[#f2f4f7] hover:text-[var(--color-high-emphasis)]"
+                aria-label="Close college editor"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <h2 className="mt-3 text-xl font-bold text-[var(--color-high-emphasis)]">
+              {formatUnitName(editingCollege)}
+            </h2>
+            <p className="mt-0.5 text-sm text-[var(--color-low-emphasis)]">
+              Dean: {dean?.fullName ?? "Unassigned"} - {collegeDepartments.length} department
+              {collegeDepartments.length === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
+                College name
+              </span>
+              <input
+                value={collegeDraft.name}
+                onChange={(event) =>
+                  setCollegeDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
+                Code
+              </span>
+              <input
+                value={collegeDraft.code}
+                onChange={(event) =>
+                  setCollegeDraft((current) => ({ ...current, code: event.target.value }))
+                }
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                placeholder="Code"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-low-emphasis)]">
+                Dean
+              </span>
+              {renderLeaderSelect(
+                collegeDraft.deanUserId,
+                (value) =>
+                  setCollegeDraft((current) => ({ ...current, deanUserId: value })),
+                getAvailableDeanCandidates(editingCollege.id),
+                "College dean",
+                "No assigned dean",
+              )}
+            </label>
+
+            {actionError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {actionError}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="border-t border-[var(--color-default)] bg-[#f8fafc] px-6 py-4">
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditPanel}
+                className="h-10 rounded-md border border-[var(--color-default)] px-4 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => saveCollege(editingCollege.id)}
+                disabled={Boolean(savingKey)}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save className="h-3.5 w-3.5" aria-hidden="true" />
+                {savingKey === `college-${editingCollege.id}` ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (editingDepartment) {
+      const chair = editingDepartment.chairUserId
+        ? usersById.get(editingDepartment.chairUserId)
+        : null;
+      const departmentCollege = editingDepartment.collegeId
+        ? colleges.find((college) => college.id === editingDepartment.collegeId)
+        : null;
+      const people = usersByDepartment.get(editingDepartment.id) ?? [];
+
+      return (
+        <>
+          <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-6">
+            <div className="flex items-start justify-between gap-3">
+              <span className="rounded-full bg-[#ecf8f6] px-3 py-1 text-xs font-bold text-[var(--color-primary)]">
+                Department
+              </span>
+              <button
+                type="button"
+                onClick={closeEditPanel}
+                className="rounded-lg p-1 text-[var(--color-low-emphasis)] transition hover:bg-[#f2f4f7] hover:text-[var(--color-high-emphasis)]"
+                aria-label="Close department editor"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <h2 className="mt-3 text-xl font-bold text-[var(--color-high-emphasis)]">
+              {formatUnitName(editingDepartment)}
+            </h2>
+            <p className="mt-0.5 text-sm text-[var(--color-low-emphasis)]">
+              {departmentCollege ? formatUnitName(departmentCollege) : "Unassigned college"} -
+              Chair: {chair?.fullName ?? "Unassigned"} - {people.length} personnel
+            </p>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
+                Department name
+              </span>
+              <input
+                value={departmentDraft.name}
+                onChange={(event) =>
+                  setDepartmentDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
+                Code
+              </span>
+              <input
+                value={departmentDraft.code}
+                onChange={(event) =>
+                  setDepartmentDraft((current) => ({ ...current, code: event.target.value }))
+                }
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                placeholder="Code"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
+                College
+              </span>
+              <select
+                value={departmentDraft.collegeId}
+                onChange={(event) =>
+                  setDepartmentDraft((current) => ({
+                    ...current,
+                    collegeId: event.target.value,
+                  }))
+                }
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                aria-label="Department college"
+              >
+                <option value="">Unassigned college</option>
+                {colleges.map((college) => (
+                  <option key={college.id} value={college.id}>
+                    {formatUnitName(college)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-low-emphasis)]">
+                Chair
+              </span>
+              {renderLeaderSelect(
+                departmentDraft.chairUserId,
+                (value) =>
+                  setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
+                chairCandidates,
+                "Department chair",
+                "No assigned chair",
+              )}
+            </label>
+
+            {actionError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {actionError}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="border-t border-[var(--color-default)] bg-[#f8fafc] px-6 py-4">
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditPanel}
+                className="h-10 rounded-md border border-[var(--color-default)] px-4 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => saveDepartment(editingDepartment.id)}
+                disabled={Boolean(savingKey)}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save className="h-3.5 w-3.5" aria-hidden="true" />
+                {savingKey === `department-${editingDepartment.id}` ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    return null;
   };
 
   if (isLoading) {
@@ -1264,6 +1383,22 @@ export default function Departments() {
         {renderUnassignedDepartmentSection()}
         {renderLegacyPeople()}
       </div>
+
+      {editPanelOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+          onClick={closeEditPanel}
+        />
+      ) : null}
+
+      <aside
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+          editPanelOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        aria-label="Hierarchy editor"
+      >
+        {renderEditPanel()}
+      </aside>
     </div>
   );
 }
