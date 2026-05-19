@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -474,11 +475,7 @@ export default function TenantOnboardingPage() {
 		router.replace("/tenant/tenant-admin");
 	};
 
-	if (loading) return (
-		<div className="min-h-screen flex items-center justify-center bg-gray-50">
-			<p className="text-sm text-gray-500">Loading onboarding...</p>
-		</div>
-	);
+	if (loading) return <TenantLoadingScreen label="Loading onboarding" useStoredBranding />;
 
 	return (
 		<div className="min-h-screen bg-gray-50 flex flex-col">
@@ -1345,7 +1342,7 @@ export default function TenantOnboardingPage() {
 										onClick={handleFinish}
 										disabled={saving || !canProceed()}>
 										{saving ? (
-											<><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Finishing...</>
+											<><span className="h-4 w-4 animate-pulse rounded bg-white/50" aria-hidden="true" /> Finishing...</>
 										) : "Finish Setup 🎉"}
 									</button>
 								)}

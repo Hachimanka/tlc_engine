@@ -1,11 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import { readStoredTenantBranding } from "@/lib/tenantBrandingSession";
-import { ICON_SVGS } from "@/public/icons";
 
 type TenantLoadingScreenProps = {
   branding?: Partial<TenantBranding> | null;
@@ -43,41 +41,30 @@ export default function TenantLoadingScreen({
   }, [branding?.logoUrl, useStoredBranding]);
 
   const activeBranding = branding ?? storedBranding;
-  const logoUrl = activeBranding?.logoUrl || "";
-  const logoAlt = activeBranding?.logoAlt || "Institution logo";
 
-  const loader = (
+  const skeleton = (
     <div
-      className="flex flex-col items-center gap-4"
+      className="w-full max-w-md animate-pulse"
       role="status"
       aria-label={label}
     >
-      <div className="relative h-20 w-36" aria-hidden="true">
-        <span className="absolute bottom-3 left-5 h-2 w-2 rounded-full bg-[var(--color-primary)]/25" />
-        <span className="absolute bottom-3 left-[4.25rem] h-2 w-2 rounded-full bg-[var(--color-primary)]/35" />
-        <span className="absolute bottom-3 right-5 h-2 w-2 rounded-full bg-[var(--color-primary)]/50" />
-        <span className="tenant-logo-step-loader absolute left-0 top-0 flex h-14 w-14 items-center justify-center overflow-visible">
-          {logoUrl ? (
-            <span
-              className="h-10 w-10 rounded-lg bg-contain bg-center bg-no-repeat"
-              style={{ backgroundImage: `url("${logoUrl}")` }}
-              role="img"
-              aria-label={logoAlt}
-            />
-          ) : activeBranding ? (
-            <span className="themed-svg-icon flex h-7 w-7 items-center justify-center text-[var(--color-primary)]">
-              <span dangerouslySetInnerHTML={{ __html: ICON_SVGS.settings }} />
-            </span>
-          ) : (
-            <Image
-              src="/navbar/tlclogo.png"
-              alt="TLC Logo"
-              width={36}
-              height={36}
-              priority
-            />
-          )}
-        </span>
+      <span className="sr-only">{label}</span>
+      <div className="flex items-center gap-3" aria-hidden="true">
+        <div className="h-12 w-12 rounded-xl bg-[var(--color-default)]" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-44 rounded bg-[var(--color-default)]" />
+          <div className="h-3 w-28 rounded bg-[var(--color-default)]" />
+        </div>
+      </div>
+      <div className="mt-6 space-y-3" aria-hidden="true">
+        <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
+        <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
+          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
+          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
+        </div>
+        <div className="h-10 w-2/3 rounded-lg bg-[var(--color-primary)]/35" />
       </div>
     </div>
   );
@@ -89,10 +76,10 @@ export default function TenantLoadingScreen({
     >
       {card ? (
         <div className="flex min-h-[220px] w-full max-w-md items-center justify-center rounded-xl border border-[var(--color-default)] bg-[var(--color-card)] px-8 py-10 shadow-level-1">
-          {loader}
+          {skeleton}
         </div>
       ) : (
-        loader
+        skeleton
       )}
     </TenantBrandScope>
   );

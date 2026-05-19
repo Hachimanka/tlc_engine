@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import {
@@ -39,6 +38,49 @@ type TenantAccessPayload = {
 };
 
 const MISSING_ORG_LOGIN_LINK_MESSAGE = "Please use your organization login link.";
+
+function LoginSkeletonCard({
+  branding,
+  label = "Loading login",
+}: {
+  branding?: TenantBranding | null;
+  label?: string;
+}) {
+  return (
+    <TenantBrandScope
+      branding={branding}
+      className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-4"
+    >
+      <div
+        className="w-full max-w-md rounded-xl bg-[var(--color-card)] p-8 shadow-lg"
+        role="status"
+        aria-live="polite"
+        aria-label={label}
+      >
+        <span className="sr-only">{label}</span>
+        <div className="flex animate-pulse flex-col gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-12 w-12 rounded-md bg-[var(--color-default)]" />
+            <div className="mt-2 h-7 w-48 rounded bg-[var(--color-default)]" />
+            <div className="h-3 w-64 max-w-full rounded bg-[var(--color-default)]" />
+          </div>
+
+          <div>
+            <div className="mb-2 h-4 w-16 rounded bg-[var(--color-default)]" />
+            <div className="h-10 w-full rounded border border-[var(--color-default)] bg-white" />
+          </div>
+
+          <div>
+            <div className="mb-2 h-4 w-20 rounded bg-[var(--color-default)]" />
+            <div className="h-10 w-full rounded border border-[var(--color-default)] bg-white" />
+          </div>
+
+          <div className="h-10 w-full rounded bg-[var(--color-primary)]/60" />
+        </div>
+      </div>
+    </TenantBrandScope>
+  );
+}
 
 function LoginContent() {
   const router = useRouter();
@@ -234,7 +276,7 @@ function LoginContent() {
   };
 
   if (loading) {
-    return <TenantLoadingScreen branding={branding} label="Signing in" />;
+    return <LoginSkeletonCard branding={branding} label="Signing in" />;
   }
 
   return (
@@ -319,7 +361,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense
-      fallback={<TenantLoadingScreen label="Loading login" />}
+      fallback={<LoginSkeletonCard label="Loading login" />}
     >
       <LoginContent />
     </Suspense>

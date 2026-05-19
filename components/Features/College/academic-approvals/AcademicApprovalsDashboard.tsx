@@ -356,7 +356,22 @@ export default function AcademicApprovalsDashboard() {
 
         <div className="divide-y divide-[var(--color-default)]">
           {loading ? (
-            <p className="px-5 py-8 text-sm text-[var(--color-low-emphasis)]">Loading approval requests...</p>
+            <div className="space-y-4 px-5 py-5" role="status" aria-label="Loading approval requests">
+              <span className="sr-only">Loading approval requests</span>
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="animate-pulse space-y-3 rounded-lg border border-[var(--color-default)] px-4 py-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="h-4 w-48 rounded bg-[var(--color-default)]" />
+                    <div className="h-5 w-20 rounded-full bg-[var(--color-default)]" />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="h-3 rounded bg-[var(--color-default)]" />
+                    <div className="h-3 rounded bg-[var(--color-default)]" />
+                    <div className="h-3 rounded bg-[var(--color-default)]" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : filteredRequests.length === 0 ? (
             <p className="px-5 py-8 text-sm text-[var(--color-low-emphasis)]">{activeCategory.empty}</p>
           ) : (

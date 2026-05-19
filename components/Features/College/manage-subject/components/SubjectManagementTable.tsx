@@ -506,9 +506,17 @@ export default function SubjectManagementTable() {
                 </thead>
                 <tbody className="divide-y divide-[var(--color-default)] bg-white">
                   {loading ? (
-                    <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">Loading subjects...</td>
-                    </tr>
+                    <>
+                      {[0, 1, 2, 3, 4].map((row) => (
+                        <tr key={row} className="animate-pulse">
+                          {Array.from({ length: 10 }).map((_, column) => (
+                            <td key={column} className="px-4 py-3">
+                              <div className="h-3 w-full min-w-16 rounded bg-[var(--color-default)]" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </>
                   ) : filtered.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">No subjects found.</td>
