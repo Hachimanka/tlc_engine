@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 type OnboardingRequest = {
   institutionType?: InstitutionType;
   profile?: unknown;
+  colleges?: unknown;
   departments?: unknown;
   programs?: unknown;
   gradeLevels?: unknown;
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
   const onboardingConfig = {
     ...currentConfig,
     profile: payload.profile ?? null,
+    colleges: payload.colleges ?? [],
     departments: payload.departments ?? [],
     programs: payload.programs ?? [],
     gradeLevels: payload.gradeLevels ?? null,

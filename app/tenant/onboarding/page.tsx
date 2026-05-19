@@ -25,6 +25,11 @@ type Department = {
 	head: string;
 };
 
+type College = {
+	name: string;
+	code: string;
+};
+
 type Instructor = {
 	name: string;
 	email: string;
@@ -119,11 +124,10 @@ const getSteps = (type: InstitutionType) => {
 
 	if (type === "higher_ed") return [
 		...base,
+		{ key: "colleges", label: "Colleges" },
 		{ key: "departments", label: "Departments" },
 		{ key: "programs", label: "Programs" },
-		{ key: "instructors", label: "Faculty" },
 		{ key: "academic", label: "Calendar" },
-		{ key: "grading", label: "Grading" },
 	];
 
 	if (type === "deped") return [
@@ -264,7 +268,8 @@ export default function TenantOnboardingPage() {
 		acronym: "",
 	});
 
-	// Departments (Higher Ed)
+	// Colleges / Departments (Higher Ed)
+	const [colleges, setColleges] = useState<College[]>([{ name: "", code: "" }]);
 	const [departments, setDepartments] = useState<Department[]>([{ name: "", code: "", head: "" }]);
 
 	// Programs (Higher Ed)
@@ -370,7 +375,8 @@ export default function TenantOnboardingPage() {
 		if (currentStepKey === "type") return institutionType !== null;
 		if (currentStepKey === "password") return passwordUpdated;
 		if (currentStepKey === "profile") return Boolean(profile.institutionName && profile.adminName && profile.contactEmail);
-		if (currentStepKey === "departments") return departments.some(d => d.name.trim());
+		if (currentStepKey === "colleges") return true; // skippable
+		if (currentStepKey === "departments") return true; // skippable for Higher Ed
 		if (currentStepKey === "grade_levels") return Object.values(gradeLevels).some(v => typeof v === "boolean" && v);
 		if (currentStepKey === "qualifications") return qualifications.some(q => q.name.trim());
 		if (currentStepKey === "courses") return courses.some(c => c.name.trim());
@@ -434,6 +440,28 @@ export default function TenantOnboardingPage() {
 			return;
 		}
 
+		const cleanedColleges = colleges
+			.filter(college => college.name.trim())
+			.map(college => ({
+				name: college.name.trim(),
+				code: college.code.trim(),
+			}));
+		const cleanedDepartments = departments
+			.filter(department => department.name.trim())
+			.map(department => ({
+				name: department.name.trim(),
+				code: department.code.trim(),
+				head: department.head.trim(),
+			}));
+		const cleanedPrograms = programs
+			.filter(program => program.name.trim())
+			.map(program => ({
+				name: program.name.trim(),
+				code: program.code.trim(),
+				duration: program.duration,
+			}));
+		const isHigherEd = institutionType === "higher_ed";
+
 		let response;
 		try {
 			response = await fetch("/api/tenant/onboarding", {
@@ -445,19 +473,22 @@ export default function TenantOnboardingPage() {
 				body: JSON.stringify({
 					institutionType,
 					profile,
-					departments,
-					programs,
+					colleges: isHigherEd ? cleanedColleges : [],
+					departments: isHigherEd ? cleanedDepartments : departments,
+					programs: isHigherEd ? cleanedPrograms : programs,
 					gradeLevels,
 					qualifications,
 					courses,
-					instructors,
+					instructors: isHigherEd ? [] : instructors,
 					academic: academicForm,
-					grading: {
-						components: gradeComponents,
-						passing: passingGrade,
-						scale: gradingScale,
-						assessmentType,
-					},
+					grading: isHigherEd
+						? null
+						: {
+							components: gradeComponents,
+							passing: passingGrade,
+							scale: gradingScale,
+							assessmentType,
+						},
 				}),
 			});
 		} catch {
@@ -475,7 +506,16 @@ export default function TenantOnboardingPage() {
 		router.replace("/tenant/tenant-admin");
 	};
 
-	if (loading) return <TenantLoadingScreen label="Loading onboarding" useStoredBranding />;
+	if (loading) {
+		return (
+			<TenantLoadingScreen
+				card
+				className="flex min-h-screen items-start justify-center bg-[var(--color-background)] px-4 py-10"
+				label="Loading onboarding"
+				useStoredBranding
+			/>
+		);
+	}
 
 	return (
 		<div className="min-h-screen bg-gray-50 flex flex-col">
@@ -550,7 +590,7 @@ export default function TenantOnboardingPage() {
 								</div>
 								{institutionType && (
 									<div className="mt-4 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 text-xs text-teal-700">
-										{institutionType === "higher_ed" && "✅ You'll set up colleges/departments, academic programs, semestral calendar, and GWA grading."}
+										{institutionType === "higher_ed" && "✅ You'll set up optional colleges, departments, academic programs, and a semestral calendar."}
 										{institutionType === "deped" && "✅ You'll configure grade levels, sections, SHS tracks, quarterly grading periods, and DepEd grading descriptors."}
 										{institutionType === "tesda" && "✅ You'll set up TESDA qualifications, NC levels, training batches, and competency-based assessment."}
 										{institutionType === "training" && "✅ You'll configure training courses, batch schedules, facilitators, and pass/fail or rated assessment."}
@@ -678,12 +718,56 @@ export default function TenantOnboardingPage() {
 							</>
 						)}
 
+						{/* ── Step: Colleges (Higher Ed) ── */}
+						{currentStepKey === "colleges" && (
+							<>
+								<SectionTitle
+									title="Colleges"
+									subtitle="Optionally list the college-level units in your institution. You can manage the full hierarchy later."
+								/>
+								<div className="flex flex-col gap-3">
+									{colleges.map((college, i) => (
+										<div key={i} className="border border-gray-100 rounded-xl p-4 bg-gray-50/60 relative">
+											<div className="flex items-center justify-between mb-3">
+												<span className="text-xs font-bold text-teal-700">College {i + 1}</span>
+												{colleges.length > 1 && (
+													<button type="button" className="text-xs text-red-500 hover:text-red-700"
+														onClick={() => setColleges(prev => prev.filter((_, idx) => idx !== i))}>
+														Remove
+													</button>
+												)}
+											</div>
+											<div className="grid grid-cols-3 gap-3">
+												<div className="col-span-2">
+													<label className={labelCls}>Name</label>
+													<input className={inputCls} value={college.name}
+														onChange={e => setColleges(prev => prev.map((item, idx) => idx === i ? { ...item, name: e.target.value } : item))}
+														placeholder="e.g. College of Engineering and Architecture" />
+												</div>
+												<div>
+													<label className={labelCls}>Code</label>
+													<input className={inputCls} value={college.code}
+														onChange={e => setColleges(prev => prev.map((item, idx) => idx === i ? { ...item, code: e.target.value } : item))}
+														placeholder="CEA" />
+												</div>
+											</div>
+										</div>
+									))}
+									<button type="button"
+										className="w-full border-2 border-dashed border-teal-200 rounded-xl py-3 text-sm font-semibold text-teal-600 hover:bg-teal-50 transition-colors"
+										onClick={() => setColleges(prev => [...prev, { name: "", code: "" }])}>
+										+ Add Another College
+									</button>
+								</div>
+							</>
+						)}
+
 						{/* ── Step: Departments (Higher Ed) ── */}
 						{currentStepKey === "departments" && (
 							<>
 								<SectionTitle
-									title="Set Up Colleges / Departments"
-									subtitle="Add the colleges or departments your institution has. At least one is required."
+									title="Departments"
+									subtitle="Optionally list departments now. You can map them under colleges later in Colleges & Departments."
 								/>
 								<div className="flex flex-col gap-3">
 									{departments.map((dept, i) => (
@@ -699,10 +783,10 @@ export default function TenantOnboardingPage() {
 											</div>
 											<div className="grid grid-cols-3 gap-3">
 												<div className="col-span-2">
-													<label className={labelCls}>Name *</label>
+													<label className={labelCls}>Name</label>
 													<input className={inputCls} value={dept.name}
 														onChange={e => setDepartments(prev => prev.map((d, idx) => idx === i ? { ...d, name: e.target.value } : d))}
-														placeholder="e.g. College of Computer Studies" />
+														placeholder="e.g. Computer Engineering" />
 												</div>
 												<div>
 													<label className={labelCls}>Code</label>
@@ -1321,7 +1405,7 @@ export default function TenantOnboardingPage() {
 
 							<div className="flex items-center gap-3">
 								{/* Skippable steps */}
-								{(currentStepKey === "programs" || currentStepKey === "instructors") && (
+								{(currentStepKey === "colleges" || currentStepKey === "departments" || currentStepKey === "programs" || currentStepKey === "instructors") && (
 									<button type="button"
 										className="rounded-lg px-5 py-2.5 text-sm text-gray-400 hover:text-gray-600 font-medium"
 										onClick={() => setStep(prev => Math.min(prev + 1, steps.length - 1))}>

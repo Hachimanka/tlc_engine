@@ -44,7 +44,7 @@ export default function TenantLoadingScreen({
 
   const skeleton = (
     <div
-      className="w-full max-w-md animate-pulse"
+      className="w-full max-w-2xl animate-pulse"
       role="status"
       aria-label={label}
     >
@@ -52,19 +52,28 @@ export default function TenantLoadingScreen({
       <div className="flex items-center gap-3" aria-hidden="true">
         <div className="h-12 w-12 rounded-xl bg-[var(--color-default)]" />
         <div className="flex-1 space-y-2">
-          <div className="h-4 w-44 rounded bg-[var(--color-default)]" />
-          <div className="h-3 w-28 rounded bg-[var(--color-default)]" />
+          <div className="h-5 w-1/2 rounded bg-[var(--color-default)]" />
+          <div className="h-3 w-2/3 rounded bg-[var(--color-default)]" />
         </div>
       </div>
-      <div className="mt-6 space-y-3" aria-hidden="true">
-        <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
-        <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
-        <div className="grid grid-cols-3 gap-3">
-          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
-          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
-          <div className="h-16 rounded-lg bg-[var(--color-default)]" />
+      <div className="mt-8 space-y-4" aria-hidden="true">
+        <div className="space-y-2">
+          <div className="h-3 w-24 rounded bg-[var(--color-default)]" />
+          <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
         </div>
-        <div className="h-10 w-2/3 rounded-lg bg-[var(--color-primary)]/35" />
+        <div className="space-y-2">
+          <div className="h-3 w-28 rounded bg-[var(--color-default)]" />
+          <div className="h-11 w-full rounded-lg bg-[var(--color-default)]" />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="h-20 rounded-lg bg-[var(--color-default)]" />
+          <div className="h-20 rounded-lg bg-[var(--color-default)]" />
+          <div className="h-20 rounded-lg bg-[var(--color-default)]" />
+        </div>
+        <div className="flex items-center justify-between border-t border-[var(--color-default)] pt-5">
+          <div className="h-10 w-24 rounded-lg bg-[var(--color-default)]" />
+          <div className="h-10 w-32 rounded-lg bg-[var(--color-primary)]/35" />
+        </div>
       </div>
     </div>
   );
@@ -75,7 +84,7 @@ export default function TenantLoadingScreen({
       className={className}
     >
       {card ? (
-        <div className="flex min-h-[220px] w-full max-w-md items-center justify-center rounded-xl border border-[var(--color-default)] bg-[var(--color-card)] px-8 py-10 shadow-level-1">
+        <div className="flex min-h-[360px] w-full max-w-2xl items-center justify-center rounded-2xl border border-[var(--color-default)] bg-[var(--color-card)] p-8 shadow-level-1">
           {skeleton}
         </div>
       ) : (

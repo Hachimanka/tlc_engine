@@ -544,6 +544,7 @@ const buildPolicyState = (
 
 const countConfiguredValues = (config: Record<string, unknown>) => {
   return [
+    asRecordArray(config.colleges).length,
     asRecordArray(config.departments).length,
     asRecordArray(config.programs).length,
     asRecordArray(config.qualifications).length,
