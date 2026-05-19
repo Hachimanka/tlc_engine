@@ -24,6 +24,7 @@ export type TenantBrandingColorField =
   | "cardColor";
 
 export const TENANT_BRAND_ASSET_BUCKET = "org-brand-assets";
+export const DEFAULT_TENANT_LOGO_URL = "/navbar/tlclogo.png";
 
 export const DEFAULT_TENANT_BRANDING: TenantBranding = {
   primaryColor: "#006b5f",
@@ -34,7 +35,7 @@ export const DEFAULT_TENANT_BRANDING: TenantBranding = {
   backgroundColor: "#f3f3f1",
   cardColor: "#ffffff",
   logoPath: null,
-  logoUrl: "",
+  logoUrl: DEFAULT_TENANT_LOGO_URL,
   logoAlt: "TLC Logo",
   loginTitle: "Institution Login",
   loginSubtitle: "Use your organization account credentials.",
@@ -93,7 +94,7 @@ export const normalizeTenantBranding = (
     backgroundColor: normalizeColor(record.backgroundColor, DEFAULT_TENANT_BRANDING.backgroundColor),
     cardColor: normalizeColor(record.cardColor, DEFAULT_TENANT_BRANDING.cardColor),
     logoPath: toText(record.logoPath) || null,
-    logoUrl: options.logoUrl || toText(record.logoUrl),
+    logoUrl: options.logoUrl || toText(record.logoUrl) || DEFAULT_TENANT_BRANDING.logoUrl,
     logoAlt: toText(record.logoAlt, fallbackAlt) || fallbackAlt,
     loginTitle: toText(record.loginTitle, DEFAULT_TENANT_BRANDING.loginTitle),
     loginSubtitle: toText(record.loginSubtitle, DEFAULT_TENANT_BRANDING.loginSubtitle),

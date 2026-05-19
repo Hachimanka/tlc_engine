@@ -97,7 +97,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
 
   const currentSnapshot = useMemo(() => snapshotBranding(draft), [draft]);
   const isDirty = currentSnapshot !== savedSnapshot || Boolean(logoFile) || removeLogo;
-  const logoUrl = logoPreviewUrl || draft.logoUrl;
+  const logoUrl = logoPreviewUrl || draft.logoUrl || DEFAULT_TENANT_BRANDING.logoUrl;
 
   const loadBranding = useCallback(async () => {
     setIsLoading(true);
@@ -458,7 +458,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
             <button
               type="button"
               onClick={removeCurrentLogo}
-              disabled={!logoUrl && !draft.logoPath}
+              disabled={!logoPreviewUrl && !draft.logoPath}
               className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-4 w-4" aria-hidden="true" />
