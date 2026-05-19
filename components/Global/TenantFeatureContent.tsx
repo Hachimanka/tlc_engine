@@ -13,7 +13,6 @@ import DepedSubjectManagementForm, {
   type SubjectFormValues,
 } from "@/components/Features/Deped/manage-subject/components/SubjectManagementForm";
 import DepedSubjectTable, {
-  initialSubjectRows,
   type SubjectRow,
 } from "@/components/Features/Deped/manage-subject/components/SubjectTable";
 import DepedExportForm from "@/components/Features/Deped/view-teaching-load/components/ExportFrom";
@@ -163,7 +162,7 @@ function PlaceholderContent({ title }: { title: string }) {
 }
 
 function DepedSubjectContent() {
-  const [subjectRows, setSubjectRows] = useState<SubjectRow[]>(initialSubjectRows);
+  const [subjectRows, setSubjectRows] = useState<SubjectRow[]>([]);
   const [isCreateSubjectOpen, setIsCreateSubjectOpen] = useState(false);
 
   const handleCreateSubject = (values: SubjectFormValues) => {
@@ -174,7 +173,7 @@ function DepedSubjectContent() {
         department: values.department,
         yearLevel: values.yearLevel,
         classDuration: values.classDuration,
-        dateCreated: new Date().toLocaleDateString("en-US"),
+        dateCreated: values.dateCreated,
         status: "Pending",
         description: values.description,
       },
