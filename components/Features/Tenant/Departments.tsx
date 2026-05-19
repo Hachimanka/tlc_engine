@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Building2,
+  ChevronDown,
+  ChevronRight,
   GraduationCap,
   Pencil,
   Plus,
@@ -228,6 +230,9 @@ export default function Departments() {
   const [collegeDraft, setCollegeDraft] = useState<CollegeDraft>(emptyCollegeDraft);
   const [departmentDraft, setDepartmentDraft] = useState<DepartmentDraft>(emptyDepartmentDraft);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string>>({});
+  const [expandedCollegeIds, setExpandedCollegeIds] = useState<Record<string, boolean>>({});
+  const [expandedDepartmentIds, setExpandedDepartmentIds] = useState<Record<string, boolean>>({});
+  const [addingPersonnelDepartmentId, setAddingPersonnelDepartmentId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -447,6 +452,20 @@ export default function Departments() {
     }
   };
 
+  const toggleCollege = (collegeId: string) => {
+    setExpandedCollegeIds((current) => ({
+      ...current,
+      [collegeId]: !current[collegeId],
+    }));
+  };
+
+  const toggleDepartment = (departmentId: string) => {
+    setExpandedDepartmentIds((current) => ({
+      ...current,
+      [departmentId]: !current[departmentId],
+    }));
+  };
+
   const startCollegeEdit = (college: College) => {
     setEditingCollegeId(college.id);
     setCollegeDraft({
@@ -458,6 +477,12 @@ export default function Departments() {
 
   const startDepartmentEdit = (department: Department) => {
     setEditingDepartmentId(department.id);
+    setExpandedDepartmentIds((current) => ({ ...current, [department.id]: true }));
+
+    if (department.collegeId) {
+      setExpandedCollegeIds((current) => ({ ...current, [department.collegeId as string]: true }));
+    }
+
     setDepartmentDraft({
       name: department.name,
       code: department.code ?? "",
@@ -536,6 +561,10 @@ export default function Departments() {
 
         return next;
       });
+
+      if (departmentId) {
+        setAddingPersonnelDepartmentId("");
+      }
     }
   };
 
@@ -570,6 +599,9 @@ export default function Departments() {
   const renderDepartment = (department: Department) => {
     const people = usersByDepartment.get(department.id) ?? [];
     const chair = department.chairUserId ? usersById.get(department.chairUserId) : null;
+    const isEditing = editingDepartmentId === department.id;
+    const isExpanded = Boolean(expandedDepartmentIds[department.id] || isEditing);
+    const isAddingPersonnel = addingPersonnelDepartmentId === department.id;
     const groupedPeople = people
       .filter((person) => person.id !== department.chairUserId)
       .reduce<Record<string, Person[]>>((groups, person) => {
@@ -584,8 +616,26 @@ export default function Departments() {
         key={department.id}
         className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white"
       >
-        <div className="flex flex-wrap items-start justify-between gap-3 bg-[#f8fafc] px-4 py-4">
-          {editingDepartmentId === department.id ? (
+        <div
+          role={isEditing ? undefined : "button"}
+          tabIndex={isEditing ? undefined : 0}
+          aria-expanded={isEditing ? undefined : isExpanded}
+          onClick={isEditing ? undefined : () => toggleDepartment(department.id)}
+          onKeyDown={
+            isEditing
+              ? undefined
+              : (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleDepartment(department.id);
+                  }
+                }
+          }
+          className={`flex flex-wrap items-start justify-between gap-3 bg-[#f8fafc] px-4 py-4 ${
+            isEditing ? "" : "cursor-pointer transition hover:bg-[#f1f5f9]"
+          }`}
+        >
+          {isEditing ? (
             <div className="grid flex-1 gap-3 lg:grid-cols-[1.4fr_120px_1fr_1.2fr]">
               <input
                 value={departmentDraft.name}
@@ -632,23 +682,32 @@ export default function Departments() {
               )}
             </div>
           ) : (
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
-                  {formatUnitName(department)}
-                </h3>
-                <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                  {people.length} assigned
-                </span>
+            <div className="flex min-w-0 items-start gap-2">
+              <div className="mt-0.5 text-[var(--color-primary)]">
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                )}
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
-                <span>Chair: {chair?.fullName ?? "Unassigned"}</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
+                    {formatUnitName(department)}
+                  </h3>
+                  <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                    {people.length} personnel
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
+                  <span>Chair: {chair?.fullName ?? "Unassigned"}</span>
+                </div>
               </div>
             </div>
           )}
 
           <div className="flex gap-2">
-            {editingDepartmentId === department.id ? (
+            {isEditing ? (
               <>
                 <button
                   type="button"
@@ -671,7 +730,28 @@ export default function Departments() {
               <>
                 <button
                   type="button"
-                  onClick={() => startDepartmentEdit(department)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setExpandedDepartmentIds((current) => ({
+                      ...current,
+                      [department.id]: true,
+                    }));
+                    setAddingPersonnelDepartmentId((current) =>
+                      current === department.id ? "" : department.id,
+                    );
+                  }}
+                  title="Add personnel"
+                  aria-label={`Add personnel to ${department.name}`}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-default)] text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    startDepartmentEdit(department);
+                  }}
                   className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -679,13 +759,14 @@ export default function Departments() {
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     mutateHierarchy(
                       "DELETE",
                       { entity: "department", id: department.id },
                       `delete-department-${department.id}`,
-                    )
-                  }
+                    );
+                  }}
                   disabled={Boolean(savingKey)}
                   className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
                 >
@@ -697,73 +778,78 @@ export default function Departments() {
           </div>
         </div>
 
-        <div className="px-4 py-4">
-          <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-            <select
-              value={selectedAssignment}
-              onChange={(event) =>
-                setAssignmentDrafts((current) => ({
-                  ...current,
-                  [department.id]: event.target.value,
-                }))
-              }
-              className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-              aria-label={`Assign personnel to ${department.name}`}
-            >
-              <option value="">Add personnel</option>
-              {assignablePeople.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.fullName} - {person.roleName}
-                </option>
-              ))}
-            </select>
-            <div className="hidden md:block" />
-            <button
-              type="button"
-              disabled={!selectedAssignment || Boolean(savingKey)}
-              onClick={() => assignPerson(selectedAssignment, department.id)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <UserRound className="h-4 w-4" aria-hidden="true" />
-              Assign
-            </button>
-          </div>
-        </div>
+        {isExpanded ? (
+          <>
+            {isAddingPersonnel ? (
+              <div className="px-4 py-4">
+                <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                  <select
+                    value={selectedAssignment}
+                    onChange={(event) =>
+                      setAssignmentDrafts((current) => ({
+                        ...current,
+                        [department.id]: event.target.value,
+                      }))
+                    }
+                    className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                    aria-label={`Assign personnel to ${department.name}`}
+                  >
+                    <option value="">Add personnel</option>
+                    {assignablePeople.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.fullName} - {person.roleName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!selectedAssignment || Boolean(savingKey)}
+                    onClick={() => assignPerson(selectedAssignment, department.id)}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <UserRound className="h-4 w-4" aria-hidden="true" />
+                    Assign
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
-        {chair ? (
-          <div className="border-t border-[var(--color-default)]">
-            <div className="bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
-              Chair
-            </div>
-            <PersonLine
-              person={chair}
-              departments={departments}
-              isSaving={Boolean(savingKey)}
-            />
-          </div>
-        ) : null}
+            {chair ? (
+              <div className="border-t border-[var(--color-default)]">
+                <div className="bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                  Chair
+                </div>
+                <PersonLine
+                  person={chair}
+                  departments={departments}
+                  isSaving={Boolean(savingKey)}
+                />
+              </div>
+            ) : null}
 
-        {Object.entries(groupedPeople).map(([group, groupPeople]) => (
-          <div key={group} className="border-t border-[var(--color-default)]">
-            <div className="bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
-              {group}
-            </div>
-            {groupPeople.map((person) => (
-              <PersonLine
-                key={person.id}
-                person={person}
-                departments={departments}
-                isSaving={Boolean(savingKey)}
-                onRemove={() => assignPerson(person.id, null)}
-              />
+            {Object.entries(groupedPeople).map(([group, groupPeople]) => (
+              <div key={group} className="border-t border-[var(--color-default)]">
+                <div className="bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                  {group}
+                </div>
+                {groupPeople.map((person) => (
+                  <PersonLine
+                    key={person.id}
+                    person={person}
+                    departments={departments}
+                    isSaving={Boolean(savingKey)}
+                    onRemove={() => assignPerson(person.id, null)}
+                  />
+                ))}
+              </div>
             ))}
-          </div>
-        ))}
 
-        {!chair && people.length === 0 ? (
-          <div className="border-t border-[var(--color-default)] px-4 py-5 text-sm text-[var(--color-low-emphasis)]">
-            No personnel assigned yet.
-          </div>
+            {!chair && people.length === 0 ? (
+              <div className="border-t border-[var(--color-default)] px-4 py-5 text-sm text-[var(--color-low-emphasis)]">
+                No personnel assigned yet.
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
     );
@@ -772,12 +858,32 @@ export default function Departments() {
   const renderCollege = (college: College) => {
     const dean = college.deanUserId ? usersById.get(college.deanUserId) : null;
     const collegeDepartments = departmentsByCollege.get(college.id) ?? [];
+    const isEditing = editingCollegeId === college.id;
+    const isExpanded = Boolean(expandedCollegeIds[college.id] || isEditing);
 
     return (
       <section key={college.id} className="space-y-3">
-        <div className="rounded-lg border border-[var(--color-default)] bg-white px-5 py-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
+        <div
+          role={isEditing ? undefined : "button"}
+          tabIndex={isEditing ? undefined : 0}
+          aria-expanded={isEditing ? undefined : isExpanded}
+          onClick={isEditing ? undefined : () => toggleCollege(college.id)}
+          onKeyDown={
+            isEditing
+              ? undefined
+              : (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleCollege(college.id);
+                  }
+                }
+          }
+          className={`rounded-lg border border-[var(--color-default)] bg-white px-5 py-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${
+            isEditing ? "" : "cursor-pointer transition hover:bg-[#f8fafc]"
+          }`}
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            {editingCollegeId === college.id ? (
+            {isEditing ? (
               <div className="grid flex-1 gap-3 lg:grid-cols-[1.4fr_120px_1.2fr]">
                 <input
                   value={collegeDraft.name}
@@ -799,32 +905,41 @@ export default function Departments() {
                 {renderLeaderSelect(
                   collegeDraft.deanUserId,
                   (value) =>
-                  setCollegeDraft((current) => ({ ...current, deanUserId: value })),
+                    setCollegeDraft((current) => ({ ...current, deanUserId: value })),
                   getAvailableDeanCandidates(college.id),
                   "College dean",
                   "No assigned dean",
                 )}
               </div>
             ) : (
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Building2 className="h-5 w-5 text-[var(--color-primary)]" aria-hidden="true" />
-                  <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">
-                    {formatUnitName(college)}
-                  </h2>
-                  <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                    {collegeDepartments.length} departments
-                  </span>
+              <div className="flex min-w-0 items-start gap-2">
+                <div className="mt-1 text-[var(--color-primary)]">
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                  )}
                 </div>
-                <div className="mt-2 flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
-                  <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                  Dean: {dean?.fullName ?? "Unassigned"}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Building2 className="h-5 w-5 text-[var(--color-primary)]" aria-hidden="true" />
+                    <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+                      {formatUnitName(college)}
+                    </h2>
+                    <span className="rounded-full bg-[#ecf8f6] px-2 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                      {collegeDepartments.length} departments
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-sm text-[var(--color-low-emphasis)]">
+                    <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                    Dean: {dean?.fullName ?? "Unassigned"}
+                  </div>
                 </div>
               </div>
             )}
 
             <div className="flex gap-2">
-              {editingCollegeId === college.id ? (
+              {isEditing ? (
                 <>
                   <button
                     type="button"
@@ -847,7 +962,10 @@ export default function Departments() {
                 <>
                   <button
                     type="button"
-                    onClick={() => startCollegeEdit(college)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      startCollegeEdit(college);
+                    }}
                     className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -855,13 +973,14 @@ export default function Departments() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={(event) => {
+                      event.stopPropagation();
                       mutateHierarchy(
                         "DELETE",
                         { entity: "college", id: college.id },
                         `delete-college-${college.id}`,
-                      )
-                    }
+                      );
+                    }}
                     disabled={Boolean(savingKey)}
                     className="inline-flex h-9 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
                   >
@@ -874,15 +993,17 @@ export default function Departments() {
           </div>
         </div>
 
-        <div className="space-y-3 pl-0 lg:pl-6">
-          {collegeDepartments.length > 0 ? (
-            collegeDepartments.map(renderDepartment)
-          ) : (
-            <div className="rounded-lg border border-dashed border-[var(--color-default)] bg-white px-4 py-5 text-sm text-[var(--color-low-emphasis)]">
-              No departments inside this college yet.
-            </div>
-          )}
-        </div>
+        {isExpanded ? (
+          <div className="space-y-3 pl-0 lg:pl-6">
+            {collegeDepartments.length > 0 ? (
+              collegeDepartments.map(renderDepartment)
+            ) : (
+              <div className="rounded-lg border border-dashed border-[var(--color-default)] bg-white px-4 py-5 text-sm text-[var(--color-low-emphasis)]">
+                No departments inside this college yet.
+              </div>
+            )}
+          </div>
+        ) : null}
       </section>
     );
   };
