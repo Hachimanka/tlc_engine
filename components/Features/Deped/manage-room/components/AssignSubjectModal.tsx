@@ -167,7 +167,7 @@ export default function AssignSubjectModal({
 			onClick={handleClose}
 		>
 			<div
-				className="flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl bg-white shadow-level-2"
+				className="flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2"
 				onClick={(event) => event.stopPropagation()}
 			>
 				<div className="flex items-start justify-between bg-[var(--color-primary)] px-6 py-5 text-white">
@@ -220,7 +220,7 @@ export default function AssignSubjectModal({
 								type="time"
 								value={formValues.timeStart}
 								onChange={handleChange}
-								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-default)]"
 							/>
 						</Field>
 
@@ -230,7 +230,7 @@ export default function AssignSubjectModal({
 								type="time"
 								value={formValues.timeEnd}
 								onChange={handleChange}
-								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-default)]"
 							/>
 						</Field>
 
@@ -243,11 +243,11 @@ export default function AssignSubjectModal({
 						</Field>
 					</div>
 
-					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[#fbfefd] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[var(--color-background)] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
 						<button
 							type="button"
 							onClick={handleClose}
-							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
+							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-default)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
 						>
 							Cancel
 						</button>

@@ -130,7 +130,14 @@ export default function RoomManagementPage() {
 	};
 
 	return (
-		<>
+		<TenantRoleLayout
+			tenantType="Deped"
+			role="subject-room-manager"
+			title="Deped Menu"
+			iconSvg={ICON_SVGS.menu}
+			requiredFeatureKey="deped-room-management"
+			contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
+		>
 			<AssignSubjectModal
 				isOpen={isAssignSubjectOpen}
 				errorMessage={assignSubjectError}
@@ -155,41 +162,32 @@ export default function RoomManagementPage() {
 				onSubmit={handleSubmitRoom}
 			/>
 
-			<TenantRoleLayout
-				tenantType="Deped"
-				role="subject-room-manager"
-				title="Deped Menu"
-				iconSvg={ICON_SVGS.menu}
-				requiredFeatureKey="deped-room-management"
-				contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
-			>
-				<div className="mx-auto w-full max-w-none space-y-4">
-					<div>
-						<h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
-							Room Management
-						</h1>
-					</div>
-
-					<RoomsTable
-						rooms={rooms}
-						selectedRoomNo={selectedRoom?.roomNo ?? ""}
-						onRoomSelect={(room) => setSelectedRoomId(room.id)}
-						onAddRoomClick={() => setModalState({ mode: "create", room: null })}
-						onEditRoomClick={(room) => setModalState({ mode: "edit", room })}
-					/>
-
-					{selectedRoom ? (
-						<ScheduleTable
-							roomName={selectedRoom.roomNo}
-							scheduleRows={selectedScheduleRows}
-							onAssignSubjectClick={() => {
-								setAssignSubjectError("");
-								setIsAssignSubjectOpen(true);
-							}}
-						/>
-					) : null}
+			<div className="mx-auto w-full max-w-none space-y-4">
+				<div>
+					<h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
+						Room Management
+					</h1>
 				</div>
-			</TenantRoleLayout>
-		</>
+
+				<RoomsTable
+					rooms={rooms}
+					selectedRoomNo={selectedRoom?.roomNo ?? ""}
+					onRoomSelect={(room) => setSelectedRoomId(room.id)}
+					onAddRoomClick={() => setModalState({ mode: "create", room: null })}
+					onEditRoomClick={(room) => setModalState({ mode: "edit", room })}
+				/>
+
+				{selectedRoom ? (
+					<ScheduleTable
+						roomName={selectedRoom.roomNo}
+						scheduleRows={selectedScheduleRows}
+						onAssignSubjectClick={() => {
+							setAssignSubjectError("");
+							setIsAssignSubjectOpen(true);
+						}}
+					/>
+				) : null}
+			</div>
+		</TenantRoleLayout>
 	);
 }
