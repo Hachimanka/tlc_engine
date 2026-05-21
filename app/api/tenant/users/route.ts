@@ -176,6 +176,16 @@ const isMissingTeacherFieldError = (error?: { code?: string; message?: string } 
   );
 };
 
+const isMissingDepartmentSetupError = (error?: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (
+    error?.code === "42P01" ||
+    error?.code === "42703" ||
+    message.includes("org_departments")
+  );
+};
+
 type ManagedDepartmentRow = {
   id: string;
   name: string;
@@ -419,23 +429,20 @@ export async function GET(req: Request) {
     .single();
 
   let departments: DepartmentOptionRow[] = [];
+  const { data: departmentRows, error: departmentsError } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name, code, college_id")
+    .eq("org_id", context.org.id)
+    .order("name", { ascending: true });
 
-  if (context.institutionType === "higher_ed") {
-    const { data: departmentRows, error: departmentsError } = await supabaseAdmin
-      .from("org_departments")
-      .select("id, name, code, college_id")
-      .eq("org_id", context.org.id)
-      .order("name", { ascending: true });
-
-    if (departmentsError) {
-      return NextResponse.json(
-        { error: departmentsError.message || "Failed to load departments." },
-        { status: 500 },
-      );
-    }
-
-    departments = departmentRows ?? [];
+  if (departmentsError && !isMissingDepartmentSetupError(departmentsError)) {
+    return NextResponse.json(
+      { error: departmentsError.message || "Failed to load departments." },
+      { status: 500 },
+    );
   }
+
+  departments = departmentRows ?? [];
 
   const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
   const userRows = (usersData ?? []) as Array<{

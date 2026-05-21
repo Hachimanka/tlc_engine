@@ -572,6 +572,21 @@ export default function AddUserModal({
                     })),
                   ]}
                 />
+              ) : hasAssignmentOptions ? (
+                <StyledSelect
+                  value={department}
+                  onChange={setDepartment}
+                  options={[
+                    {
+                      value: "",
+                      label: `No ${assignmentLabel.toLowerCase()}`,
+                    },
+                    ...assignmentOptions.map((option) => ({
+                      value: option,
+                      label: option,
+                    })),
+                  ]}
+                />
               ) : (
                 <input
                   id="department"

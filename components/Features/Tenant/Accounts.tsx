@@ -392,6 +392,23 @@ function EditAccountForm({
                 })),
               ]}
             />
+          ) : hasAssignmentOptions ? (
+            <StyledSelect
+              value={department}
+              onChange={setDepartment}
+              options={[
+                {
+                  value: "",
+                  label: requiresDepartment
+                    ? `Select a ${assignmentLabel.toLowerCase()}`
+                    : `No ${assignmentLabel.toLowerCase()}`,
+                },
+                ...assignmentOptions.map((option) => ({
+                  value: option,
+                  label: option,
+                })),
+              ]}
+            />
           ) : (
             <input
               id="edit-department"
