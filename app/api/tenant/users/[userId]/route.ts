@@ -4,7 +4,6 @@ import {
   getAssignableFeatureKeysForInstitution,
   getFeatureKeysForInstitution,
 } from "@/features/tenant-feature-catalog";
-import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   replaceOrgUserFeaturePermissions,
@@ -15,7 +14,7 @@ export const runtime = "nodejs";
 
 type UpdateUserRequest = {
   fullName?: string;
-  roleId?: string;
+  roleLabel?: string;
   department?: string | null;
   departmentId?: string | null;
   status?: "active" | "disabled";
@@ -27,6 +26,7 @@ type OrgUserRow = {
   org_id: string;
   auth_user_id: string;
   role_id: string;
+  role_label?: string | null;
   full_name: string;
   email: string;
   employee_id?: string | null;
@@ -49,6 +49,14 @@ const normalizeDepartment = (value?: string | null) => {
   }
 
   return value.trim().replace(/\s+/g, " ");
+};
+
+const normalizeRoleLabel = (value?: string | null) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim().replace(/\s+/g, " ") || null;
 };
 
 type ManagedDepartmentRow = {
@@ -122,7 +130,7 @@ export async function PATCH(
 
   const { data: targetUser, error: targetError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
+    .select("id, org_id, auth_user_id, role_id, role_label, full_name, email, employee_id, department, department_id, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
@@ -139,11 +147,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid account status." }, { status: 400 });
   }
 
-  const nextRoleId = payload.roleId?.trim() || targetUser.role_id;
   const { data: roleRow, error: roleError } = await supabaseAdmin
     .from("roles")
     .select("id, key, name, requires_department")
-    .eq("id", nextRoleId)
+    .eq("id", targetUser.role_id)
     .eq("org_id", context.org.id)
     .maybeSingle<RoleRow>();
 
@@ -151,26 +158,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Role not found in this organization." }, { status: 404 });
   }
 
-  const targetIsOrgAdmin = targetUser.role_id === context.role.id && context.role.key === "org_admin";
+  const targetIsOrgAdmin = roleRow.key === "org_admin";
   const isSelf = targetUser.auth_user_id === context.authUser.id;
 
-  if (targetIsOrgAdmin && (nextRoleId !== targetUser.role_id || nextStatus !== "active")) {
+  if (targetIsOrgAdmin && nextStatus !== "active") {
     return NextResponse.json(
       { error: "The protected admin account cannot be demoted or disabled." },
       { status: 400 },
     );
   }
 
-  if (isSelf && (nextRoleId !== targetUser.role_id || nextStatus !== "active")) {
+  if (isSelf && nextStatus !== "active") {
     return NextResponse.json(
-      { error: "You cannot change your own role or disable your own account." },
-      { status: 400 },
-    );
-  }
-
-  if (roleRow.key === "org_admin" && targetUser.role_id !== roleRow.id) {
-    return NextResponse.json(
-      { error: "The protected admin role cannot be assigned from account management." },
+      { error: "You cannot disable your own account." },
       { status: 400 },
     );
   }
@@ -182,8 +182,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Full name is required." }, { status: 400 });
   }
 
-  const requiresDepartment =
-    Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
+  const nextRoleLabel = targetIsOrgAdmin
+    ? targetUser.role_label ?? roleRow.name
+    : normalizeRoleLabel(payload.roleLabel) ?? targetUser.role_label ?? "Staff";
   const departmentIdWasProvided =
     typeof payload.departmentId === "string" || payload.departmentId === null;
   let managedDepartment: ManagedDepartmentRow | null = null;
@@ -213,20 +214,13 @@ export async function PATCH(
     ? managedDepartment?.id ?? null
     : targetUser.department_id ?? null;
 
-  if (requiresDepartment && !nextDepartment) {
-    return NextResponse.json(
-      { error: "Department is required for this role." },
-      { status: 400 },
-    );
-  }
-
   const now = new Date().toISOString();
 
   const { data: updatedUser, error: updateError } = await supabaseAdmin
     .from("org_users")
     .update({
       full_name: nextFullName,
-      role_id: roleRow.id,
+      role_label: nextRoleLabel,
       department: nextDepartment,
       department_id: nextDepartmentId,
       status: nextStatus,
@@ -234,7 +228,7 @@ export async function PATCH(
     })
     .eq("id", targetUser.id)
     .eq("org_id", context.org.id)
-    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, department_id, role_label, status, role_id, created_at")
     .single();
 
   if (updateError || !updatedUser) {
@@ -253,7 +247,8 @@ export async function PATCH(
         ...metadata,
         role: roleRow.key,
         role_id: roleRow.id,
-        role_name: roleRow.name,
+        role_name: nextRoleLabel,
+        role_label: nextRoleLabel,
         account_status: nextStatus,
         department: nextDepartment,
         department_id: nextDepartmentId,
@@ -316,8 +311,8 @@ export async function PATCH(
       roles: {
         id: roleRow.id,
         key: roleRow.key,
-        name: roleRow.name,
-        requiresDepartment: requiresDepartment,
+        name: nextRoleLabel,
+        requiresDepartment: false,
       },
     },
   });

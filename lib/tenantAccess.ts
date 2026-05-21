@@ -36,6 +36,7 @@ type OrgUserRow = {
   id: string;
   org_id: string;
   role_id: string;
+  role_label?: string | null;
   full_name: string;
   email: string;
   department?: string | null;
@@ -52,6 +53,7 @@ export type TenantContext = {
     id: string;
     org_id: string;
     role_id: string;
+    role_label: string | null;
     full_name: string;
     email: string;
     department: string | null;
@@ -61,6 +63,7 @@ export type TenantContext = {
   role: TenantRole;
   institutionType: InstitutionType;
   isOrgAdmin: boolean;
+  enabledFeatureKeys: FeatureKey[];
 };
 
 export const getBearerToken = (req: Request) => {
@@ -97,7 +100,7 @@ export async function loadTenantContext(
 
   const { data: orgUserRow, error: orgUserError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, role_id, full_name, email, department, status")
+    .select("id, org_id, role_id, role_label, full_name, email, department, status")
     .eq("auth_user_id", authUser.id)
     .maybeSingle<OrgUserRow>();
 
@@ -158,7 +161,13 @@ export async function loadTenantContext(
     };
   }
 
+  const institutionType = normalizeInstitutionType(org.institution_type);
   const isOrgAdmin = role.key === "org_admin";
+  const enabledFeatureKeys = await getEnabledFeatureKeysForOrgUser(
+    orgUserRow,
+    role,
+    institutionType,
+  );
 
   if (options.requireOrgAdmin && !isOrgAdmin) {
     return {
@@ -177,6 +186,7 @@ export async function loadTenantContext(
         id: orgUserRow.id,
         org_id: orgUserRow.org_id,
         role_id: orgUserRow.role_id,
+        role_label: orgUserRow.role_label ?? role.name ?? null,
         full_name: orgUserRow.full_name,
         email: orgUserRow.email,
         department: orgUserRow.department ?? null,
@@ -184,8 +194,9 @@ export async function loadTenantContext(
       },
       org,
       role,
-      institutionType: normalizeInstitutionType(org.institution_type),
+      institutionType,
       isOrgAdmin,
+      enabledFeatureKeys,
     },
   };
 }

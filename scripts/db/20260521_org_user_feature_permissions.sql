@@ -16,6 +16,49 @@ create unique index if not exists org_user_feature_permissions_user_feature_uniq
 create index if not exists org_user_feature_permissions_org_user_id_idx
   on public.org_user_feature_permissions (org_user_id);
 
+alter table public.roles
+  add column if not exists requires_department boolean not null default false;
+
+alter table public.org_users
+  add column if not exists role_label text;
+
+-- Keep the visible role/position label on each account.
+update public.org_users ou
+set
+  role_label = coalesce(nullif(btrim(ou.role_label), ''), r.name, 'Staff'),
+  updated_at = now()
+from public.roles r
+where r.id = ou.role_id
+  and (ou.role_label is null or btrim(ou.role_label) = '');
+
+-- Internal compatibility role for new non-admin accounts.
+insert into public.roles (
+  org_id,
+  key,
+  name,
+  description,
+  is_system,
+  requires_department,
+  created_at,
+  updated_at
+)
+select
+  o.id,
+  'account_user',
+  'Account User',
+  'Internal non-admin account role for per-account feature access.',
+  true,
+  false,
+  now(),
+  now()
+from public.organizations o
+where not exists (
+  select 1
+  from public.roles r
+  where r.org_id = o.id
+    and r.key = 'account_user'
+);
+
 -- Preserve existing behavior by copying each user's current role features.
 insert into public.org_user_feature_permissions (
   org_user_id,
@@ -51,9 +94,9 @@ create policy "Org user feature permissions viewable by org members"
     exists (
       select 1
       from public.org_users target_user
-      join public.org_users current_user on current_user.org_id = target_user.org_id
+      join public.org_users viewer_user on viewer_user.org_id = target_user.org_id
       where target_user.id = org_user_feature_permissions.org_user_id
-        and current_user.auth_user_id = auth.uid()
+        and viewer_user.auth_user_id = auth.uid()
     )
   );
 

@@ -7,22 +7,10 @@ import type {
   FeatureKey,
 } from "@/features/tenant-feature-catalog";
 
-export type RoleOption = {
-  id: string;
-  key: string;
-  name: string;
-  description?: string | null;
-  requiresDepartment?: boolean;
-  requires_department?: boolean;
-  featureKeys?: string[];
-};
-
 export type AddUserPayload = {
   fullName: string;
   recipientEmail: string;
-  roleId?: string;
-  customRoleName?: string;
-  customRoleRequiresDepartment?: boolean;
+  roleLabel: string;
   featureKeys: string[];
   department?: string | null;
   departmentId?: string | null;
@@ -41,7 +29,7 @@ export type CreatedUser = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
-  roleId: string;
+  roleId?: string;
   roleKey: string;
   roleName: string;
   description: string;
@@ -64,7 +52,7 @@ export type DepartmentOption = {
 
 type AddUserModalProps = {
   isOpen: boolean;
-  roles: RoleOption[];
+  roleSuggestions?: string[];
   features: FeatureDefinition[];
   departments?: DepartmentOption[];
   assignmentLabel?: string;
@@ -107,8 +95,6 @@ const getEmailPreview = (fullName: string, emailDomain?: string | null) => {
   return `${parts[0]}.${parts[parts.length - 1]}@${domain}`;
 };
 
-const customRoleValue = "__custom_role__";
-
 const isValidEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
@@ -140,7 +126,7 @@ const groupFeatures = (features: FeatureDefinition[]) => {
 
 export default function AddUserModal({
   isOpen,
-  roles,
+  roleSuggestions = [],
   features,
   departments = [],
   assignmentLabel = "Department",
@@ -156,39 +142,20 @@ export default function AddUserModal({
 }: AddUserModalProps) {
   const [fullName, setFullName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
-  const [roleId, setRoleId] = useState("");
-  const [customRoleName, setCustomRoleName] = useState("");
-  const [customRoleRequiresDepartment, setCustomRoleRequiresDepartment] = useState(false);
+  const [roleLabel, setRoleLabel] = useState("");
   const [featureKeys, setFeatureKeys] = useState<string[]>([]);
   const [department, setDepartment] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [teacherMajor, setTeacherMajor] = useState("");
   const [qualifiedSubjects, setQualifiedSubjects] = useState<string[]>([]);
   const [preferredSubject, setPreferredSubject] = useState("");
-  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<AddUserResult | null>(null);
 
-  const roleOptions = useMemo(() => roles, [roles]);
-  const selectedRole = useMemo(
-    () => roleOptions.find((role) => role.id === roleId) ?? null,
-    [roleId, roleOptions],
-  );
-  const isCustomRole = roleId === customRoleValue;
-  const selectedRoleLabel = isCustomRole
-    ? "Custom role"
-    : selectedRole?.name ?? "Select a role";
-  const selectedRoleRequiresDepartment = Boolean(
-    selectedRole?.requiresDepartment ?? selectedRole?.requires_department,
-  );
-  const departmentIsRequired = isCustomRole
-    ? customRoleRequiresDepartment
-    : selectedRoleRequiresDepartment;
   const hasManagedDepartments = departments.length > 0;
   const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
-  const requiredAssignmentMessage =
-    assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
+  const datalistId = "role-position-tag-suggestions";
   const assignableFeatures = useMemo(
     () =>
       features.filter(
@@ -208,16 +175,13 @@ export default function AddUserModal({
   const resetForm = useCallback(() => {
     setFullName("");
     setRecipientEmail("");
-    setRoleId("");
-    setCustomRoleName("");
-    setCustomRoleRequiresDepartment(false);
+    setRoleLabel("");
     setFeatureKeys([]);
     setDepartment("");
     setDepartmentId("");
     setTeacherMajor("");
     setQualifiedSubjects([]);
     setPreferredSubject("");
-    setIsRoleMenuOpen(false);
     setError("");
     setIsSubmitting(false);
     setSuccess(null);
@@ -252,12 +216,9 @@ export default function AddUserModal({
 
   const canSubmit = Boolean(
     fullName.trim() &&
-      (isCustomRole
-        ? customRoleName.trim()
-        : roleId) &&
+      roleLabel.trim() &&
       featureKeys.length > 0 &&
-      isValidEmail(recipientEmail) &&
-      (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
+      isValidEmail(recipientEmail),
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -266,10 +227,8 @@ export default function AddUserModal({
       setError(
         !isValidEmail(recipientEmail)
           ? "Enter a valid recipient email."
-          : departmentIsRequired && hasManagedDepartments && !departmentId
-          ? "Department is required for this role."
-          : departmentIsRequired && !department.trim()
-          ? "Department is required for this role."
+          : !roleLabel.trim()
+          ? "Enter a role or position tag for this account."
           : featureKeys.length === 0
           ? "Select at least one feature for this account."
           : "Please complete all required fields.",
@@ -284,13 +243,7 @@ export default function AddUserModal({
       const result = await onCreate({
         fullName: fullName.trim(),
         recipientEmail: recipientEmail.trim(),
-        roleId: isCustomRole ? undefined : roleId,
-        customRoleName: isCustomRole
-          ? customRoleName.trim().replace(/\s+/g, " ")
-          : undefined,
-        customRoleRequiresDepartment: isCustomRole
-          ? customRoleRequiresDepartment
-          : undefined,
+        roleLabel: roleLabel.trim().replace(/\s+/g, " "),
         featureKeys,
         department: hasManagedDepartments
           ? null
@@ -317,19 +270,6 @@ export default function AddUserModal({
   const handleClose = () => {
     resetForm();
     onClose();
-  };
-
-  const handleRoleChange = (nextRoleId: string) => {
-    setRoleId(nextRoleId);
-    setIsRoleMenuOpen(false);
-
-    if (nextRoleId !== customRoleValue) {
-      setCustomRoleName("");
-      setCustomRoleRequiresDepartment(false);
-    }
-
-    const nextRole = roles.find((role) => role.id === nextRoleId);
-    setFeatureKeys(nextRole?.featureKeys ?? []);
   };
 
   const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
@@ -506,98 +446,28 @@ export default function AddUserModal({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="role" className="text-sm font-medium text-[#344054]">
-                Role
+              <label htmlFor="role-label" className="text-sm font-medium text-[#344054]">
+                Role / Position Tag <span className="text-[var(--color-primary)]">*</span>
               </label>
-              <div className="relative">
-                <button
-                  id="role"
-                  type="button"
-                  onClick={() => setIsRoleMenuOpen((current) => !current)}
-                  className="flex h-11 w-full items-center justify-between rounded-lg border border-[#d0d5dd] bg-white px-3 text-left text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                  aria-haspopup="listbox"
-                  aria-expanded={isRoleMenuOpen}
-                >
-                  <span>{selectedRoleLabel}</span>
-                  <span className="text-xs text-[var(--color-low-emphasis)]">v</span>
-                </button>
-
-                {isRoleMenuOpen ? (
-                  <div
-                    className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-[#d0d5dd] bg-white py-1 shadow-[0_10px_24px_rgba(15,23,42,0.16)]"
-                    role="listbox"
-                    aria-label="Role options"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleRoleChange(customRoleValue)}
-                      className={`block w-full px-3 py-2 text-left text-sm transition hover:bg-[#ecf8f6] ${
-                        isCustomRole
-                          ? "font-semibold text-[var(--color-primary)]"
-                          : "text-[var(--color-high-emphasis)]"
-                      }`}
-                      role="option"
-                      aria-selected={isCustomRole}
-                    >
-                      Custom role
-                    </button>
-                    {roleOptions.map((role) => (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => handleRoleChange(role.id)}
-                        className={`block w-full px-3 py-2 text-left text-sm transition hover:bg-[#ecf8f6] ${
-                          role.id === roleId
-                            ? "font-semibold text-[var(--color-primary)]"
-                            : "text-[var(--color-high-emphasis)]"
-                        }`}
-                        role="option"
-                        aria-selected={role.id === roleId}
-                      >
-                        {role.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <input
+                id="role-label"
+                list={datalistId}
+                value={roleLabel}
+                onChange={(event) => setRoleLabel(event.target.value)}
+                placeholder="e.g., Room Manager"
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+              />
+              {roleSuggestions.length > 0 ? (
+                <datalist id={datalistId}>
+                  {roleSuggestions.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
+              ) : null}
+              <p className="text-xs text-[var(--color-low-emphasis)]">
+                This is a label for grouping accounts. Feature access below controls what the account can open.
+              </p>
             </div>
-
-            {isCustomRole ? (
-              <>
-                <div className="space-y-2">
-                  <label htmlFor="custom-role-name" className="text-sm font-medium text-[#344054]">
-                    Custom Role Name
-                  </label>
-                  <input
-                    id="custom-role-name"
-                    value={customRoleName}
-                    onChange={(event) => setCustomRoleName(event.target.value)}
-                    placeholder="e.g., Laboratory Coordinator"
-                    className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                  />
-                </div>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-3">
-                  <input
-                    type="checkbox"
-                    checked={customRoleRequiresDepartment}
-                    onChange={(event) =>
-                      setCustomRoleRequiresDepartment(event.target.checked)
-                    }
-                    className="mt-1 h-4 w-4 rounded border-[#cfd5dd] text-[var(--color-primary)]"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-[var(--color-high-emphasis)]">
-                      Requires department
-                    </span>
-                      <span className="mt-1 block text-xs text-[var(--color-low-emphasis)]">
-                      Turn this on when every account with this custom role must have a required assignment.
-                      </span>
-                  </span>
-                </label>
-
-              </>
-            ) : null}
 
             <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
               <div>
@@ -605,7 +475,7 @@ export default function AddUserModal({
                   Feature Access <span className="text-[var(--color-primary)]">*</span>
                 </h3>
                 <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
-                  Select the features this account can open after login. Role selection only suggests a starting set.
+                  Select the features this account can open after login.
                 </p>
               </div>
 
@@ -672,9 +542,6 @@ export default function AddUserModal({
             <div className="space-y-2">
               <label htmlFor="department" className="text-sm font-medium text-[#344054]">
                 {assignmentLabel}
-                {departmentIsRequired ? (
-                  <span className="ml-1 text-[var(--color-primary)]">*</span>
-                ) : null}
               </label>
               {hasManagedDepartments ? (
                 <StyledSelect
@@ -683,7 +550,7 @@ export default function AddUserModal({
                   options={[
                     {
                       value: "",
-                      label: departmentIsRequired ? "Select a department" : "No department",
+                      label: "No department",
                     },
                     ...departments.map((departmentOption) => ({
                       value: departmentOption.id,
@@ -703,9 +570,7 @@ export default function AddUserModal({
                 />
               )}
               <p className="text-xs text-[var(--color-low-emphasis)]">
-                {departmentIsRequired
-                  ? `Required because the selected role needs a ${assignmentLabel.toLowerCase()}.`
-                  : assignmentHint ?? `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
+                {assignmentHint ?? `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
               </p>
             </div>
 

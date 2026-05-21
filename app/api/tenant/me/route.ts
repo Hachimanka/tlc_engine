@@ -3,10 +3,7 @@ import {
   getActiveFeatureHref,
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
-import {
-  getEnabledFeatureKeysForOrgUser,
-  loadTenantContext,
-} from "@/lib/tenantAccess";
+import { loadTenantContext } from "@/lib/tenantAccess";
 import {
   createSignedAvatarUrl,
   getUserProfileRow,
@@ -46,11 +43,7 @@ export async function GET(req: Request) {
       context.org.onboarding_config,
       context.org.name,
     );
-    const enabledFeatureKeys = await getEnabledFeatureKeysForOrgUser(
-      context.orgUser,
-      context.role,
-      context.institutionType,
-    );
+    const enabledFeatureKeys = context.enabledFeatureKeys;
     const availableFeatures = getFeaturesForInstitution(context.institutionType);
 
     return NextResponse.json({
@@ -71,7 +64,7 @@ export async function GET(req: Request) {
       role: {
         id: context.role.id,
         key: context.role.key,
-        name: context.role.name,
+        name: context.orgUser.role_label ?? context.role.name,
         isSystem: Boolean(context.role.is_system),
       },
       isOrgAdmin: context.isOrgAdmin,
