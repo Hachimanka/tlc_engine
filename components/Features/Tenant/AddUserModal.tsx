@@ -50,6 +50,16 @@ export type DepartmentOption = {
   collegeId?: string | null;
 };
 
+export type RoleOption = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  requiresDepartment?: boolean;
+  requires_department?: boolean;
+  featureKeys?: string[];
+};
+
 type AddUserModalProps = {
   isOpen: boolean;
   roleSuggestions?: string[];
