@@ -20,7 +20,10 @@ import {
 } from "@/config";
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
-import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  readStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import {
   buildTenantLoginUrl,
   buildTenantMeUrl,
@@ -42,7 +45,10 @@ export default function TenantPage() {
     email: "",
     avatarUrl: "",
   });
-  const [branding, setBranding] = useState<TenantBranding | null>(null);
+  const [branding, setBranding] = useState<TenantBranding | null>(() =>
+    readStoredTenantBranding(),
+  );
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -158,9 +164,11 @@ export default function TenantPage() {
         setBranding(payload.branding ?? null);
         saveStoredTenantBranding(payload.branding ?? null);
         setActiveView(getDefaultTenantAdminView(detectedType));
+        setIsBootstrapping(false);
 
       } catch {
         setAuthError("Unable to reach Supabase Auth. Please check your internet connection and Supabase env values.");
+        setIsBootstrapping(false);
       }
     };
 
@@ -199,14 +207,29 @@ export default function TenantPage() {
 
   if (authError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
-          <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
-            Authentication unavailable
-          </h1>
-          <p className="mt-2 text-sm text-red-600">{authError}</p>
+      <TenantBrandScope
+        branding={branding}
+        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
+            <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+              Authentication unavailable
+            </h1>
+            <p className="mt-2 text-sm text-red-600">{authError}</p>
+          </div>
         </div>
-      </div>
+      </TenantBrandScope>
+    );
+  }
+
+  if (isBootstrapping) {
+    return (
+      <TenantLoadingScreen
+        branding={branding}
+        label="Loading workspace"
+        useStoredBranding
+      />
     );
   }
 
