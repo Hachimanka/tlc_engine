@@ -211,6 +211,28 @@ export async function getEnabledFeatureKeysForRole(
   return (data ?? []).map((row) => row.feature_key as FeatureKey);
 }
 
+export async function getEnabledFeatureKeysForOrgUser(
+  orgUser: Pick<OrgUserRow, "id">,
+  role: Pick<TenantRole, "key">,
+  institutionType: InstitutionType,
+) {
+  if (role.key === "org_admin") {
+    return getFeatureKeysForInstitution(institutionType);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("org_user_feature_permissions")
+    .select("feature_key")
+    .eq("org_user_id", orgUser.id)
+    .eq("enabled", true);
+
+  if (error) {
+    throw new Error(error.message || "Failed to load account feature permissions.");
+  }
+
+  return (data ?? []).map((row) => row.feature_key as FeatureKey);
+}
+
 export async function replaceRoleFeaturePermissions(
   roleId: string,
   featureKeys: string[],
@@ -246,6 +268,44 @@ export async function replaceRoleFeaturePermissions(
 
   if (insertError) {
     throw new Error(insertError.message || "Failed to save feature permissions.");
+  }
+}
+
+export async function replaceOrgUserFeaturePermissions(
+  orgUserId: string,
+  featureKeys: string[],
+) {
+  const uniqueFeatureKeys = Array.from(new Set(featureKeys));
+  const now = new Date().toISOString();
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("org_user_feature_permissions")
+    .delete()
+    .eq("org_user_id", orgUserId);
+
+  if (deleteError) {
+    throw new Error(deleteError.message || "Failed to clear account feature permissions.");
+  }
+
+  if (uniqueFeatureKeys.length === 0) {
+    return;
+  }
+
+  const { error: insertError } = await supabaseAdmin
+    .from("org_user_feature_permissions")
+    .upsert(
+      uniqueFeatureKeys.map((featureKey) => ({
+        org_user_id: orgUserId,
+        feature_key: featureKey,
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+      })),
+      { onConflict: "org_user_id,feature_key" },
+    );
+
+  if (insertError) {
+    throw new Error(insertError.message || "Failed to save account feature permissions.");
   }
 }
 

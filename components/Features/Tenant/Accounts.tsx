@@ -43,6 +43,7 @@ type RolePayload = {
   is_system?: boolean;
   requiresDepartment?: boolean;
   requires_department?: boolean;
+  featureKeys?: string[];
 };
 
 type UserPayload = {
@@ -500,6 +501,7 @@ export default function Accounts() {
       name: role.name,
       description: role.description ?? null,
       requiresDepartment: Boolean(role.requiresDepartment ?? role.requires_department),
+      featureKeys: role.featureKeys ?? [],
     }));
 
     const nextUsers = ((payload.users ?? []) as UserPayload[]).map(normalizeUser);

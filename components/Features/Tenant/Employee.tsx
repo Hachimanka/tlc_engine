@@ -44,6 +44,7 @@ type RolePayload = {
   description?: string | null;
   requiresDepartment?: boolean;
   requires_department?: boolean;
+  featureKeys?: string[];
 };
 
 type UserPayload = {
@@ -188,6 +189,7 @@ export default function Employee() {
       name: role.name,
       description: role.description ?? null,
       requiresDepartment: Boolean(role.requiresDepartment ?? role.requires_department),
+      featureKeys: role.featureKeys ?? [],
     }));
 
     const nextEmployees = ((payload.users ?? []) as UserPayload[])

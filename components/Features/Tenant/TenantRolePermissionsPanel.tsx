@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import Permission, { type RoleAccess } from "./Permission";
 import CreateRoleModal, { type CreatedRole } from "./CreateRoleModal";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type {
   FeatureDefinition,
   FeatureKey,
@@ -19,9 +17,19 @@ type TenantUser = {
   roleId: string;
   roleName: string;
   roleKey: string;
+  featureKeys: string[];
   employeeId?: string | null;
   department?: string | null;
   status: string;
+};
+
+type RoleAccess = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  featureKeys: string[];
 };
 
 type RolePayload = {
@@ -42,10 +50,9 @@ type UserPayload = {
   department?: string | null;
   role_id: string;
   status?: string;
+  featureKeys?: string[];
   roles?: unknown;
 };
-
-type RolePanelTab = "features" | "users";
 
 const sameStringSet = (left: string[], right: string[]) => {
   if (left.length !== right.length) {
@@ -64,52 +71,34 @@ const normalizeJoinedRole = (role: unknown) => {
   return role as { id?: string; key?: string; name?: string } | undefined;
 };
 
-function FeatureAccessSkeleton() {
-  return (
-    <section
-      className="flex min-h-0 flex-1 flex-col"
-      role="status"
-      aria-label="Loading feature access"
-    >
-      <span className="sr-only">Loading feature access</span>
-      <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-5">
-        <div className="flex animate-pulse flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-3">
-            <BrandedSkeletonBlock className="h-6 w-72 max-w-full" />
-            <BrandedSkeletonBlock className="h-4 w-[520px] max-w-full" />
-            <div className="flex flex-wrap gap-2 pt-1">
-              <BrandedSkeletonBlock className="h-8 w-24 rounded-full" />
-              <BrandedSkeletonBlock className="h-8 w-36 rounded-full" />
-              <BrandedSkeletonBlock className="h-8 w-24 rounded-full" />
-            </div>
-          </div>
-          <BrandedSkeletonBlock className="h-8 w-28 rounded-full" />
-        </div>
-      </div>
+const groupFeatures = (features: FeatureDefinition[]) => {
+  const groups = features.reduce<Record<string, FeatureDefinition[]>>((currentGroups, feature) => {
+    currentGroups[feature.group] = [...(currentGroups[feature.group] ?? []), feature];
+    return currentGroups;
+  }, {});
 
-      <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
-        <div className="animate-pulse space-y-7">
-          {[0, 1].map((groupIndex) => (
-            <div key={groupIndex} className="space-y-3">
-              <BrandedSkeletonBlock className="h-4 w-36" />
-              <div className="grid gap-3 xl:grid-cols-2">
-                {[0, 1, 2, 3].map((itemIndex) => (
-                  <BrandedSkeletonBlock
-                    key={`${groupIndex}-${itemIndex}`}
-                    className="min-h-[116px] rounded-lg"
-                  />
-                ))}
-              </div>
-            </div>
+  for (const group of Object.keys(groups)) {
+    groups[group] = groups[group].sort((left, right) => left.label.localeCompare(right.label));
+  }
+
+  return groups;
+};
+
+function UsersSkeleton() {
+  return (
+    <div className="space-y-4" role="status" aria-label="Loading users with role">
+      <span className="sr-only">Loading users with role</span>
+      {[0, 1, 2].map((row) => (
+        <div
+          key={row}
+          className="grid animate-pulse gap-3 rounded-lg border border-[var(--color-default)] px-4 py-4 md:grid-cols-[110px_1fr_1fr_160px_80px]"
+        >
+          {Array.from({ length: 5 }).map((_, index) => (
+            <BrandedSkeletonBlock key={index} className="h-4" />
           ))}
         </div>
-      </div>
-
-      <div className="flex animate-pulse items-center justify-between gap-3 border-t border-[var(--color-default)] px-5 py-4">
-        <BrandedSkeletonBlock className="h-9 w-[620px] max-w-full" />
-        <BrandedSkeletonBlock className="h-12 w-36 shrink-0 rounded-md" strong />
-      </div>
-    </section>
+      ))}
+    </div>
   );
 }
 
@@ -118,32 +107,39 @@ export default function TenantRolePermissionsPanel() {
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [roleNameDraft, setRoleNameDraft] = useState("");
   const [roleDescriptionDraft, setRoleDescriptionDraft] = useState("");
-  const [featureKeysDraft, setFeatureKeysDraft] = useState<string[]>([]);
+  const [userFeatureDraft, setUserFeatureDraft] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [userFeatureError, setUserFeatureError] = useState("");
+  const [isSavingRole, setIsSavingRole] = useState(false);
+  const [isSavingUserFeatures, setIsSavingUserFeatures] = useState(false);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
-  const [activePanelTab, setActivePanelTab] = useState<RolePanelTab>("features");
   const [isRoleUsersLoading, setIsRoleUsersLoading] = useState(false);
-  const [isFeatureAccessLoading, setIsFeatureAccessLoading] = useState(false);
   const selectedRoleIdRef = useRef("");
-  const featureAccessTimerRef = useRef<number | null>(null);
   const roleUsersTimerRef = useRef<number | null>(null);
 
+  const assignableFeatures = useMemo(
+    () => features.filter((feature) => feature.status === "active" && !feature.adminOnly),
+    [features],
+  );
+  const groupedFeatures = useMemo(() => groupFeatures(assignableFeatures), [assignableFeatures]);
   const selectedRole = useMemo(
     () => roles.find((role) => role.id === selectedRoleId) ?? null,
     [roles, selectedRoleId],
   );
-
   const selectedRoleUsers = useMemo(
     () => users.filter((user) => user.roleId === selectedRoleId),
     [selectedRoleId, users],
   );
-
+  const selectedUser = useMemo(
+    () => users.find((user) => user.id === selectedUserId) ?? null,
+    [selectedUserId, users],
+  );
   const filteredRoles = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -151,31 +147,35 @@ export default function TenantRolePermissionsPanel() {
       return roles;
     }
 
-    return roles.filter((role) => {
-      return (
-        role.name.toLowerCase().includes(normalizedSearch) ||
-        role.key.toLowerCase().includes(normalizedSearch) ||
-        (role.description ?? "").toLowerCase().includes(normalizedSearch)
-      );
-    });
+    return roles.filter((role) =>
+      role.name.toLowerCase().includes(normalizedSearch) ||
+      role.key.toLowerCase().includes(normalizedSearch) ||
+      (role.description ?? "").toLowerCase().includes(normalizedSearch),
+    );
   }, [roles, search]);
-
-  const hasChanges = useMemo(() => {
+  const hasRoleChanges = useMemo(() => {
     if (!selectedRole) {
       return false;
     }
 
     return (
       roleNameDraft.trim() !== selectedRole.name ||
-      (roleDescriptionDraft.trim() || "") !== (selectedRole.description ?? "") ||
-      !sameStringSet(featureKeysDraft, selectedRole.featureKeys)
+      (roleDescriptionDraft.trim() || "") !== (selectedRole.description ?? "")
     );
-  }, [featureKeysDraft, roleDescriptionDraft, roleNameDraft, selectedRole]);
+  }, [roleDescriptionDraft, roleNameDraft, selectedRole]);
+  const hasUserFeatureChanges = useMemo(() => {
+    if (!selectedUser) {
+      return false;
+    }
+
+    return !sameStringSet(userFeatureDraft, selectedUser.featureKeys);
+  }, [selectedUser, userFeatureDraft]);
 
   const loadAccessData = useCallback(async () => {
     setIsLoading(true);
     setLoadError("");
     setSaveError("");
+    setUserFeatureError("");
 
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
@@ -191,7 +191,6 @@ export default function TenantRolePermissionsPanel() {
       fetch("/api/tenant/roles", { headers }),
       fetch("/api/tenant/users", { headers }),
     ]);
-
     const rolesPayload = await rolesResponse.json().catch(() => ({}));
     const usersPayload = await usersResponse.json().catch(() => ({}));
 
@@ -215,7 +214,6 @@ export default function TenantRolePermissionsPanel() {
       isSystem: Boolean(role.isSystem ?? role.is_system),
       featureKeys: role.featureKeys ?? [],
     }));
-
     const nextUsers: TenantUser[] = ((usersPayload.users ?? []) as UserPayload[]).map((user) => {
       const role = normalizeJoinedRole(user.roles);
 
@@ -229,9 +227,9 @@ export default function TenantRolePermissionsPanel() {
         roleKey: role?.key ?? "",
         roleName: role?.name ?? "Unassigned",
         status: user.status ?? "active",
+        featureKeys: user.featureKeys ?? [],
       };
     });
-
     const nextSelectedRole =
       nextRoles.find((role) => role.id === selectedRoleIdRef.current) ??
       nextRoles.find((role) => role.key !== "org_admin") ??
@@ -245,12 +243,12 @@ export default function TenantRolePermissionsPanel() {
     selectedRoleIdRef.current = nextSelectedRole?.id ?? "";
     setRoleNameDraft(nextSelectedRole?.name ?? "");
     setRoleDescriptionDraft(nextSelectedRole?.description ?? "");
-    setFeatureKeysDraft(nextSelectedRole?.featureKeys ?? []);
+    setSelectedUserId("");
+    setUserFeatureDraft([]);
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAccessData();
   }, [loadAccessData]);
 
@@ -258,9 +256,6 @@ export default function TenantRolePermissionsPanel() {
     return () => {
       if (roleUsersTimerRef.current !== null) {
         window.clearTimeout(roleUsersTimerRef.current);
-      }
-      if (featureAccessTimerRef.current !== null) {
-        window.clearTimeout(featureAccessTimerRef.current);
       }
     };
   }, []);
@@ -273,110 +268,24 @@ export default function TenantRolePermissionsPanel() {
     if (roleUsersTimerRef.current !== null) {
       window.clearTimeout(roleUsersTimerRef.current);
     }
-    if (featureAccessTimerRef.current !== null) {
-      window.clearTimeout(featureAccessTimerRef.current);
-    }
 
-    setIsFeatureAccessLoading(true);
     setIsRoleUsersLoading(true);
     setSelectedRoleId(role.id);
     selectedRoleIdRef.current = role.id;
     setRoleNameDraft(role.name);
     setRoleDescriptionDraft(role.description ?? "");
-    setFeatureKeysDraft(role.featureKeys);
-    featureAccessTimerRef.current = window.setTimeout(() => {
-      setIsFeatureAccessLoading(false);
-      featureAccessTimerRef.current = null;
-    }, 450);
+    setSelectedUserId("");
+    setUserFeatureDraft([]);
+    setUserFeatureError("");
     roleUsersTimerRef.current = window.setTimeout(() => {
       setIsRoleUsersLoading(false);
       roleUsersTimerRef.current = null;
-    }, 450);
-  };
-
-  const handleOpenFeatureAccessForUser = (user: TenantUser) => {
-    const userRole = roles.find((role) => role.id === user.roleId);
-
-    if (userRole && userRole.id !== selectedRoleId) {
-      setSelectedRoleId(userRole.id);
-      selectedRoleIdRef.current = userRole.id;
-      setRoleNameDraft(userRole.name);
-      setRoleDescriptionDraft(userRole.description ?? "");
-      setFeatureKeysDraft(userRole.featureKeys);
-    }
-
-    setActivePanelTab("features");
-  };
-
-  const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
-    setFeatureKeysDraft((current) => {
-      if (enabled) {
-        return Array.from(new Set([...current, featureKey]));
-      }
-
-      return current.filter((key) => key !== featureKey);
-    });
-  };
-
-  const handleSaveRole = async () => {
-    if (!selectedRole || selectedRole.key === "org_admin") {
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError("");
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    if (!token) {
-      setIsSaving(false);
-      setSaveError("Session expired. Please log in again.");
-      return;
-    }
-
-    const response = await fetch(`/api/tenant/roles/${selectedRole.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        name: roleNameDraft.trim(),
-        description: roleDescriptionDraft.trim(),
-        featureKeys: featureKeysDraft,
-      }),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    setIsSaving(false);
-
-    if (!response.ok) {
-      setSaveError(payload?.error || "Failed to save role.");
-      return;
-    }
-
-    setRoles((current) =>
-      current.map((role) =>
-        role.id === selectedRole.id
-          ? {
-              ...role,
-              name: payload.role.name,
-              description: payload.role.description,
-              featureKeys: payload.role.featureKeys ?? [],
-            }
-          : role,
-      ),
-    );
-    setRoleNameDraft(payload.role.name);
-    setRoleDescriptionDraft(payload.role.description ?? "");
-    setFeatureKeysDraft(payload.role.featureKeys ?? []);
+    }, 350);
   };
 
   const handleCreateRole = async (payload: {
     name: string;
     description?: string;
-    featureKeys: string[];
   }): Promise<CreatedRole> => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
@@ -393,7 +302,6 @@ export default function TenantRolePermissionsPanel() {
       },
       body: JSON.stringify(payload),
     });
-
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -410,13 +318,135 @@ export default function TenantRolePermissionsPanel() {
     };
 
     setRoles((current) => [...current, nextRole]);
-    setActivePanelTab("features");
     handleSelectRole(nextRole);
 
-    return {
-      ...nextRole,
-      isSystem: nextRole.isSystem,
-    };
+    return nextRole;
+  };
+
+  const handleSaveRole = async () => {
+    if (!selectedRole || selectedRole.key === "org_admin") {
+      return;
+    }
+
+    setIsSavingRole(true);
+    setSaveError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      setIsSavingRole(false);
+      setSaveError("Session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch(`/api/tenant/roles/${selectedRole.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: roleNameDraft.trim(),
+        description: roleDescriptionDraft.trim(),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSavingRole(false);
+
+    if (!response.ok) {
+      setSaveError(payload?.error || "Failed to save role.");
+      return;
+    }
+
+    setRoles((current) =>
+      current.map((role) =>
+        role.id === selectedRole.id
+          ? {
+              ...role,
+              name: payload.role.name,
+              description: payload.role.description,
+            }
+          : role,
+      ),
+    );
+    setUsers((current) =>
+      current.map((user) =>
+        user.roleId === selectedRole.id
+          ? {
+              ...user,
+              roleName: payload.role.name,
+            }
+          : user,
+      ),
+    );
+    setRoleNameDraft(payload.role.name);
+    setRoleDescriptionDraft(payload.role.description ?? "");
+  };
+
+  const handleSelectUser = (user: TenantUser) => {
+    setSelectedUserId(user.id);
+    setUserFeatureDraft(user.featureKeys);
+    setUserFeatureError("");
+  };
+
+  const handleUserFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
+    setUserFeatureDraft((current) => {
+      if (enabled) {
+        return Array.from(new Set([...current, featureKey]));
+      }
+
+      return current.filter((key) => key !== featureKey);
+    });
+  };
+
+  const handleSaveUserFeatures = async () => {
+    if (!selectedUser || selectedUser.roleKey === "org_admin") {
+      return;
+    }
+
+    setIsSavingUserFeatures(true);
+    setUserFeatureError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      setIsSavingUserFeatures(false);
+      setUserFeatureError("Session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch(`/api/tenant/users/${selectedUser.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        featureKeys: userFeatureDraft,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSavingUserFeatures(false);
+
+    if (!response.ok) {
+      setUserFeatureError(payload?.error || "Failed to save account features.");
+      return;
+    }
+
+    const nextFeatureKeys = payload.user?.featureKeys ?? userFeatureDraft;
+    setUsers((current) =>
+      current.map((user) =>
+        user.id === selectedUser.id
+          ? {
+              ...user,
+              featureKeys: nextFeatureKeys,
+            }
+          : user,
+      ),
+    );
+    setUserFeatureDraft(nextFeatureKeys);
   };
 
   if (loadError) {
@@ -431,7 +461,6 @@ export default function TenantRolePermissionsPanel() {
     <div className="flex h-full min-h-0 gap-6 overflow-hidden">
       <CreateRoleModal
         isOpen={isCreateRoleOpen}
-        features={features}
         onClose={() => setIsCreateRoleOpen(false)}
         onCreateRole={handleCreateRole}
       />
@@ -444,16 +473,14 @@ export default function TenantRolePermissionsPanel() {
               {roles.length} role{roles.length === 1 ? "" : "s"} in this organization
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              onClick={() => setIsCreateRoleOpen(true)}
-              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Role
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsCreateRoleOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Role
+          </button>
         </div>
 
         <label className="mb-4 flex h-10 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
@@ -492,7 +519,7 @@ export default function TenantRolePermissionsPanel() {
                         isSelected ? "text-white/85" : "text-[var(--color-low-emphasis)]"
                       }`}
                     >
-                      {role.description || "Custom role access"}
+                      {role.description || "Role label for account grouping"}
                     </p>
                   </div>
                   <span
@@ -505,11 +532,6 @@ export default function TenantRolePermissionsPanel() {
                     {roleUserCount} user{roleUserCount === 1 ? "" : "s"}
                   </span>
                 </div>
-                <p className={`mt-2 text-[11px] ${isSelected ? "text-white/80" : "text-[var(--color-low-emphasis)]"}`}>
-                  {role.key === "org_admin"
-                    ? "Full access"
-                    : `${role.featureKeys.length} feature${role.featureKeys.length === 1 ? "" : "s"} assigned`}
-                </p>
               </button>
             );
           })}
@@ -540,138 +562,189 @@ export default function TenantRolePermissionsPanel() {
                 {saveError}
               </div>
             ) : null}
+            <button
+              type="button"
+              onClick={handleSaveRole}
+              disabled={selectedRole.key === "org_admin" || !hasRoleChanges || isSavingRole}
+              className="w-full rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSavingRole ? "Saving..." : "Save Role"}
+            </button>
           </div>
         ) : null}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className="border-b border-[var(--color-default)] px-5 pt-4">
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Role workspace tabs">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activePanelTab === "features"}
-              onClick={() => setActivePanelTab("features")}
-              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
-                activePanelTab === "features"
-                  ? "bg-[var(--color-primary)] text-white"
-                  : "bg-[#ecf8f6] text-[var(--color-primary)] hover:bg-[var(--color-default)]"
-              }`}
-            >
-              Feature Access
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activePanelTab === "users"}
-              onClick={() => setActivePanelTab("users")}
-              className={`inline-flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-semibold transition ${
-                activePanelTab === "users"
-                  ? "bg-[var(--color-primary)] text-white"
-                  : "bg-[#ecf8f6] text-[var(--color-primary)] hover:bg-[var(--color-default)]"
-              }`}
-            >
-              Users with Role
-              <span
-                className={`rounded-full px-2 py-0.5 text-[11px] ${
-                  activePanelTab === "users"
-                    ? "bg-white/15 text-white"
-                    : "bg-white text-[var(--color-primary)]"
-                }`}
-              >
-                {selectedRoleUsers.length}
-              </span>
-            </button>
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
+              Users with {selectedRole?.name ?? "selected role"}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+              Click a user to edit that account's feature access.
+            </p>
           </div>
+          <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
+            {selectedRoleUsers.length} user{selectedRoleUsers.length === 1 ? "" : "s"}
+          </span>
         </div>
 
-        {activePanelTab === "features" && (isLoading || isFeatureAccessLoading) ? (
-          <FeatureAccessSkeleton />
-        ) : activePanelTab === "features" ? (
-          <Permission
-            selectedRole={selectedRole}
-            features={features}
-            selectedFeatureKeys={featureKeysDraft}
-            hasChanges={hasChanges}
-            embedded
-            isSaving={isSaving}
-            onFeatureToggle={handleFeatureToggle}
-            onSave={handleSaveRole}
-          />
+        {isLoading || isRoleUsersLoading ? (
+          <UsersSkeleton />
+        ) : selectedRoleUsers.length === 0 ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
+            No users are assigned to this role yet.
+          </div>
         ) : (
-          <section className="flex min-h-0 flex-1 flex-col p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
-                Users with {selectedRole?.name ?? "selected role"}
-              </h2>
-              <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-primary)]">
-                {selectedRoleUsers.length} user{selectedRoleUsers.length === 1 ? "" : "s"}
-              </span>
+          <div className={`grid min-h-0 flex-1 gap-4 ${selectedUser ? "xl:grid-cols-[minmax(0,1fr)_420px]" : ""}`}>
+            <div className="min-h-0 overflow-auto rounded-lg border border-[var(--color-default)]">
+              <table className="min-w-full border-collapse text-left">
+                <thead className="sticky top-0 bg-[var(--color-primary)] text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Name</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Email</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Department</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Features</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-default)] bg-white">
+                  {selectedRoleUsers.map((user) => (
+                    <tr
+                      key={user.id}
+                      role="button"
+                      tabIndex={0}
+                      title={`Edit feature access for ${user.fullName}`}
+                      aria-label={`Edit feature access for ${user.fullName}`}
+                      onClick={() => handleSelectUser(user)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectUser(user);
+                        }
+                      }}
+                      className={`cursor-pointer transition hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] focus:outline-none ${
+                        selectedUserId === user.id ? "bg-[#ecf8f6]" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                        {user.employeeId || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
+                        {user.fullName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                        {user.schoolEmail}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
+                        {user.department || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
+                        {user.roleKey === "org_admin" ? "Full" : user.featureKeys.length}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
+                        {user.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {isRoleUsersLoading ? (
-              <TenantLoadingScreen
-                className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[var(--color-default)]"
-                label="Loading users with role"
-                useStoredBranding
-              />
-            ) : selectedRoleUsers.length === 0 ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--color-default)] px-4 py-8 text-center text-sm text-[var(--color-low-emphasis)]">
-                No users are assigned to this role yet.
-              </div>
-            ) : (
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[var(--color-default)]">
-                <table className="min-w-full border-collapse text-left">
-                  <thead className="sticky top-0 bg-[var(--color-primary)] text-white">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
-                      <th className="px-4 py-3 text-xs font-semibold">Name</th>
-                      <th className="px-4 py-3 text-xs font-semibold">Email</th>
-                      <th className="px-4 py-3 text-xs font-semibold">Department</th>
-                      <th className="px-4 py-3 text-xs font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--color-default)] bg-white">
-                    {selectedRoleUsers.map((user) => (
-                      <tr
-                        key={user.id}
-                        role="button"
-                        tabIndex={0}
-                        title={`Edit feature access for ${user.fullName}`}
-                        aria-label={`Edit feature access for ${user.fullName}`}
-                        onClick={() => handleOpenFeatureAccessForUser(user)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleOpenFeatureAccessForUser(user);
-                          }
-                        }}
-                        className="cursor-pointer transition hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] focus:outline-none"
-                      >
-                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                          {user.employeeId || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-medium text-[var(--color-high-emphasis)]">
-                          {user.fullName}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                          {user.schoolEmail}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
-                          {user.department || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
-                          {user.status}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+            {selectedUser ? (
+              <aside className="min-h-0 overflow-y-auto rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
+                <div className="mb-4">
+                  <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
+                    {selectedUser.fullName}
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+                    {selectedUser.schoolEmail} - {selectedUser.roleName}
+                  </p>
+                </div>
+
+                {selectedUser.roleKey === "org_admin" ? (
+                  <div className="rounded-lg border border-[var(--color-default)] bg-white px-4 py-5 text-sm text-[var(--color-low-emphasis)]">
+                    Org Admin accounts always keep full access.
+                  </div>
+                ) : (
+                  <>
+                    {userFeatureError ? (
+                      <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {userFeatureError}
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-4">
+                      {Object.entries(groupedFeatures).map(([group, groupItems]) => (
+                        <fieldset key={group} className="space-y-2">
+                          <legend className="text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                            {group}
+                          </legend>
+                          <div className="space-y-2">
+                            {groupItems.map((feature) => {
+                              const isSelected = userFeatureDraft.includes(feature.key);
+
+                              return (
+                                <label
+                                  key={feature.key}
+                                  className={`grid cursor-pointer grid-cols-[18px_1fr] gap-3 rounded-md border px-3 py-2 text-sm transition ${
+                                    isSelected
+                                      ? "border-[var(--color-primary)] bg-[#ecf8f6]"
+                                      : "border-[var(--color-default)] bg-white hover:bg-[#ecf8f6]"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(event) =>
+                                      handleUserFeatureToggle(feature.key, event.target.checked)
+                                    }
+                                    className="sr-only"
+                                  />
+                                  <span
+                                    className={`mt-1 flex h-4 w-4 items-center justify-center rounded border ${
+                                      isSelected
+                                        ? "border-[var(--color-primary)] bg-[var(--color-primary)]"
+                                        : "border-[#cfd5dd] bg-white"
+                                    }`}
+                                    aria-hidden="true"
+                                  >
+                                    {isSelected ? (
+                                      <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                                    ) : null}
+                                  </span>
+                                  <span>
+                                    <span className="font-semibold text-[var(--color-high-emphasis)]">
+                                      {feature.label}
+                                    </span>
+                                    <span className="mt-0.5 block text-xs leading-5 text-[var(--color-low-emphasis)]">
+                                      {feature.description}
+                                    </span>
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </fieldset>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveUserFeatures}
+                      disabled={!hasUserFeatureChanges || isSavingUserFeatures}
+                      className="mt-4 w-full rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSavingUserFeatures ? "Saving..." : "Save Account Features"}
+                    </button>
+                  </>
+                )}
+              </aside>
+            ) : null}
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

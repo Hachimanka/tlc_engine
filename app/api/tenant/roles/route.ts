@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import {
-  type FeatureKey,
-  getAssignableFeatureKeysForInstitution,
   getFeatureKeysForInstitution,
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
-import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
+import {
+  getDefaultFeatureKeysForRole,
+  isDepartmentRequiredRole,
+} from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   reconcileInstitutionSystemRoles,
-  replaceRoleFeaturePermissions,
 } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -18,7 +18,6 @@ export const runtime = "nodejs";
 type CreateRoleRequest = {
   name?: string;
   description?: string;
-  featureKeys?: string[];
 };
 
 const slugifyRoleKey = (value: string) =>
@@ -89,34 +88,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const roleIds = (roles ?? []).map((role) => role.id);
-  const permissionsByRole = new Map<string, string[]>();
-
-  if (roleIds.length > 0) {
-    const { data: permissions, error: permissionsError } = await supabaseAdmin
-      .from("role_feature_permissions")
-      .select("role_id, feature_key")
-      .in("role_id", roleIds)
-      .eq("enabled", true);
-
-    if (permissionsError) {
-      return NextResponse.json(
-        { error: permissionsError.message || "Failed to load role features." },
-        { status: 500 },
-      );
-    }
-
-    for (const permission of permissions ?? []) {
-      const current = permissionsByRole.get(permission.role_id) ?? [];
-      current.push(permission.feature_key);
-      permissionsByRole.set(permission.role_id, current);
-    }
-  }
-
   const allKeys = getFeatureKeysForInstitution(context.institutionType);
-  const assignableKeys = new Set(
-    getAssignableFeatureKeysForInstitution(context.institutionType),
-  );
 
   return NextResponse.json({
     org: {
@@ -137,9 +109,7 @@ export async function GET(req: Request) {
       featureKeys:
         role.key === "org_admin"
           ? allKeys
-          : (permissionsByRole.get(role.id) ?? []).filter((key) =>
-              assignableKeys.has(key as FeatureKey),
-            ),
+          : getDefaultFeatureKeysForRole(role.key, context.institutionType),
     })),
   });
 }
@@ -193,29 +163,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const allowedKeys = new Set(
-    getAssignableFeatureKeysForInstitution(context.institutionType),
-  );
-  const featureKeys = (payload.featureKeys ?? []).filter((key) =>
-    allowedKeys.has(key as FeatureKey),
-  );
-
-  try {
-    await replaceRoleFeaturePermissions(role.id, featureKeys);
-  } catch (error) {
-    await supabaseAdmin.from("roles").delete().eq("id", role.id);
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to save role features.",
-      },
-      { status: 500 },
-    );
-  }
-
   return NextResponse.json({
     role: {
       id: role.id,
@@ -225,7 +172,7 @@ export async function POST(req: Request) {
       isSystem: Boolean(role.is_system),
       requiresDepartment:
         Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
-      featureKeys,
+      featureKeys: getDefaultFeatureKeysForRole(role.key, context.institutionType),
     },
   });
 }

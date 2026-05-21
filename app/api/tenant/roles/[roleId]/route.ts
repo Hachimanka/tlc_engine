@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-  getAssignableFeatureKeysForInstitution,
-  type FeatureKey,
-} from "@/features/tenant-feature-catalog";
-import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
+  getDefaultFeatureKeysForRole,
+  isDepartmentRequiredRole,
+} from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
-  replaceRoleFeaturePermissions,
 } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -15,7 +13,6 @@ export const runtime = "nodejs";
 type UpdateRoleRequest = {
   name?: string;
   description?: string;
-  featureKeys?: string[];
 };
 
 export async function PATCH(
@@ -80,27 +77,6 @@ export async function PATCH(
     );
   }
 
-  const allowedKeys = new Set(
-    getAssignableFeatureKeysForInstitution(context.institutionType),
-  );
-  const featureKeys = (payload.featureKeys ?? []).filter((key) =>
-    allowedKeys.has(key as FeatureKey),
-  );
-
-  try {
-    await replaceRoleFeaturePermissions(role.id, featureKeys);
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to update role features.",
-      },
-      { status: 500 },
-    );
-  }
-
   return NextResponse.json({
     role: {
       id: role.id,
@@ -110,7 +86,7 @@ export async function PATCH(
       isSystem: Boolean(role.is_system),
       requiresDepartment:
         Boolean(role.requires_department) || isDepartmentRequiredRole(role.key),
-      featureKeys,
+      featureKeys: getDefaultFeatureKeysForRole(role.key, context.institutionType),
     },
   });
 }

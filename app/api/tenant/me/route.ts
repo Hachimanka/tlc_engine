@@ -4,7 +4,7 @@ import {
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
 import {
-  getEnabledFeatureKeysForRole,
+  getEnabledFeatureKeysForOrgUser,
   loadTenantContext,
 } from "@/lib/tenantAccess";
 import {
@@ -46,7 +46,8 @@ export async function GET(req: Request) {
       context.org.onboarding_config,
       context.org.name,
     );
-    const enabledFeatureKeys = await getEnabledFeatureKeysForRole(
+    const enabledFeatureKeys = await getEnabledFeatureKeysForOrgUser(
+      context.orgUser,
       context.role,
       context.institutionType,
     );

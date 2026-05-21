@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+import {
+  type FeatureKey,
+  getAssignableFeatureKeysForInstitution,
+  getFeatureKeysForInstitution,
+} from "@/features/tenant-feature-catalog";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import {
+  loadTenantContext,
+  replaceOrgUserFeaturePermissions,
+} from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -11,6 +19,7 @@ type UpdateUserRequest = {
   department?: string | null;
   departmentId?: string | null;
   status?: "active" | "disabled";
+  featureKeys?: string[];
 };
 
 type OrgUserRow = {
@@ -65,6 +74,26 @@ const loadManagedDepartment = async (orgId: string, departmentId?: string | null
   }
 
   return data;
+};
+
+const normalizeFeatureKeys = (
+  value: unknown,
+  institutionType: Parameters<typeof getAssignableFeatureKeysForInstitution>[0],
+) => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const allowedKeys = new Set(getAssignableFeatureKeysForInstitution(institutionType));
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is FeatureKey =>
+          typeof item === "string" && allowedKeys.has(item as FeatureKey),
+      ),
+    ),
+  );
 };
 
 export async function PATCH(
@@ -240,9 +269,50 @@ export async function PATCH(
     );
   }
 
+  const nextFeatureKeys =
+    roleRow.key === "org_admin"
+      ? getFeatureKeysForInstitution(context.institutionType)
+      : normalizeFeatureKeys(payload.featureKeys, context.institutionType);
+
+  if (nextFeatureKeys && roleRow.key !== "org_admin") {
+    try {
+      await replaceOrgUserFeaturePermissions(targetUser.id, nextFeatureKeys);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update account feature access.",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  let responseFeatureKeys = nextFeatureKeys;
+
+  if (!responseFeatureKeys) {
+    const { data: permissions, error: permissionsError } = await supabaseAdmin
+      .from("org_user_feature_permissions")
+      .select("feature_key")
+      .eq("org_user_id", targetUser.id)
+      .eq("enabled", true);
+
+    if (permissionsError) {
+      return NextResponse.json(
+        { error: permissionsError.message || "Failed to load account features." },
+        { status: 500 },
+      );
+    }
+
+    responseFeatureKeys = (permissions ?? []).map((permission) => permission.feature_key);
+  }
+
   return NextResponse.json({
     user: {
       ...updatedUser,
+      featureKeys: responseFeatureKeys,
       roles: {
         id: roleRow.id,
         key: roleRow.key,

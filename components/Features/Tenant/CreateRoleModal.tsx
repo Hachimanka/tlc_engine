@@ -1,10 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import type {
-  FeatureDefinition,
-  FeatureKey,
-} from "@/features/tenant-feature-catalog";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 export type CreatedRole = {
   id: string;
@@ -18,57 +14,27 @@ export type CreatedRole = {
 type CreateRolePayload = {
   name: string;
   description?: string;
-  featureKeys: string[];
 };
 
 type CreateRoleModalProps = {
   isOpen: boolean;
-  features: FeatureDefinition[];
   onClose: () => void;
   onCreateRole: (payload: CreateRolePayload) => Promise<CreatedRole>;
 };
 
-const groupFeatures = (features: FeatureDefinition[]) => {
-  const groups = features.reduce<Record<string, FeatureDefinition[]>>((groups, feature) => {
-    groups[feature.group] = [...(groups[feature.group] ?? []), feature];
-    return groups;
-  }, {});
-
-  for (const group of Object.keys(groups)) {
-    groups[group] = groups[group].sort((left, right) => {
-      if (left.status !== right.status) {
-        return left.status === "active" ? -1 : 1;
-      }
-
-      if (Boolean(left.adminOnly) !== Boolean(right.adminOnly)) {
-        return left.adminOnly ? 1 : -1;
-      }
-
-      return left.label.localeCompare(right.label);
-    });
-  }
-
-  return groups;
-};
-
 export default function CreateRoleModal({
   isOpen,
-  features,
   onClose,
   onCreateRole,
 }: CreateRoleModalProps) {
   const [roleName, setRoleName] = useState("");
   const [description, setDescription] = useState("");
-  const [featureKeys, setFeatureKeys] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const groupedFeatures = useMemo(() => groupFeatures(features), [features]);
 
   const resetForm = useCallback(() => {
     setRoleName("");
     setDescription("");
-    setFeatureKeys([]);
     setError("");
     setIsSubmitting(false);
   }, []);
@@ -106,16 +72,6 @@ export default function CreateRoleModal({
 
   const canCreate = Boolean(roleName.trim()) && !isSubmitting;
 
-  const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
-    setFeatureKeys((current) => {
-      if (enabled) {
-        return Array.from(new Set([...current, featureKey]));
-      }
-
-      return current.filter((key) => key !== featureKey);
-    });
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -131,7 +87,6 @@ export default function CreateRoleModal({
       await onCreateRole({
         name: roleName.trim(),
         description: description.trim() || undefined,
-        featureKeys,
       });
       resetForm();
       onClose();
@@ -148,7 +103,7 @@ export default function CreateRoleModal({
       onClick={handleClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-[760px] flex-col overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
+        className="w-full max-w-[520px] overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-role-title"
@@ -160,106 +115,44 @@ export default function CreateRoleModal({
           </h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="space-y-5 overflow-y-auto px-6 py-6">
-            {error ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {error}
-              </div>
-            ) : null}
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="role-name" className="text-sm font-medium text-[#344054]">
-                  Role Name
-                </label>
-                <input
-                  id="role-name"
-                  value={roleName}
-                  onChange={(event) => setRoleName(event.target.value)}
-                  placeholder="e.g., Subject Coordinator"
-                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="role-description" className="text-sm font-medium text-[#344054]">
-                  Description
-                </label>
-                <input
-                  id="role-description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="What this role is responsible for"
-                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
             </div>
+          ) : null}
 
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
-                  Initial Feature Access
-                </h3>
-                <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
-                  Available features can be assigned now. Admin workspace and planned items stay locked.
-                </p>
-              </div>
-
-              {Object.entries(groupedFeatures).map(([group, groupItems]) => (
-                <fieldset key={group} className="space-y-2">
-                  <legend className="text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
-                    {group}
-                  </legend>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {groupItems.map((feature) => {
-                      const isAdminOnly = Boolean(feature.adminOnly);
-                      const isPlanned = feature.status === "planned";
-                      const isDisabled = isAdminOnly || isPlanned;
-
-                      return (
-                        <label
-                          key={feature.key}
-                          className={`grid grid-cols-[16px_1fr] gap-2 rounded-md border border-[var(--color-default)] px-3 py-2 text-sm ${
-                            isDisabled
-                              ? "bg-[#f8fafc] text-[var(--color-low-emphasis)]"
-                              : "cursor-pointer hover:bg-[#ecf8f6]"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={featureKeys.includes(feature.key)}
-                            disabled={isDisabled}
-                            onChange={(event) =>
-                              handleFeatureToggle(feature.key, event.target.checked)
-                            }
-                            className="mt-1 h-4 w-4 rounded border-[#cfd5dd] text-[var(--color-primary)]"
-                          />
-                          <span>
-                            <span className="font-semibold text-[var(--color-high-emphasis)]">
-                              {feature.label}
-                            </span>
-                            {isPlanned ? (
-                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#c2410c]">
-                                Planned
-                              </span>
-                            ) : null}
-                            {isAdminOnly ? (
-                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#64748b]">
-                                Org admin only
-                              </span>
-                            ) : null}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="role-name" className="text-sm font-medium text-[#344054]">
+              Role Name
+            </label>
+            <input
+              id="role-name"
+              value={roleName}
+              onChange={(event) => setRoleName(event.target.value)}
+              placeholder="e.g., Laboratory Coordinator"
+              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+            />
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-[var(--color-default)] px-6 py-4">
+          <div className="space-y-2">
+            <label htmlFor="role-description" className="text-sm font-medium text-[#344054]">
+              Description
+            </label>
+            <textarea
+              id="role-description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={3}
+              placeholder="What this role is responsible for"
+              className="w-full resize-none rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+            />
+            <p className="text-xs text-[var(--color-low-emphasis)]">
+              Features are assigned per account after selecting this role.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-[var(--color-default)] pt-4">
             <button
               type="button"
               onClick={handleClose}

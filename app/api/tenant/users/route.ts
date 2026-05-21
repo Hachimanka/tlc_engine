@@ -6,11 +6,14 @@ import {
   getFeatureKeysForInstitution,
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
-import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
+import {
+  getDefaultFeatureKeysForRole,
+  isDepartmentRequiredRole,
+} from "@/features/tenant-role-catalog";
 import {
   loadTenantContext,
   reconcileInstitutionSystemRoles,
-  replaceRoleFeaturePermissions,
+  replaceOrgUserFeaturePermissions,
 } from "@/lib/tenantAccess";
 import {
   getCustomerConversionEmailConfigError,
@@ -36,6 +39,7 @@ type CreateUserRequest = {
   customRoleName?: string;
   customRoleFeatureKeys?: string[];
   customRoleRequiresDepartment?: boolean;
+  featureKeys?: string[];
   department?: string | null;
   departmentId?: string | null;
   teacherMajor?: string | null;
@@ -131,6 +135,26 @@ const normalizeStringArray = (value: unknown) => {
         .filter((item): item is string => typeof item === "string")
         .map((item) => item.trim().replace(/\s+/g, " "))
         .filter(Boolean),
+    ),
+  );
+};
+
+const normalizeFeatureKeys = (
+  value: unknown,
+  institutionType: Parameters<typeof getAssignableFeatureKeysForInstitution>[0],
+) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const allowedKeys = new Set(getAssignableFeatureKeysForInstitution(institutionType));
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is FeatureKey =>
+          typeof item === "string" && allowedKeys.has(item as FeatureKey),
+      ),
     ),
   );
 };
@@ -412,31 +436,36 @@ export async function GET(req: Request) {
     departments = departmentRows ?? [];
   }
 
-  const roleIds = (roles ?? []).map((role) => role.id);
-  const permissionsByRole = new Map<string, string[]>();
+  const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
+  const userRows = (usersData ?? []) as Array<{
+    id: string;
+    role_id: string;
+    roles?: unknown;
+    role?: unknown;
+  }>;
+  const userIds = userRows.map((user) => user.id).filter(Boolean);
+  const permissionsByUser = new Map<string, string[]>();
 
-  if (roleIds.length > 0) {
+  if (userIds.length > 0) {
     const { data: permissions, error: permissionsError } = await supabaseAdmin
-      .from("role_feature_permissions")
-      .select("role_id, feature_key")
-      .in("role_id", roleIds)
+      .from("org_user_feature_permissions")
+      .select("org_user_id, feature_key")
+      .in("org_user_id", userIds)
       .eq("enabled", true);
 
     if (permissionsError) {
       return NextResponse.json(
-        { error: permissionsError.message || "Failed to load role features." },
+        { error: permissionsError.message || "Failed to load account features." },
         { status: 500 },
       );
     }
 
     for (const permission of permissions ?? []) {
-      const current = permissionsByRole.get(permission.role_id) ?? [];
+      const current = permissionsByUser.get(permission.org_user_id) ?? [];
       current.push(permission.feature_key);
-      permissionsByRole.set(permission.role_id, current);
+      permissionsByUser.set(permission.org_user_id, current);
     }
   }
-
-  const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
 
   return NextResponse.json({
     institutionType: context.institutionType,
@@ -452,7 +481,7 @@ export async function GET(req: Request) {
       featureKeys:
         role.key === "org_admin"
           ? allFeatureKeys
-          : permissionsByRole.get(role.id) ?? [],
+          : getDefaultFeatureKeysForRole(role.key, context.institutionType),
     })),
     departments: departments.map((department) => ({
       id: department.id,
@@ -460,7 +489,23 @@ export async function GET(req: Request) {
       code: department.code ?? null,
       collegeId: department.college_id ?? null,
     })),
-    users: usersData ?? [],
+    users: userRows.map((user) => {
+      const joinedRole = Array.isArray(user.roles)
+        ? user.roles[0]
+        : user.roles ?? user.role;
+      const roleKey =
+        typeof joinedRole === "object" && joinedRole && "key" in joinedRole
+          ? String(joinedRole.key ?? "")
+          : "";
+
+      return {
+        ...user,
+        featureKeys:
+          roleKey === "org_admin"
+            ? allFeatureKeys
+            : permissionsByUser.get(user.id) ?? [],
+      };
+    }),
   });
 }
 
@@ -484,11 +529,9 @@ export async function POST(req: Request) {
   const roleId = payload.roleId?.trim();
   const customRoleName = payload.customRoleName?.trim().replace(/\s+/g, " ");
   const customRoleRequiresDepartment = payload.customRoleRequiresDepartment === true;
-  const allowedCustomFeatureKeys = new Set(
-    getAssignableFeatureKeysForInstitution(context.institutionType),
-  );
-  const customRoleFeatureKeys = (payload.customRoleFeatureKeys ?? []).filter((key) =>
-    allowedCustomFeatureKeys.has(key as FeatureKey),
+  const requestedFeatureKeys = normalizeFeatureKeys(
+    payload.featureKeys ?? payload.customRoleFeatureKeys,
+    context.institutionType,
   );
 
   if (!fullName || (!roleId && !customRoleName)) {
@@ -511,20 +554,12 @@ export async function POST(req: Request) {
   let roleRow: TenantRoleRow | null = null;
 
   if (customRoleName) {
-    if (customRoleFeatureKeys.length === 0) {
-      return NextResponse.json(
-        { error: "Select at least one feature for this custom role." },
-        { status: 400 },
-      );
-    }
-
     try {
       roleRow = await createCustomRole(
         context.org.id,
         customRoleName,
         customRoleRequiresDepartment,
       );
-      await replaceRoleFeaturePermissions(roleRow.id, customRoleFeatureKeys);
     } catch (error) {
       if (roleRow?.id) {
         await deleteCustomRole(roleRow.id);
@@ -560,6 +595,13 @@ export async function POST(req: Request) {
   if (roleRow.key === "org_admin") {
     return NextResponse.json(
       { error: "The protected admin role cannot be assigned from account creation." },
+      { status: 400 },
+    );
+  }
+
+  if (requestedFeatureKeys.length === 0) {
+    return NextResponse.json(
+      { error: "Select at least one feature for this account." },
       { status: 400 },
     );
   }
@@ -710,6 +752,27 @@ export async function POST(req: Request) {
   }
 
   const orgUserRow = orgUserResult.data;
+
+  try {
+    await replaceOrgUserFeaturePermissions(orgUserRow.id, requestedFeatureKeys);
+  } catch (error) {
+    await supabaseAdmin.from("org_users").delete().eq("id", orgUserRow.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    if (customRoleName) {
+      await deleteCustomRole(roleRow.id);
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save account feature access.",
+      },
+      { status: 500 },
+    );
+  }
+
   const loginUrl = buildLoginUrl(req, orgInfo?.slug ?? context.org.slug ?? "institution");
 
   try {
@@ -731,6 +794,7 @@ export async function POST(req: Request) {
       loginUrl,
       user: {
         ...orgUserRow,
+        featureKeys: requestedFeatureKeys,
         role: {
           id: roleRow.id,
           key: roleRow.key,

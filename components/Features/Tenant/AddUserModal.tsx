@@ -14,6 +14,7 @@ export type RoleOption = {
   description?: string | null;
   requiresDepartment?: boolean;
   requires_department?: boolean;
+  featureKeys?: string[];
 };
 
 export type AddUserPayload = {
@@ -21,8 +22,8 @@ export type AddUserPayload = {
   recipientEmail: string;
   roleId?: string;
   customRoleName?: string;
-  customRoleFeatureKeys?: string[];
   customRoleRequiresDepartment?: boolean;
+  featureKeys: string[];
   department?: string | null;
   departmentId?: string | null;
   teacherMajor?: string | null;
@@ -44,6 +45,7 @@ export type CreatedUser = {
   roleKey: string;
   roleName: string;
   description: string;
+  featureKeys?: string[];
 };
 
 export type AddUserResult = {
@@ -156,8 +158,8 @@ export default function AddUserModal({
   const [recipientEmail, setRecipientEmail] = useState("");
   const [roleId, setRoleId] = useState("");
   const [customRoleName, setCustomRoleName] = useState("");
-  const [customRoleFeatureKeys, setCustomRoleFeatureKeys] = useState<string[]>([]);
   const [customRoleRequiresDepartment, setCustomRoleRequiresDepartment] = useState(false);
+  const [featureKeys, setFeatureKeys] = useState<string[]>([]);
   const [department, setDepartment] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [teacherMajor, setTeacherMajor] = useState("");
@@ -208,8 +210,8 @@ export default function AddUserModal({
     setRecipientEmail("");
     setRoleId("");
     setCustomRoleName("");
-    setCustomRoleFeatureKeys([]);
     setCustomRoleRequiresDepartment(false);
+    setFeatureKeys([]);
     setDepartment("");
     setDepartmentId("");
     setTeacherMajor("");
@@ -251,8 +253,9 @@ export default function AddUserModal({
   const canSubmit = Boolean(
     fullName.trim() &&
       (isCustomRole
-        ? customRoleName.trim() && customRoleFeatureKeys.length > 0
+        ? customRoleName.trim()
         : roleId) &&
+      featureKeys.length > 0 &&
       isValidEmail(recipientEmail) &&
       (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
   );
@@ -267,8 +270,8 @@ export default function AddUserModal({
           ? "Department is required for this role."
           : departmentIsRequired && !department.trim()
           ? "Department is required for this role."
-          : isCustomRole && customRoleFeatureKeys.length === 0
-          ? "Select at least one feature for this custom role."
+          : featureKeys.length === 0
+          ? "Select at least one feature for this account."
           : "Please complete all required fields.",
       );
       return;
@@ -285,10 +288,10 @@ export default function AddUserModal({
         customRoleName: isCustomRole
           ? customRoleName.trim().replace(/\s+/g, " ")
           : undefined,
-        customRoleFeatureKeys: isCustomRole ? customRoleFeatureKeys : undefined,
         customRoleRequiresDepartment: isCustomRole
           ? customRoleRequiresDepartment
           : undefined,
+        featureKeys,
         department: hasManagedDepartments
           ? null
           : department.trim()
@@ -322,13 +325,15 @@ export default function AddUserModal({
 
     if (nextRoleId !== customRoleValue) {
       setCustomRoleName("");
-      setCustomRoleFeatureKeys([]);
       setCustomRoleRequiresDepartment(false);
     }
+
+    const nextRole = roles.find((role) => role.id === nextRoleId);
+    setFeatureKeys(nextRole?.featureKeys ?? []);
   };
 
   const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
-    setCustomRoleFeatureKeys((current) => {
+    setFeatureKeys((current) => {
       if (enabled) {
         return Array.from(new Set([...current, featureKey]));
       }
@@ -353,9 +358,7 @@ export default function AddUserModal({
       onClick={handleClose}
     >
       <div
-        className={`w-full overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)] ${
-          isCustomRole ? "max-w-[760px]" : "max-w-[520px]"
-        }`}
+        className="w-full max-w-[760px] overflow-hidden rounded-lg bg-white shadow-[0_14px_40px_rgba(15,23,42,0.22)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-user-title"
@@ -593,77 +596,78 @@ export default function AddUserModal({
                   </span>
                 </label>
 
-                <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
-                      Initial Feature Access
-                    </h3>
-                    <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
-                      Select at least one available feature so this account can enter the workspace after login.
-                    </p>
-                  </div>
-
-                  {assignableFeatures.length === 0 ? (
-                    <div className="rounded-md border border-[var(--color-default)] bg-white px-3 py-4 text-sm text-[var(--color-low-emphasis)]">
-                      No assignable features are available for this institution yet.
-                    </div>
-                  ) : null}
-
-                  {Object.entries(groupedFeatures).map(([group, groupItems]) => (
-                    <fieldset key={group} className="space-y-2">
-                      <legend className="text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
-                        {group}
-                      </legend>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        {groupItems.map((feature) => {
-                          const isSelected = customRoleFeatureKeys.includes(feature.key);
-
-                          return (
-                            <label
-                              key={feature.key}
-                              className={`grid cursor-pointer grid-cols-[18px_1fr] gap-3 rounded-md border px-3 py-2 text-sm transition ${
-                                isSelected
-                                  ? "border-[var(--color-primary)] bg-[#ecf8f6]"
-                                  : "border-[var(--color-default)] bg-white hover:bg-[#ecf8f6]"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(event) =>
-                                  handleFeatureToggle(feature.key, event.target.checked)
-                                }
-                                className="sr-only"
-                              />
-                              <span
-                                className={`mt-1 flex h-4 w-4 items-center justify-center rounded border ${
-                                  isSelected
-                                    ? "border-[var(--color-primary)] bg-[var(--color-primary)]"
-                                    : "border-[#cfd5dd] bg-white"
-                                }`}
-                                aria-hidden="true"
-                              >
-                                {isSelected ? (
-                                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                                ) : null}
-                              </span>
-                              <span>
-                                <span className="font-semibold text-[var(--color-high-emphasis)]">
-                                  {feature.label}
-                                </span>
-                                <span className="mt-0.5 block text-xs leading-5 text-[var(--color-low-emphasis)]">
-                                  {feature.description}
-                                </span>
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
-                  ))}
-                </div>
               </>
             ) : null}
+
+            <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+                  Feature Access <span className="text-[var(--color-primary)]">*</span>
+                </h3>
+                <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+                  Select the features this account can open after login. Role selection only suggests a starting set.
+                </p>
+              </div>
+
+              {assignableFeatures.length === 0 ? (
+                <div className="rounded-md border border-[var(--color-default)] bg-white px-3 py-4 text-sm text-[var(--color-low-emphasis)]">
+                  No assignable features are available for this institution yet.
+                </div>
+              ) : null}
+
+              {Object.entries(groupedFeatures).map(([group, groupItems]) => (
+                <fieldset key={group} className="space-y-2">
+                  <legend className="text-xs font-bold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                    {group}
+                  </legend>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {groupItems.map((feature) => {
+                      const isSelected = featureKeys.includes(feature.key);
+
+                      return (
+                        <label
+                          key={feature.key}
+                          className={`grid cursor-pointer grid-cols-[18px_1fr] gap-3 rounded-md border px-3 py-2 text-sm transition ${
+                            isSelected
+                              ? "border-[var(--color-primary)] bg-[#ecf8f6]"
+                              : "border-[var(--color-default)] bg-white hover:bg-[#ecf8f6]"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(event) =>
+                              handleFeatureToggle(feature.key, event.target.checked)
+                            }
+                            className="sr-only"
+                          />
+                          <span
+                            className={`mt-1 flex h-4 w-4 items-center justify-center rounded border ${
+                              isSelected
+                                ? "border-[var(--color-primary)] bg-[var(--color-primary)]"
+                                : "border-[#cfd5dd] bg-white"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {isSelected ? (
+                              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                            ) : null}
+                          </span>
+                          <span>
+                            <span className="font-semibold text-[var(--color-high-emphasis)]">
+                              {feature.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-[var(--color-low-emphasis)]">
+                              {feature.description}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
 
             <div className="space-y-2">
               <label htmlFor="department" className="text-sm font-medium text-[#344054]">
