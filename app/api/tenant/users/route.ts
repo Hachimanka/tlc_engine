@@ -7,6 +7,8 @@ import {
   getFeaturesForInstitution,
 } from "@/features/tenant-feature-catalog";
 import {
+  isMissingOrgUserFeaturePermissionsError,
+  isMissingRoleLabelError,
   loadTenantContext,
   reconcileInstitutionSystemRoles,
   replaceOrgUserFeaturePermissions,
@@ -158,6 +160,10 @@ const userSelectColumns =
   `id, full_name, email, employee_id, department, department_id, role_label, ${teacherFieldColumns}, status, role_id, created_at, roles(id, key, name)`;
 const legacyUserSelectColumns =
   "id, full_name, email, employee_id, department, department_id, role_label, status, role_id, created_at, roles(id, key, name)";
+const userSelectColumnsWithoutRoleLabel =
+  `id, full_name, email, employee_id, department, department_id, ${teacherFieldColumns}, status, role_id, created_at, roles(id, key, name)`;
+const legacyUserSelectColumnsWithoutRoleLabel =
+  "id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)";
 
 const isMissingTeacherFieldError = (error?: { code?: string; message?: string } | null) => {
   const message = error?.message?.toLowerCase() ?? "";
@@ -361,6 +367,28 @@ export async function GET(req: Request) {
     usersError = legacyUsersResult.error;
   }
 
+  if (isMissingRoleLabelError(usersError)) {
+    const noRoleLabelUsersResult = await supabaseAdmin
+      .from("org_users")
+      .select(userSelectColumnsWithoutRoleLabel)
+      .eq("org_id", context.org.id)
+      .order("created_at", { ascending: false });
+
+    usersData = noRoleLabelUsersResult.data;
+    usersError = noRoleLabelUsersResult.error;
+
+    if (isMissingTeacherFieldError(usersError)) {
+      const legacyNoRoleLabelUsersResult = await supabaseAdmin
+        .from("org_users")
+        .select(legacyUserSelectColumnsWithoutRoleLabel)
+        .eq("org_id", context.org.id)
+        .order("created_at", { ascending: false });
+
+      usersData = legacyNoRoleLabelUsersResult.data;
+      usersError = legacyNoRoleLabelUsersResult.error;
+    }
+  }
+
   if (usersError) {
     return NextResponse.json({ error: usersError.message || "Failed to load users." }, { status: 500 });
   }
@@ -408,7 +436,9 @@ export async function GET(req: Request) {
       .in("org_user_id", userIds)
       .eq("enabled", true);
 
-    if (permissionsError) {
+    if (isMissingOrgUserFeaturePermissionsError(permissionsError)) {
+      permissionsByUser.clear();
+    } else if (permissionsError) {
       return NextResponse.json(
         { error: permissionsError.message || "Failed to load account features." },
         { status: 500 },
@@ -626,7 +656,35 @@ export async function POST(req: Request) {
   const legacyOrgUserInsertPayload = {
     org_id: context.org.id,
     role_id: roleRow.id,
-    role_label: roleLabel,
+    auth_user_id: createdUser.user.id,
+    full_name: fullName,
+    email,
+    employee_id: employeeId,
+    department,
+    department_id: departmentId,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+  };
+  const orgUserInsertPayloadWithoutRoleLabel = {
+    org_id: context.org.id,
+    role_id: roleRow.id,
+    auth_user_id: createdUser.user.id,
+    full_name: fullName,
+    email,
+    employee_id: employeeId,
+    department,
+    department_id: departmentId,
+    teacher_major: teacherMajor,
+    qualified_subjects: qualifiedSubjects,
+    preferred_subject: preferredSubject,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+  };
+  const legacyOrgUserInsertPayloadWithoutRoleLabel = {
+    org_id: context.org.id,
+    role_id: roleRow.id,
     auth_user_id: createdUser.user.id,
     full_name: fullName,
     email,
@@ -650,6 +708,22 @@ export async function POST(req: Request) {
       .insert([legacyOrgUserInsertPayload])
       .select("id, full_name, email, employee_id, department, department_id, role_label, status, role_id, created_at")
       .single();
+  }
+
+  if (isMissingRoleLabelError(orgUserResult.error)) {
+    orgUserResult = await supabaseAdmin
+      .from("org_users")
+      .insert([orgUserInsertPayloadWithoutRoleLabel])
+      .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, status, role_id, created_at")
+      .single();
+
+    if (isMissingTeacherFieldError(orgUserResult.error)) {
+      orgUserResult = await supabaseAdmin
+        .from("org_users")
+        .insert([legacyOrgUserInsertPayloadWithoutRoleLabel])
+        .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+        .single();
+    }
   }
 
   if (orgUserResult.error || !orgUserResult.data) {

@@ -5,6 +5,8 @@ import {
   getFeatureKeysForInstitution,
 } from "@/features/tenant-feature-catalog";
 import {
+  isMissingOrgUserFeaturePermissionsError,
+  isMissingRoleLabelError,
   loadTenantContext,
   replaceOrgUserFeaturePermissions,
 } from "@/lib/tenantAccess";
@@ -128,12 +130,24 @@ export async function PATCH(
 
   const { context } = result;
 
-  const { data: targetUser, error: targetError } = await supabaseAdmin
+  let { data: targetUser, error: targetError } = await supabaseAdmin
     .from("org_users")
     .select("id, org_id, auth_user_id, role_id, role_label, full_name, email, employee_id, department, department_id, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
+
+  if (isMissingRoleLabelError(targetError)) {
+    const fallbackTargetResult = await supabaseAdmin
+      .from("org_users")
+      .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
+      .eq("id", userId)
+      .eq("org_id", context.org.id)
+      .maybeSingle<OrgUserRow>();
+
+    targetUser = fallbackTargetResult.data;
+    targetError = fallbackTargetResult.error;
+  }
 
   if (targetError || !targetUser?.id) {
     return NextResponse.json(
@@ -216,7 +230,7 @@ export async function PATCH(
 
   const now = new Date().toISOString();
 
-  const { data: updatedUser, error: updateError } = await supabaseAdmin
+  let { data: updatedUser, error: updateError } = await supabaseAdmin
     .from("org_users")
     .update({
       full_name: nextFullName,
@@ -230,6 +244,25 @@ export async function PATCH(
     .eq("org_id", context.org.id)
     .select("id, full_name, email, employee_id, department, department_id, role_label, status, role_id, created_at")
     .single();
+
+  if (isMissingRoleLabelError(updateError)) {
+    const fallbackUpdateResult = await supabaseAdmin
+      .from("org_users")
+      .update({
+        full_name: nextFullName,
+        department: nextDepartment,
+        department_id: nextDepartmentId,
+        status: nextStatus,
+        updated_at: now,
+      })
+      .eq("id", targetUser.id)
+      .eq("org_id", context.org.id)
+      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+      .single();
+
+    updatedUser = fallbackUpdateResult.data as typeof updatedUser;
+    updateError = fallbackUpdateResult.error;
+  }
 
   if (updateError || !updatedUser) {
     return NextResponse.json(
@@ -294,7 +327,9 @@ export async function PATCH(
       .eq("org_user_id", targetUser.id)
       .eq("enabled", true);
 
-    if (permissionsError) {
+    if (isMissingOrgUserFeaturePermissionsError(permissionsError)) {
+      responseFeatureKeys = [];
+    } else if (permissionsError) {
       return NextResponse.json(
         { error: permissionsError.message || "Failed to load account features." },
         { status: 500 },

@@ -48,12 +48,12 @@ type DatabaseErrorLike = {
   message?: string;
 };
 
-const isMissingRoleLabelError = (error?: DatabaseErrorLike | null) =>
+export const isMissingRoleLabelError = (error?: DatabaseErrorLike | null) =>
   error?.code === "42703" ||
   error?.message?.toLowerCase().includes("org_users.role_label") ||
   error?.message?.toLowerCase().includes("role_label");
 
-const isMissingOrgUserFeaturePermissionsError = (error?: DatabaseErrorLike | null) =>
+export const isMissingOrgUserFeaturePermissionsError = (error?: DatabaseErrorLike | null) =>
   error?.code === "42P01" ||
   error?.message?.toLowerCase().includes("org_user_feature_permissions");
 
