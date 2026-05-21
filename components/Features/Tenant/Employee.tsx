@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Search, UserPlus } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import AddUserModal, {
   type AddUserPayload,
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
@@ -347,41 +348,29 @@ export default function Employee() {
           />
         </label>
 
-        <label className="relative flex h-10 items-center rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
+        <div>
           <span className="sr-only">Filter by group</span>
-          <select
+          <StyledSelect
             value={groupFilter}
-            onChange={(event) => setGroupFilter(event.target.value)}
-            className="h-full min-w-0 flex-1 appearance-none bg-transparent pr-8 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-          >
-            {groups.map((group) => (
-              <option key={group}>{group}</option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--color-low-emphasis)]"
-            aria-hidden="true"
+            onChange={setGroupFilter}
+            options={groups.map((group) => ({ value: group, label: group }))}
+            className="[&_button]:h-10"
           />
-        </label>
+        </div>
 
-        <label className="relative flex h-10 items-center rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
+        <div>
           <span className="sr-only">Filter by status</span>
-          <select
+          <StyledSelect
             value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as "all" | "active" | "disabled")
-            }
-            className="h-full min-w-0 flex-1 appearance-none bg-transparent pr-8 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--color-low-emphasis)]"
-            aria-hidden="true"
+            onChange={(value) => setStatusFilter(value as "all" | "active" | "disabled")}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "active", label: "Active" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+            className="[&_button]:h-10"
           />
-        </label>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--color-default)] bg-white">

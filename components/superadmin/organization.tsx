@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { buildOrganizationAcronym } from "@/lib/organizationNickname";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
@@ -237,42 +238,39 @@ function AddOrgModal({ onClose, onAdded }: {
 					<div className="grid grid-cols-2 gap-4">
 						<div>
 							<FormLabel label="Subscription Plan" />
-							<select
-								className={inputCls("subscription_plan")}
+							<StyledSelect
 								value={form.subscription_plan}
-								onChange={e => setForm(f => ({ ...f, subscription_plan: e.target.value }))}
-							>
-								{PLAN_OPTIONS.map(p => (
-									<option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-								))}
-							</select>
+								onChange={value => setForm(f => ({ ...f, subscription_plan: value }))}
+								options={PLAN_OPTIONS.map(p => ({
+									value: p,
+									label: p.charAt(0).toUpperCase() + p.slice(1),
+								}))}
+							/>
 						</div>
 						<div>
 							<FormLabel label="Status" />
-							<select
-								className={inputCls("status")}
+							<StyledSelect
 								value={form.status}
-								onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-							>
-								{STATUS_OPTIONS.map(s => (
-									<option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-								))}
-							</select>
+								onChange={value => setForm(f => ({ ...f, status: value }))}
+								options={STATUS_OPTIONS.map(s => ({
+									value: s,
+									label: s.charAt(0).toUpperCase() + s.slice(1),
+								}))}
+							/>
 						</div>
 					</div>
 
 					{/* Subscription Status */}
 					<div>
 						<FormLabel label="Subscription Status" />
-						<select
-							className={inputCls("subscription_status")}
+						<StyledSelect
 							value={form.subscription_status}
-							onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value }))}
-						>
-							{STATUS_OPTIONS.map(s => (
-								<option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-							))}
-						</select>
+							onChange={value => setForm(f => ({ ...f, subscription_status: value }))}
+							options={STATUS_OPTIONS.map(s => ({
+								value: s,
+								label: s.charAt(0).toUpperCase() + s.slice(1),
+							}))}
+						/>
 					</div>
 
 					{/* Subscription Dates */}

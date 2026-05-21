@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactElement } from "react";
 import Image from "next/image";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 import { AppIcon } from "@/public/icons";
 
@@ -66,10 +67,14 @@ export default function RequestDemoModal({
 
 	const handleChange = (
 		e: React.ChangeEvent<
-			HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+			HTMLInputElement | HTMLTextAreaElement
 		>,
 	) => {
 		const { name, value } = e.target;
+		setFormData((prev) => ({ ...prev, [name]: value }));
+	};
+
+	const handleSelectChange = (name: keyof typeof formData, value: string) => {
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
@@ -229,38 +234,24 @@ export default function RequestDemoModal({
 								<label htmlFor="rolePosition" className="text-label-input text-[#364153]">
 									Role/Position
 								</label>
-								<select
-									id="rolePosition"
-									name="rolePosition"
+								<StyledSelect
 									value={formData.rolePosition}
-									onChange={handleChange}
-									className="text-body-small h-10 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-[var(--color-high-emphasis)] shadow-level-1"
-								>
-									{roleOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("rolePosition", value)}
+									options={roleOptions}
+									className="[&_button]:h-10"
+								/>
 							</div>
 
 							<div className="space-y-2">
 								<label htmlFor="institutionSize" className="text-label-input text-[#364153]">
 									Institution Size
 								</label>
-								<select
-									id="institutionSize"
-									name="institutionSize"
+								<StyledSelect
 									value={formData.institutionSize}
-									onChange={handleChange}
-									className="text-body-small h-10 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-[var(--color-high-emphasis)] shadow-level-1"
-								>
-									{institutionSizeOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("institutionSize", value)}
+									options={institutionSizeOptions}
+									className="[&_button]:h-10"
+								/>
 							</div>
 						</section>
 

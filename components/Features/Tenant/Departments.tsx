@@ -15,6 +15,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -176,19 +177,18 @@ function PersonLine({
       </div>
 
       {onDepartmentChange ? (
-        <select
+        <StyledSelect
           value={selectedDepartmentId ?? ""}
-          onChange={(event) => onDepartmentChange(event.target.value)}
-          className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-          aria-label={`Department for ${person.fullName}`}
-        >
-          <option value="">Select department</option>
-          {departments.map((department) => (
-            <option key={department.id} value={department.id}>
-              {formatUnitName(department)}
-            </option>
-          ))}
-        </select>
+          onChange={onDepartmentChange}
+          options={[
+            { value: "", label: "Select department" },
+            ...departments.map((department) => ({
+              value: department.id,
+              label: formatUnitName(department),
+            })),
+          ]}
+          className="[&_button]:h-10"
+        />
       ) : (
         <div />
       )}
@@ -592,19 +592,19 @@ export default function Departments() {
     label: string,
     emptyLabel: string,
   ) => (
-    <select
+    <StyledSelect
       value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-      aria-label={label}
-    >
-      <option value="">{emptyLabel}</option>
-      {candidates.map((person) => (
-        <option key={person.id} value={person.id}>
-          {person.fullName} - {person.roleName}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      placeholder={label}
+      options={[
+        { value: "", label: emptyLabel },
+        ...candidates.map((person) => ({
+          value: person.id,
+          label: `${person.fullName} - ${person.roleName}`,
+        })),
+      ]}
+      className="[&_button]:h-10"
+    />
   );
 
   const getAvailableLeaderCandidates = (candidates: Person[], currentUserId?: string | null) =>
@@ -739,24 +739,23 @@ export default function Departments() {
             {isAddingPersonnel ? (
               <div className="px-4 py-4">
                 <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                  <select
+                  <StyledSelect
                     value={selectedAssignment}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setAssignmentDrafts((current) => ({
                         ...current,
-                        [department.id]: event.target.value,
+                        [department.id]: value,
                       }))
                     }
-                    className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                    aria-label={`Assign personnel to ${department.name}`}
-                  >
-                    <option value="">Add personnel</option>
-                    {assignablePeople.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.fullName} - {person.roleName}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "", label: "Add personnel" },
+                      ...assignablePeople.map((person) => ({
+                        value: person.id,
+                        label: `${person.fullName} - ${person.roleName}`,
+                      })),
+                    ]}
+                    className="[&_button]:h-10"
+                  />
                   <button
                     type="button"
                     disabled={!selectedAssignment || Boolean(savingKey)}
@@ -1159,24 +1158,23 @@ export default function Departments() {
               <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
                 College
               </span>
-              <select
+              <StyledSelect
                 value={departmentDraft.collegeId}
-                onChange={(event) =>
+                onChange={(value) =>
                   setDepartmentDraft((current) => ({
                     ...current,
-                    collegeId: event.target.value,
+                    collegeId: value,
                   }))
                 }
-                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-                aria-label="Department college"
-              >
-                <option value="">Unassigned college</option>
-                {colleges.map((college) => (
-                  <option key={college.id} value={college.id}>
-                    {formatUnitName(college)}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "Unassigned college" },
+                  ...colleges.map((college) => ({
+                    value: college.id,
+                    label: formatUnitName(college),
+                  })),
+                ]}
+                className="mt-1"
+              />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-low-emphasis)]">
@@ -1345,24 +1343,23 @@ export default function Departments() {
             />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <select
+            <StyledSelect
               value={departmentForm.collegeId}
-              onChange={(event) =>
+              onChange={(value) =>
                 setDepartmentForm((current) => ({
                   ...current,
-                  collegeId: event.target.value,
+                  collegeId: value,
                 }))
               }
-              className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
-              aria-label="Department college"
-            >
-              <option value="">Unassigned college</option>
-              {colleges.map((college) => (
-                <option key={college.id} value={college.id}>
-                  {formatUnitName(college)}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Unassigned college" },
+                ...colleges.map((college) => ({
+                  value: college.id,
+                  label: formatUnitName(college),
+                })),
+              ]}
+              className="[&_button]:h-10"
+            />
             {renderLeaderSelect(
               departmentForm.chairUserId,
               (value) =>

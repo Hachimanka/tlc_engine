@@ -65,6 +65,14 @@ export default function RoomManagementPage() {
 		[rooms, selectedRoomId],
 	);
 
+	const buildingOptions = useMemo(
+		() =>
+			Array.from(new Set(rooms.map((room) => room.building).filter(Boolean))).sort((left, right) =>
+				left.localeCompare(right),
+			),
+		[rooms],
+	);
+
 	const selectedScheduleRows = selectedRoom
 		? (scheduleRowsByRoom[selectedRoom.id] ?? [])
 		: [];
@@ -95,6 +103,16 @@ export default function RoomManagementPage() {
 		}
 
 		const currentRows = scheduleRowsByRoom[selectedRoom.id] ?? [];
+		const startMinutes = timeToMinutes(values.timeStart);
+		const endMinutes = timeToMinutes(values.timeEnd);
+		const minStart = timeToMinutes("07:30");
+		const maxEnd = timeToMinutes("18:00");
+
+		if (startMinutes < minStart || endMinutes > maxEnd) {
+			setAssignSubjectError("Schedule time must be between 07:30 AM and 06:00 PM.");
+			return;
+		}
+
 		if (hasScheduleConflict(currentRows, values)) {
 			setAssignSubjectError("This room already has a subject scheduled during that time.");
 			return;
@@ -132,6 +150,7 @@ export default function RoomManagementPage() {
 				isOpen={modalState !== null}
 				mode={modalState?.mode ?? "create"}
 				initialValues={modalState?.mode === "edit" ? modalState.room : null}
+				buildingOptions={buildingOptions}
 				onClose={() => setModalState(null)}
 				onSubmit={handleSubmitRoom}
 			/>

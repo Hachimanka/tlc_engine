@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import StyledSelect, {
+	type StyledSelectOption,
+} from "@/components/Global/StyledSelect";
 
 export type AssignSubjectValues = {
 	department: string;
@@ -49,6 +52,9 @@ const emptyValues: AssignSubjectValues = {
 	day: "monday",
 };
 
+const toSelectOptions = (options: string[]): StyledSelectOption[] =>
+	options.map((option) => ({ value: option, label: option }));
+
 export default function AssignSubjectModal({
 	isOpen,
 	errorMessage,
@@ -91,8 +97,21 @@ export default function AssignSubjectModal({
 		};
 	}, [handleClose, isOpen]);
 
-	const handleChange = (event: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+	const toMinutes = (time: string) => {
+		const [hour = "0", minute = "0"] = time.split(":");
+		return Number(hour) * 60 + Number(minute);
+	};
+
+	const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = event.target;
+		setFormValues((prev) => ({
+			...prev,
+			[name]: value,
+		}));
+		setErrors((prev) => ({ ...prev, [name]: undefined }));
+	};
+
+	const handleSelectChange = (name: keyof AssignSubjectValues, value: string) => {
 		setFormValues((prev) => ({
 			...prev,
 			[name]: value,
@@ -104,12 +123,21 @@ export default function AssignSubjectModal({
 	const validate = () => {
 		const nextErrors: FormErrors = {};
 
+		const minStart = toMinutes("07:30");
+		const maxEnd = toMinutes("18:00");
+
 		if (!formValues.department) nextErrors.department = "Department is required.";
 		if (!formValues.subject) nextErrors.subject = "Subject is required.";
 		if (!formValues.timeStart) nextErrors.timeStart = "Start time is required.";
 		if (!formValues.timeEnd) nextErrors.timeEnd = "End time is required.";
 		if (formValues.timeStart && formValues.timeEnd && formValues.timeEnd <= formValues.timeStart) {
 			nextErrors.timeEnd = "End time must be after start time.";
+		}
+		if (formValues.timeStart && toMinutes(formValues.timeStart) < minStart) {
+			nextErrors.timeStart = "Start time must be 07:30 AM or later.";
+		}
+		if (formValues.timeEnd && toMinutes(formValues.timeEnd) > maxEnd) {
+			nextErrors.timeEnd = "End time must be 06:00 PM or earlier.";
 		}
 		if (!formValues.day) nextErrors.day = "Day is required.";
 
@@ -168,32 +196,22 @@ export default function AssignSubjectModal({
 						) : null}
 
 						<Field label="Department" error={errors.department} required>
-							<select
-								name="department"
+							<StyledSelect
 								value={formValues.department}
-								onChange={handleChange}
-								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-							>
-								<option value="">Select department</option>
-								{Object.keys(subjectsByDepartment).map((department) => (
-									<option key={department} value={department}>{department}</option>
-								))}
-							</select>
+								onChange={(value) => handleSelectChange("department", value)}
+								options={toSelectOptions(Object.keys(subjectsByDepartment))}
+								placeholder="Select department"
+							/>
 						</Field>
 
 						<Field label="Subject" error={errors.subject} required>
-							<select
-								name="subject"
+							<StyledSelect
 								value={formValues.subject}
-								onChange={handleChange}
 								disabled={!formValues.department}
-								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis)]"
-							>
-								<option value="">Select subject</option>
-								{subjectOptions.map((subject) => (
-									<option key={subject} value={subject}>{subject}</option>
-								))}
-							</select>
+								onChange={(value) => handleSelectChange("subject", value)}
+								options={toSelectOptions(subjectOptions)}
+								placeholder="Select subject"
+							/>
 						</Field>
 
 						<Field label="Time Start" error={errors.timeStart} required>
@@ -217,16 +235,11 @@ export default function AssignSubjectModal({
 						</Field>
 
 						<Field label="Day of the Week" error={errors.day} required>
-							<select
-								name="day"
+							<StyledSelect
 								value={formValues.day}
-								onChange={handleChange}
-								className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-							>
-								{dayOptions.map((day) => (
-									<option key={day.value} value={day.value}>{day.label}</option>
-								))}
-							</select>
+								onChange={(value) => handleSelectChange("day", value as AssignSubjectValues["day"])}
+								options={dayOptions}
+							/>
 						</Field>
 					</div>
 
@@ -263,12 +276,12 @@ function Field({
 	children: ReactNode;
 }) {
 	return (
-		<label className="space-y-2 text-sm font-medium text-[var(--color-high-emphasis)]">
+		<div className="space-y-2 text-sm font-medium text-[var(--color-high-emphasis)]">
 			<span>
 				{label} {required ? <span className="text-[#f04444]">*</span> : null}
 			</span>
 			{children}
 			{error ? <p className="text-xs text-[#f04444]">{error}</p> : null}
-		</label>
+		</div>
 	);
 }

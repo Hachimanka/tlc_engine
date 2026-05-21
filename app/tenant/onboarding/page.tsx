@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
@@ -844,13 +845,15 @@ export default function TenantOnboardingPage() {
 												</div>
 												<div>
 													<label className={labelCls}>Duration</label>
-													<select className={inputCls} value={prog.duration}
-														onChange={e => setPrograms(prev => prev.map((p, idx) => idx === i ? { ...p, duration: e.target.value } : p))}>
-														<option value="2">2 years</option>
-														<option value="3">3 years</option>
-														<option value="4">4 years</option>
-														<option value="5">5 years</option>
-													</select>
+													<StyledSelect value={prog.duration}
+														onChange={value => setPrograms(prev => prev.map((p, idx) => idx === i ? { ...p, duration: value } : p))}
+														options={[
+															{ value: "2", label: "2 years" },
+															{ value: "3", label: "3 years" },
+															{ value: "4", label: "4 years" },
+															{ value: "5", label: "5 years" },
+														]}
+														className="[&_button]:h-10" />
 												</div>
 											</div>
 										</div>
@@ -1000,13 +1003,10 @@ export default function TenantOnboardingPage() {
 												</div>
 												<div>
 													<label className={labelCls}>NC Level</label>
-													<select className={inputCls} value={q.ncLevel}
-														onChange={e => setQualifications(prev => prev.map((item, idx) => idx === i ? { ...item, ncLevel: e.target.value } : item))}>
-														<option>NC I</option>
-														<option>NC II</option>
-														<option>NC III</option>
-														<option>NC IV</option>
-													</select>
+													<StyledSelect value={q.ncLevel}
+														onChange={value => setQualifications(prev => prev.map((item, idx) => idx === i ? { ...item, ncLevel: value } : item))}
+														options={["NC I", "NC II", "NC III", "NC IV"].map((level) => ({ value: level, label: level }))}
+														className="[&_button]:h-10" />
 												</div>
 												<div>
 													<label className={labelCls}>Duration (hours)</label>
@@ -1113,13 +1113,13 @@ export default function TenantOnboardingPage() {
 												"Qualification / Course"}
 											</label>
 											{departments.length > 0 && institutionType === "higher_ed" ? (
-												<select className={inputCls} value={instForm.department}
-													onChange={e => setInstForm(p => ({ ...p, department: e.target.value }))}>
-													<option value="">Select</option>
-													{departments.filter(d => d.name).map(d => (
-														<option key={d.name} value={d.name}>{d.name}</option>
-													))}
-												</select>
+												<StyledSelect value={instForm.department}
+													onChange={value => setInstForm(p => ({ ...p, department: value }))}
+													options={[
+														{ value: "", label: "Select" },
+														...departments.filter(d => d.name).map(d => ({ value: d.name, label: d.name })),
+													]}
+													className="[&_button]:h-10" />
 											) : (
 												<input className={inputCls} value={instForm.department}
 													onChange={e => setInstForm(p => ({ ...p, department: e.target.value }))}
@@ -1326,12 +1326,14 @@ export default function TenantOnboardingPage() {
 														onChange={e => setPassingGrade(e.target.value)} min="50" max="100" />
 												</Field>
 												<Field label="Grading Scale">
-													<select className={inputCls} value={gradingScale}
-														onChange={e => setGradingScale(e.target.value)}>
-														<option value="percentage">Percentage (0-100)</option>
-														<option value="gwa">GWA (1.0-5.0)</option>
-														<option value="letter">Letter Grade (A-F)</option>
-													</select>
+													<StyledSelect value={gradingScale}
+														onChange={setGradingScale}
+														options={[
+															{ value: "percentage", label: "Percentage (0-100)" },
+															{ value: "gwa", label: "GWA (1.0-5.0)" },
+															{ value: "letter", label: "Letter Grade (A-F)" },
+														]}
+														className="[&_button]:h-10" />
 												</Field>
 											</div>
 
