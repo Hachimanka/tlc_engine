@@ -9,7 +9,6 @@ import AddUserModal, {
   type RoleOption,
 } from "./AddUserModal";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
