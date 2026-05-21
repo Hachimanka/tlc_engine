@@ -74,10 +74,7 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
     key: "vpaa",
     name: "VPAA",
     description: "Reviews final academic approvals and monitors teaching load schedules.",
-    featureKeys: [
-      "higher-dean-vpaa-approvals",
-      "higher-teaching-load-view",
-    ],
+    featureKeys: ["higher-dean-vpaa-approvals", "higher-teaching-load-view"],
   },
   {
     key: "dean",
@@ -94,10 +91,7 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
     key: "department_head",
     name: "Department Head / Program Chair",
     description: "Manages program faculty loads and reviews teaching schedules.",
-    featureKeys: [
-      "higher-faculty-load-assignment",
-      "higher-teaching-load-view",
-    ],
+    featureKeys: ["higher-faculty-load-assignment", "higher-teaching-load-view"],
   },
   {
     key: "subject_manager",
@@ -115,10 +109,7 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
     key: "load_manager",
     name: "Load Manager",
     description: "Assigns faculty teaching load and reviews assigned schedules.",
-    featureKeys: [
-      "higher-faculty-load-assignment",
-      "higher-teaching-load-view",
-    ],
+    featureKeys: ["higher-faculty-load-assignment", "higher-teaching-load-view"],
   },
   {
     key: "faculty",
@@ -128,9 +119,26 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
   },
 ];
 
-const legacyRoleTargets: Partial<
-  Record<Exclude<InstitutionType, null>, Record<string, string>>
-> = {
+const tesdaSystemRoles: SystemRoleDefinition[] = [
+  orgAdminRole,
+  {
+    key: "tesda_trainer",
+    name: "TESDA Trainer",
+    description:
+      "Manages training calendars, teaching load, trainee progress, and competency assessments.",
+    featureKeys: [
+      "tesda-training-batches",
+      "tesda-trainers",
+      "tesda-training-hours-compliance",
+      "tesda-qualifications",
+      "tesda-trainee-records",
+      "tesda-competency-assessment",
+      "tesda-assessment-results",
+    ],
+  },
+];
+
+const legacyRoleTargets: Partial<Record<Exclude<InstitutionType, null>, Record<string, string>>> = {
   deped: {
     dean: "school_head",
     vpaa: "school_head",
@@ -147,6 +155,12 @@ const legacyRoleTargets: Partial<
     dean: "dean",
     vpaa: "vpaa",
     load_manager: "load_manager",
+  },
+  tesda: {
+    trainer: "tesda_trainer",
+    facilitator: "tesda_trainer",
+    assessor: "tesda_trainer",
+    training_manager: "tesda_trainer",
   },
 };
 
@@ -188,6 +202,10 @@ export function getSystemRoleDefinitionsForInstitution(
     return higherEdSystemRoles;
   }
 
+  if (normalizedType === "tesda") {
+    return tesdaSystemRoles;
+  }
+
   return getBootstrapSystemRoleDefinitions();
 }
 
@@ -215,17 +233,15 @@ export function getDefaultFeatureKeysForRole(
     return getFeatureKeysForInstitution(institutionType);
   }
 
-  const roleDefinition = getSystemRoleDefinitionsForInstitution(
-    institutionType,
-  ).find((role) => role.key === normalizedRole);
+  const roleDefinition = getSystemRoleDefinitionsForInstitution(institutionType).find(
+    (role) => role.key === normalizedRole,
+  );
 
   if (!roleDefinition) {
     return [];
   }
 
-  const assignableKeys = new Set(
-    getAssignableFeatureKeysForInstitution(institutionType),
-  );
+  const assignableKeys = new Set(getAssignableFeatureKeysForInstitution(institutionType));
 
   return roleDefinition.featureKeys.filter((key) => assignableKeys.has(key));
 }

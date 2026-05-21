@@ -5,12 +5,12 @@ import SubjectTable from "@/components/Features/Deped/manage-subject/components/
 import SubjectManagementForm, {
   type SubjectFormValues,
 } from "@/components/Features/Deped/manage-subject/components/SubjectManagementForm";
-import { initialSubjectRows, type SubjectRow } from "@/components/Features/Deped/manage-subject/components/SubjectTable";
+import { type SubjectRow } from "@/components/Features/Deped/manage-subject/components/SubjectTable";
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import { ICON_SVGS } from "@/public/icons";
 
 export default function TenantPage() {
-  const [subjectRows, setSubjectRows] = useState<SubjectRow[]>(initialSubjectRows);
+  const [subjectRows, setSubjectRows] = useState<SubjectRow[]>([]);
   const [isCreateSubjectOpen, setIsCreateSubjectOpen] = useState(false);
 
   const handleCreateSubject = (values: SubjectFormValues) => {
@@ -21,7 +21,7 @@ export default function TenantPage() {
         department: values.department,
         yearLevel: values.yearLevel,
         classDuration: values.classDuration,
-        dateCreated: new Date().toLocaleDateString("en-US"),
+        dateCreated: values.dateCreated,
         status: "Pending",
         description: values.description,
       },

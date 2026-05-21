@@ -18,71 +18,38 @@ type SubjectTableProps = {
 	onCreateSubjectClick: () => void;
 };
 
-export const initialSubjectRows: SubjectRow[] = [
-	{
-		id: "sub-1",
-		subjectTitle: "Filipino",
-		department: "Filipino Department",
-		yearLevel: "Grade 7",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
-	{
-		id: "sub-2",
-		subjectTitle: "Filipino",
-		department: "Filipino Department",
-		yearLevel: "Grade 8",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
-	{
-		id: "sub-3",
-		subjectTitle: "English",
-		department: "English Department",
-		yearLevel: "Grade 9",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Approved",
-		description: "Description",
-	},
-	{
-		id: "sub-4",
-		subjectTitle: "MAPEH",
-		department: "MAPEH Department",
-		yearLevel: "Grade 7",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Rejected",
-		description: "Description",
-	},
-	{
-		id: "sub-5",
-		subjectTitle: "Math",
-		department: "Math Department",
-		yearLevel: "Grade 10",
-		classDuration: "45 minutes",
-		dateCreated: "3/20/2026",
-		status: "Pending",
-		description: "Description",
-	},
+const departmentOptions = [
+	"All Department",
+	"Filipino Department",
+	"English Department",
+	"Math Department",
+	"Science Department",
+	"TLE Department",
+	"ESP Department",
+	"Araling Panlipunan Department",
+	"Physical Education Department",
+	"Senior High Department",
 ];
 
-const initialDepartmentOptions = ["All Department", ...new Set(initialSubjectRows.map((row) => row.department))];
-const initialYearLevelOptions = ["All Level", ...new Set(initialSubjectRows.map((row) => row.yearLevel))];
+const yearLevelOptions = [
+	"All Level",
+	"Grade 7",
+	"Grade 8",
+	"Grade 9",
+	"Grade 10",
+	"Grade 11",
+	"Grade 12",
+];
 
 function getStatusClass(status: SubjectRow["status"]) {
 	switch (status) {
 		case "Approved":
-			return "text-[var(--color-primary)]";
+			return "bg-[#ecfdf5] text-[var(--color-primary)] ring-[#b7e4d3]";
 		case "Rejected":
-			return "text-[#f04444]";
+			return "bg-[#fff1f2] text-[#d92d20] ring-[#fecdd3]";
 		case "Pending":
 		default:
-			return "text-[#f59e0b]";
+			return "bg-[#fffbeb] text-[#b54708] ring-[#fedf89]";
 	}
 }
 
@@ -90,9 +57,6 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 	const [searchTerm, setSearchTerm] = useState("");
 	const [departmentFilter, setDepartmentFilter] = useState("All Department");
 	const [yearLevelFilter, setYearLevelFilter] = useState("All Level");
-
-	const departmentOptions = initialDepartmentOptions;
-	const yearLevelOptions = initialYearLevelOptions;
 
 	const filteredRows = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -103,6 +67,9 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 				row.subjectTitle.toLowerCase().includes(normalizedSearch) ||
 				row.department.toLowerCase().includes(normalizedSearch) ||
 				row.yearLevel.toLowerCase().includes(normalizedSearch) ||
+				row.classDuration.toLowerCase().includes(normalizedSearch) ||
+				row.dateCreated.toLowerCase().includes(normalizedSearch) ||
+				row.status.toLowerCase().includes(normalizedSearch) ||
 				row.description.toLowerCase().includes(normalizedSearch);
 			const matchesDepartment =
 				departmentFilter === "All Department" || row.department === departmentFilter;
@@ -225,7 +192,7 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 				<div className="overflow-x-auto">
 					<table className="min-w-full border-collapse text-left">
 						<thead>
-							<tr>
+						<tr>
 								<th className="bg-[var(--color-primary)] px-4 py-3 text-[12px] font-semibold tracking-wide text-white">
 									Subject Title
 								</th>
@@ -250,7 +217,33 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-							{filteredRows.map((row) => (
+							{filteredRows.length === 0 ? (
+								<tr>
+									<td colSpan={7} className="px-6 py-12 text-center">
+										<div className="mx-auto flex max-w-sm flex-col items-center gap-3">
+											<div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ecf8f6] text-[var(--color-primary)]">
+												<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+													<path
+														d="M7 4H17C18.1046 4 19 4.89543 19 6V20L12 16.5L5 20V6C5 4.89543 5.89543 4 7 4Z"
+														stroke="currentColor"
+														strokeWidth="1.8"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+													/>
+												</svg>
+											</div>
+											<div>
+												<p className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+													No subjects yet
+												</p>
+												<p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+													Create a DepEd subject to add it to this manager.
+												</p>
+											</div>
+										</div>
+									</td>
+								</tr>
+							) : filteredRows.map((row) => (
 								<tr key={row.id} className="bg-white">
 									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
 										{row.subjectTitle}
@@ -267,11 +260,13 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
 										{row.dateCreated}
 									</td>
-									<td className={`px-4 py-3 text-[12px] font-medium ${getStatusClass(row.status)}`}>
-										{row.status}
+									<td className="px-4 py-3 text-[12px]">
+										<span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${getStatusClass(row.status)}`}>
+											{row.status}
+										</span>
 									</td>
 									<td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-										{row.description}
+										{row.description || "-"}
 									</td>
 								</tr>
 							))}

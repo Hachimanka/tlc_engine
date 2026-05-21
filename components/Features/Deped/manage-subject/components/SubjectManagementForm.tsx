@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 export type SubjectFormValues = {
 	subjectTitle: string;
 	department: string;
 	yearLevel: string;
 	classDuration: string;
+	dateCreated: string;
 	description: string;
 };
 
@@ -18,23 +19,28 @@ type SubjectManagementFormProps = {
 
 type FormErrors = Partial<Record<keyof SubjectFormValues, string>>;
 
-const initialFormValues: SubjectFormValues = {
+const getTodayDateInputValue = () => new Date().toISOString().slice(0, 10);
+
+const createInitialFormValues = (): SubjectFormValues => ({
 	subjectTitle: "",
 	department: "",
 	yearLevel: "",
 	classDuration: "",
+	dateCreated: getTodayDateInputValue(),
 	description: "",
-};
+});
 
 const departmentOptions = [
 	{ value: "", label: "Select Department" },
 	{ value: "Filipino Department", label: "Filipino" },
 	{ value: "English Department", label: "English" },
 	{ value: "Math Department", label: "Math" },
-	{ value: "MAPEH Department", label: "MAPEH" },
 	{ value: "Science Department", label: "Science" },
-	{ value: "AP Department", label: "AP" },
+	{ value: "TLE Department", label: "TLE" },
 	{ value: "ESP Department", label: "ESP" },
+	{ value: "Araling Panlipunan Department", label: "Araling Panlipunan" },
+	{ value: "Physical Education Department", label: "Physical Education" },
+	{ value: "Senior High Department", label: "Senior High Department" },
 ];
 
 const yearLevelOptions = [
@@ -47,15 +53,30 @@ const yearLevelOptions = [
 	{ value: "Grade 12", label: "Grade 12" },
 ];
 
-export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: SubjectManagementFormProps) {
-	const [formValues, setFormValues] = useState(initialFormValues);
+const formatDisplayDate = (dateValue: string) => {
+	if (!dateValue) {
+		return "";
+	}
+
+	const date = new Date(`${dateValue}T00:00:00`);
+	return Number.isNaN(date.getTime())
+		? dateValue
+		: date.toLocaleDateString("en-US");
+};
+
+export default function SubjectManagementForm({
+	isOpen,
+	onClose,
+	onSubmit,
+}: SubjectManagementFormProps) {
+	const [formValues, setFormValues] = useState<SubjectFormValues>(createInitialFormValues);
 	const [errors, setErrors] = useState<FormErrors>({});
 
-	const handleCancel = () => {
-		setFormValues(initialFormValues);
+	const handleCancel = useCallback(() => {
+		setFormValues(createInitialFormValues());
 		setErrors({});
 		onClose();
-	};
+	}, [onClose]);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -67,7 +88,7 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") {
-				onClose();
+				handleCancel();
 			}
 		};
 
@@ -77,9 +98,11 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 			document.body.style.overflow = previousOverflow;
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [isOpen, onClose]);
+	}, [handleCancel, isOpen]);
 
-	const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+	const handleChange = (
+		event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+	) => {
 		const { name, value } = event.target;
 		setFormValues((prev) => ({ ...prev, [name]: value }));
 		setErrors((prev) => ({ ...prev, [name]: undefined }));
@@ -100,12 +123,15 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 			nextErrors.yearLevel = "Year level is required.";
 		}
 
+		const durationMinutes = Number(formValues.classDuration);
 		if (!formValues.classDuration.trim()) {
 			nextErrors.classDuration = "Class duration is required.";
+		} else if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+			nextErrors.classDuration = "Enter a valid duration in minutes.";
 		}
 
-		if (!formValues.description.trim()) {
-			nextErrors.description = "Description is required.";
+		if (!formValues.dateCreated) {
+			nextErrors.dateCreated = "Date created is required.";
 		}
 
 		setErrors(nextErrors);
@@ -123,11 +149,12 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 			subjectTitle: formValues.subjectTitle.trim(),
 			department: formValues.department,
 			yearLevel: formValues.yearLevel,
-			classDuration: formValues.classDuration.trim(),
+			classDuration: `${Number(formValues.classDuration)} minutes`,
+			dateCreated: formatDisplayDate(formValues.dateCreated),
 			description: formValues.description.trim(),
 		});
 
-		setFormValues(initialFormValues);
+		setFormValues(createInitialFormValues());
 		setErrors({});
 	};
 
@@ -136,21 +163,30 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 	}
 
 	return (
-		<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={handleCancel}>
+		<div
+			className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[1px]"
+			onClick={handleCancel}
+		>
 			<div
-				className="flex max-h-[92vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-2xl bg-white shadow-level-2"
+				className="flex max-h-[92vh] w-full max-w-[880px] flex-col overflow-hidden rounded-2xl bg-white shadow-level-2"
 				onClick={(event) => event.stopPropagation()}
 			>
-				<div className="flex items-start justify-between border-b border-[var(--color-default)] px-6 py-5">
+				<div className="flex items-start justify-between bg-[var(--color-primary)] px-6 py-5 text-white">
 					<div>
-						<h2 className="text-[20px] font-medium text-[var(--color-high-emphasis)]">Create Subject</h2>
+						<p className="text-xs font-semibold uppercase tracking-wide text-white/75">
+							DepEd subject manager
+						</p>
+						<h2 className="mt-1 text-[22px] font-semibold leading-tight">Create Subject</h2>
+						<p className="mt-1 text-sm text-white/75">
+							Add the subject details used by this workspace.
+						</p>
 					</div>
 
 					<button
 						type="button"
 						onClick={handleCancel}
 						aria-label="Close modal"
-						className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-low-emphasis)] transition-colors hover:bg-[var(--color-default)] hover:text-[var(--color-high-emphasis)]"
+						className="flex h-9 w-9 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/70"
 					>
 						<span aria-hidden="true" className="text-xl leading-none">
 							×
@@ -159,106 +195,153 @@ export default function SubjectManagementForm({ isOpen, onClose, onSubmit }: Sub
 				</div>
 
 				<form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-					<div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
-						<div className="space-y-2">
-							<label htmlFor="subjectTitle" className="text-sm font-medium text-[var(--color-high-emphasis)]">
-								Subject Title <span className="text-[#f04444]">*</span>
-							</label>
-							<input
-								id="subjectTitle"
-								name="subjectTitle"
-								value={formValues.subjectTitle}
-								onChange={handleChange}
-								placeholder="e.g., Filipino"
-								className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)]"
-							/>
-							{errors.subjectTitle ? <p className="text-xs text-[#f04444]">{errors.subjectTitle}</p> : null}
-						</div>
+					<div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+						<div className="grid gap-5 md:grid-cols-2">
+							<div className="space-y-2">
+								<label
+									htmlFor="subjectTitle"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Subject Title <span className="text-[#f04444]">*</span>
+								</label>
+								<input
+									id="subjectTitle"
+									name="subjectTitle"
+									value={formValues.subjectTitle}
+									onChange={handleChange}
+									placeholder="e.g., Filipino"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								/>
+								{errors.subjectTitle ? (
+									<p className="text-xs text-[#f04444]">{errors.subjectTitle}</p>
+								) : null}
+							</div>
 
-						<div className="space-y-2">
-							<label htmlFor="department" className="text-sm font-medium text-[var(--color-high-emphasis)]">
-								Department <span className="text-[#f04444]">*</span>
-							</label>
-							<select
-								id="department"
-								name="department"
-								value={formValues.department}
-								onChange={handleChange}
-								className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)]"
-							>
-								{departmentOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-							{errors.department ? <p className="text-xs text-[#f04444]">{errors.department}</p> : null}
-						</div>
+							<div className="space-y-2">
+								<label
+									htmlFor="department"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Department <span className="text-[#f04444]">*</span>
+								</label>
+								<select
+									id="department"
+									name="department"
+									value={formValues.department}
+									onChange={handleChange}
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								>
+									{departmentOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+								{errors.department ? (
+									<p className="text-xs text-[#f04444]">{errors.department}</p>
+								) : null}
+							</div>
 
-						<div className="space-y-2">
-							<label htmlFor="yearLevel" className="text-sm font-medium text-[var(--color-high-emphasis)]">
-								Year Level <span className="text-[#f04444]">*</span>
-							</label>
-							<select
-								id="yearLevel"
-								name="yearLevel"
-								value={formValues.yearLevel}
-								onChange={handleChange}
-								className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none focus:border-[var(--color-primary)]"
-							>
-								{yearLevelOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-							{errors.yearLevel ? <p className="text-xs text-[#f04444]">{errors.yearLevel}</p> : null}
-						</div>
+							<div className="space-y-2">
+								<label
+									htmlFor="yearLevel"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Year Level <span className="text-[#f04444]">*</span>
+								</label>
+								<select
+									id="yearLevel"
+									name="yearLevel"
+									value={formValues.yearLevel}
+									onChange={handleChange}
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								>
+									{yearLevelOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+								{errors.yearLevel ? (
+									<p className="text-xs text-[#f04444]">{errors.yearLevel}</p>
+								) : null}
+							</div>
 
-						<div className="space-y-2">
-							<label htmlFor="classDuration" className="text-sm font-medium text-[var(--color-high-emphasis)]">
-								Class Duration <span className="text-[#f04444]">*</span>
-							</label>
-							<input
-								id="classDuration"
-								name="classDuration"
-								value={formValues.classDuration}
-								onChange={handleChange}
-								placeholder="e.g., 45 minutes"
-								className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)]"
-							/>
-							{errors.classDuration ? <p className="text-xs text-[#f04444]">{errors.classDuration}</p> : null}
-						</div>
+							<div className="space-y-2">
+								<label
+									htmlFor="classDuration"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Class Duration <span className="text-[#f04444]">*</span>
+								</label>
+								<input
+									id="classDuration"
+									name="classDuration"
+									type="number"
+									min="1"
+									inputMode="numeric"
+									value={formValues.classDuration}
+									onChange={handleChange}
+									placeholder="e.g., 45"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								/>
+								{errors.classDuration ? (
+									<p className="text-xs text-[#f04444]">{errors.classDuration}</p>
+								) : null}
+							</div>
 
-						<div className="space-y-2">
-							<label htmlFor="description" className="text-sm font-medium text-[var(--color-high-emphasis)]">
-								Description
-							</label>
-							<textarea
-								id="description"
-								name="description"
-								value={formValues.description}
-								onChange={handleChange}
-								placeholder="Brief description of the request"
-								className="h-12 w-full resize-none rounded-md border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)]"
-							/>
-							{errors.description ? <p className="text-xs text-[#f04444]">{errors.description}</p> : null}
+							<div className="space-y-2">
+								<label
+									htmlFor="dateCreated"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Date Created <span className="text-[#f04444]">*</span>
+								</label>
+								<input
+									id="dateCreated"
+									name="dateCreated"
+									type="date"
+									value={formValues.dateCreated}
+									onChange={handleChange}
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								/>
+								{errors.dateCreated ? (
+									<p className="text-xs text-[#f04444]">{errors.dateCreated}</p>
+								) : null}
+							</div>
+
+							<div className="space-y-2 md:col-span-2">
+								<label
+									htmlFor="description"
+									className="text-sm font-medium text-[var(--color-high-emphasis)]"
+								>
+									Description
+								</label>
+								<textarea
+									id="description"
+									name="description"
+									value={formValues.description}
+									onChange={handleChange}
+									placeholder="Brief description of the subject"
+									className="min-h-[96px] w-full resize-y rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+								/>
+							</div>
 						</div>
 					</div>
 
-					<div className="flex items-center justify-end gap-3 border-t border-[var(--color-default)] px-6 py-5">
+					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[#fbfefd] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
 						<button
 							type="button"
 							onClick={handleCancel}
-							className="min-w-[160px] rounded-md border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6]"
+							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
-							className="min-w-[280px] rounded-md bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-light-primary)]"
+							className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[220px]"
 						>
-							Submit for approval
+							Create Subject
 						</button>
 					</div>
 				</form>

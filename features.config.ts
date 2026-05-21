@@ -6,7 +6,7 @@ import {
   type InstitutionType,
 } from "@/features/tenant-feature-catalog";
 
-export type TenantType = "Deped" | "College";
+export type TenantType = "Deped" | "College" | "Tesda";
 export type FeatureRole = string;
 
 export type FeatureSidebarItem = {
@@ -25,6 +25,10 @@ export const tenantTypeToInstitutionType = (
 
   if (tenantType === "College") {
     return "higher_ed";
+  }
+
+  if (tenantType === "Tesda") {
+    return "tesda";
   }
 
   return null;

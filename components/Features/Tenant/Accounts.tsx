@@ -8,7 +8,6 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
@@ -109,6 +108,45 @@ const formatDate = (value?: string | null) => {
 const roleRequiresDepartment = (role?: AccountRole | null) =>
   Boolean(role?.requiresDepartment ?? role?.requires_department) ||
   isDepartmentRequiredRole(role?.key);
+
+function AccountsTableSkeleton() {
+  const cellWidths = ["w-24", "w-36", "w-44", "w-40", "w-48", "w-16", "w-24", "w-28"];
+
+  return (
+    <div className="overflow-x-auto" role="status" aria-label="Loading accounts table">
+      <span className="sr-only">Loading accounts table</span>
+      <table className="min-w-full border-collapse text-left">
+        <thead className="bg-[var(--color-primary)] text-white">
+          <tr>
+            <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
+            <th className="px-4 py-3 text-xs font-semibold">Name</th>
+            <th className="px-4 py-3 text-xs font-semibold">Email</th>
+            <th className="px-4 py-3 text-xs font-semibold">Department</th>
+            <th className="px-4 py-3 text-xs font-semibold">Role</th>
+            <th className="px-4 py-3 text-xs font-semibold">Status</th>
+            <th className="px-4 py-3 text-xs font-semibold">Created</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--color-default)] bg-white">
+          {[0, 1, 2, 3].map((rowIndex) => (
+            <tr key={rowIndex} className="animate-pulse">
+              {cellWidths.map((width, cellIndex) => (
+                <td key={`${rowIndex}-${cellIndex}`} className="px-4 py-4">
+                  <div
+                    className={`h-4 rounded bg-[#c8e5e1] ${
+                      cellIndex === cellWidths.length - 1 ? "ml-auto" : ""
+                    } ${width}`}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function FieldRow({
   label,
@@ -671,16 +709,6 @@ export default function Accounts() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading accounts"
-        useStoredBranding
-      />
-    );
-  }
-
   if (loadError) {
     return (
       <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
@@ -805,7 +833,9 @@ export default function Accounts() {
       </section>
 
       <section className="overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        {filteredUsers.length === 0 ? (
+        {isLoading ? (
+          <AccountsTableSkeleton />
+        ) : filteredUsers.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-[var(--color-low-emphasis)]">
             No accounts match the current filters.
           </div>
