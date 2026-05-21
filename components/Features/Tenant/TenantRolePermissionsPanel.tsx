@@ -63,6 +63,57 @@ const normalizeJoinedRole = (role: unknown) => {
   return role as { id?: string; key?: string; name?: string } | undefined;
 };
 
+function FeatureAccessSkeleton() {
+  const skeletonColor = "bg-[#c8e5e1]";
+
+  return (
+    <section
+      className="flex min-h-0 flex-1 flex-col"
+      role="status"
+      aria-label="Loading feature access"
+    >
+      <span className="sr-only">Loading feature access</span>
+      <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-5">
+        <div className="flex animate-pulse flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className={`h-6 w-72 max-w-full rounded ${skeletonColor}`} />
+            <div className={`h-4 w-[520px] max-w-full rounded ${skeletonColor}`} />
+            <div className="flex flex-wrap gap-2 pt-1">
+              <div className={`h-8 w-24 rounded-full ${skeletonColor}`} />
+              <div className={`h-8 w-36 rounded-full ${skeletonColor}`} />
+              <div className={`h-8 w-24 rounded-full ${skeletonColor}`} />
+            </div>
+          </div>
+          <div className={`h-8 w-28 rounded-full ${skeletonColor}`} />
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+        <div className="animate-pulse space-y-7">
+          {[0, 1].map((groupIndex) => (
+            <div key={groupIndex} className="space-y-3">
+              <div className={`h-4 w-36 rounded ${skeletonColor}`} />
+              <div className="grid gap-3 xl:grid-cols-2">
+                {[0, 1, 2, 3].map((itemIndex) => (
+                  <div
+                    key={`${groupIndex}-${itemIndex}`}
+                    className={`min-h-[116px] rounded-lg ${skeletonColor}`}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex animate-pulse items-center justify-between gap-3 border-t border-[var(--color-default)] px-5 py-4">
+        <div className={`h-9 w-[620px] max-w-full rounded ${skeletonColor}`} />
+        <div className="h-12 w-36 shrink-0 rounded-md bg-[#9fc8c2]" />
+      </div>
+    </section>
+  );
+}
+
 export default function TenantRolePermissionsPanel() {
   const [roles, setRoles] = useState<RoleAccess[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
@@ -79,6 +130,9 @@ export default function TenantRolePermissionsPanel() {
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [activePanelTab, setActivePanelTab] = useState<RolePanelTab>("features");
   const [isRoleUsersLoading, setIsRoleUsersLoading] = useState(false);
+  const [isFeatureAccessLoading, setIsFeatureAccessLoading] = useState(false);
+  const selectedRoleIdRef = useRef("");
+  const featureAccessTimerRef = useRef<number | null>(null);
   const roleUsersTimerRef = useRef<number | null>(null);
 
   const selectedRole = useMemo(
@@ -180,7 +234,7 @@ export default function TenantRolePermissionsPanel() {
     });
 
     const nextSelectedRole =
-      nextRoles.find((role) => role.id === selectedRoleId) ??
+      nextRoles.find((role) => role.id === selectedRoleIdRef.current) ??
       nextRoles.find((role) => role.key !== "org_admin") ??
       nextRoles[0] ??
       null;
@@ -189,11 +243,12 @@ export default function TenantRolePermissionsPanel() {
     setRoles(nextRoles);
     setUsers(nextUsers);
     setSelectedRoleId(nextSelectedRole?.id ?? "");
+    selectedRoleIdRef.current = nextSelectedRole?.id ?? "";
     setRoleNameDraft(nextSelectedRole?.name ?? "");
     setRoleDescriptionDraft(nextSelectedRole?.description ?? "");
     setFeatureKeysDraft(nextSelectedRole?.featureKeys ?? []);
     setIsLoading(false);
-  }, [selectedRoleId]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -204,6 +259,9 @@ export default function TenantRolePermissionsPanel() {
     return () => {
       if (roleUsersTimerRef.current !== null) {
         window.clearTimeout(roleUsersTimerRef.current);
+      }
+      if (featureAccessTimerRef.current !== null) {
+        window.clearTimeout(featureAccessTimerRef.current);
       }
     };
   }, []);
@@ -216,16 +274,39 @@ export default function TenantRolePermissionsPanel() {
     if (roleUsersTimerRef.current !== null) {
       window.clearTimeout(roleUsersTimerRef.current);
     }
+    if (featureAccessTimerRef.current !== null) {
+      window.clearTimeout(featureAccessTimerRef.current);
+    }
 
+    setIsFeatureAccessLoading(true);
     setIsRoleUsersLoading(true);
     setSelectedRoleId(role.id);
+    selectedRoleIdRef.current = role.id;
     setRoleNameDraft(role.name);
     setRoleDescriptionDraft(role.description ?? "");
     setFeatureKeysDraft(role.featureKeys);
+    featureAccessTimerRef.current = window.setTimeout(() => {
+      setIsFeatureAccessLoading(false);
+      featureAccessTimerRef.current = null;
+    }, 450);
     roleUsersTimerRef.current = window.setTimeout(() => {
       setIsRoleUsersLoading(false);
       roleUsersTimerRef.current = null;
     }, 450);
+  };
+
+  const handleOpenFeatureAccessForUser = (user: TenantUser) => {
+    const userRole = roles.find((role) => role.id === user.roleId);
+
+    if (userRole && userRole.id !== selectedRoleId) {
+      setSelectedRoleId(userRole.id);
+      selectedRoleIdRef.current = userRole.id;
+      setRoleNameDraft(userRole.name);
+      setRoleDescriptionDraft(userRole.description ?? "");
+      setFeatureKeysDraft(userRole.featureKeys);
+    }
+
+    setActivePanelTab("features");
   };
 
   const handleFeatureToggle = (featureKey: FeatureKey, enabled: boolean) => {
@@ -338,16 +419,6 @@ export default function TenantRolePermissionsPanel() {
       isSystem: nextRole.isSystem,
     };
   };
-
-  if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading roles"
-        useStoredBranding
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -515,7 +586,9 @@ export default function TenantRolePermissionsPanel() {
           </div>
         </div>
 
-        {activePanelTab === "features" ? (
+        {activePanelTab === "features" && (isLoading || isFeatureAccessLoading) ? (
+          <FeatureAccessSkeleton />
+        ) : activePanelTab === "features" ? (
           <Permission
             selectedRole={selectedRole}
             features={features}
@@ -561,7 +634,21 @@ export default function TenantRolePermissionsPanel() {
                   </thead>
                   <tbody className="divide-y divide-[var(--color-default)] bg-white">
                     {selectedRoleUsers.map((user) => (
-                      <tr key={user.id}>
+                      <tr
+                        key={user.id}
+                        role="button"
+                        tabIndex={0}
+                        title={`Edit feature access for ${user.fullName}`}
+                        aria-label={`Edit feature access for ${user.fullName}`}
+                        onClick={() => handleOpenFeatureAccessForUser(user)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleOpenFeatureAccessForUser(user);
+                          }
+                        }}
+                        className="cursor-pointer transition hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] focus:outline-none"
+                      >
                         <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">
                           {user.employeeId || "-"}
                         </td>

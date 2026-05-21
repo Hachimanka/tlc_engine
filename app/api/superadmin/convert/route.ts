@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getBootstrapSystemRoleDefinitions } from "@/features/tenant-role-catalog";
+import {
+  getCustomerConversionEmailConfigError,
+  sendCustomerConversionEmail,
+} from "@/lib/customerConversionEmail";
 import { buildOrganizationAcronym } from "@/lib/organizationNickname";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -16,6 +20,8 @@ type ConvertRequest = {
   subscriptionStart?: string;
   subscriptionEnd?: string;
 };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const slugify = (value: string) =>
   value
@@ -36,6 +42,46 @@ const generateTempPassword = () => {
   const base = randomBytes(8).toString("hex");
   const mix = randomBytes(4).toString("base64").replace(/[^a-zA-Z0-9]/g, "");
   return `Tlc!${base}${mix.slice(0, 3)}`;
+};
+
+const getRequestOrigin = (req: Request) => {
+  const explicitOrigin = req.headers.get("origin")?.trim();
+
+  if (explicitOrigin) {
+    return explicitOrigin.replace(/\/+$/, "");
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
+  const host = forwardedHost || req.headers.get("host")?.trim();
+
+  if (host) {
+    const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
+    const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https");
+    return `${protocol}://${host}`.replace(/\/+$/, "");
+  }
+
+  return new URL(req.url).origin.replace(/\/+$/, "");
+};
+
+const buildLoginUrl = (req: Request, slug: string) =>
+  `${getRequestOrigin(req)}/login?slug=${encodeURIComponent(slug)}`;
+
+const rollbackCustomerConversion = async ({
+  authUserId,
+  orgId,
+}: {
+  authUserId?: string;
+  orgId?: string;
+}) => {
+  if (orgId) {
+    await supabaseAdmin.from("org_users").delete().eq("org_id", orgId);
+    await supabaseAdmin.from("roles").delete().eq("org_id", orgId);
+    await supabaseAdmin.from("organizations").delete().eq("id", orgId);
+  }
+
+  if (authUserId) {
+    await supabaseAdmin.auth.admin.deleteUser(authUserId);
+  }
 };
 
 export async function POST(req: Request) {
@@ -75,6 +121,21 @@ export async function POST(req: Request) {
 
   const orgName = (demoRequest.institution_name || "Organization").trim();
   const requesterName = (demoRequest.full_name || "admin").trim();
+  const requesterEmail = (demoRequest.email || "").trim().toLowerCase();
+
+  if (!EMAIL_PATTERN.test(requesterEmail)) {
+    return NextResponse.json(
+      { error: "Demo request email is missing or invalid." },
+      { status: 400 },
+    );
+  }
+
+  const emailConfigError = getCustomerConversionEmailConfigError();
+
+  if (emailConfigError) {
+    return NextResponse.json({ error: emailConfigError }, { status: 500 });
+  }
+
   const slug = slugify(orgName);
   const acronym = buildOrganizationAcronym(orgName);
   const namePart = buildNamePart(requesterName);
@@ -159,17 +220,20 @@ export async function POST(req: Request) {
     .select("id, key");
 
   if (rolesError || !createdRoles?.length) {
-    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
-    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    await rollbackCustomerConversion({
+      authUserId: createdUser.user.id,
+      orgId: createdOrg.id,
+    });
     return NextResponse.json({ error: rolesError?.message || "Failed to seed roles." }, { status: 500 });
   }
 
   const adminRole = createdRoles.find((role) => role.key === "org_admin");
 
   if (!adminRole) {
-    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
-    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
-    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    await rollbackCustomerConversion({
+      authUserId: createdUser.user.id,
+      orgId: createdOrg.id,
+    });
     return NextResponse.json({ error: "Failed to resolve admin role." }, { status: 500 });
   }
 
@@ -190,9 +254,10 @@ export async function POST(req: Request) {
     ]);
 
   if (orgUserError) {
-    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
-    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
-    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    await rollbackCustomerConversion({
+      authUserId: createdUser.user.id,
+      orgId: createdOrg.id,
+    });
     return NextResponse.json({ error: orgUserError.message || "Failed to create org admin." }, { status: 500 });
   }
 
@@ -212,10 +277,62 @@ export async function POST(req: Request) {
   );
 
   if (metadataError) {
-    await supabaseAdmin.from("roles").delete().eq("org_id", createdOrg.id);
-    await supabaseAdmin.from("organizations").delete().eq("id", createdOrg.id);
-    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    await rollbackCustomerConversion({
+      authUserId: createdUser.user.id,
+      orgId: createdOrg.id,
+    });
     return NextResponse.json({ error: metadataError.message || "Failed to update admin metadata." }, { status: 500 });
+  }
+
+  const loginUrl = buildLoginUrl(req, slug);
+  let emailResult: { id: string | null; sentTo: string };
+
+  try {
+    emailResult = await sendCustomerConversionEmail({
+      to: requesterEmail,
+      requesterName,
+      orgName,
+      adminEmail,
+      tempPassword,
+      loginUrl,
+      plan,
+      subscriptionStart,
+      subscriptionEnd,
+    });
+  } catch (error) {
+    await rollbackCustomerConversion({
+      authUserId: createdUser.user.id,
+      orgId: createdOrg.id,
+    });
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Email delivery failed.";
+
+    await tryCreateSuperAdminActivityLog(auth.user, {
+      action: "conversion email failed",
+      target: orgName,
+      targetType: "demo_request",
+      status: "failed",
+      metadata: {
+        demo_request_id: demoRequestId,
+        admin_email: adminEmail,
+        email_recipient: requesterEmail,
+        subscription_plan: plan,
+        subscription_start: subscriptionStart,
+        subscription_end: subscriptionEnd,
+        rollback: true,
+        error: message,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        error: `Customer was not created because the account email could not be sent. ${message}`,
+      },
+      { status: 502 },
+    );
   }
 
   const { error: updateError } = await supabaseAdmin
@@ -236,6 +353,8 @@ export async function POST(req: Request) {
       demo_request_id: demoRequestId,
       organization_id: createdOrg.id,
       admin_email: adminEmail,
+      email_recipient: emailResult.sentTo,
+      email_delivery_id: emailResult.id,
       subscription_plan: plan,
       subscription_start: subscriptionStart,
       subscription_end: subscriptionEnd,
@@ -248,6 +367,9 @@ export async function POST(req: Request) {
     adminEmail,
     tempPassword,
     slug,
+    loginUrl,
+    emailSentTo: emailResult.sentTo,
+    emailDeliveryId: emailResult.id,
     warning,
   });
 }
