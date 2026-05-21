@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import { isMissingRoleLabelError, loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -63,7 +63,7 @@ const normalizeJoinedRole = (role: unknown) => {
 };
 
 async function loadHierarchy(orgId: string) {
-  const [collegeResult, departmentResult, userResult] = await Promise.all([
+  const [collegeResult, departmentResult, initialUserResult] = await Promise.all([
     supabaseAdmin
       .from("org_colleges")
       .select("id, name, code, dean_user_id, sort_order, created_at, updated_at")
@@ -78,10 +78,34 @@ async function loadHierarchy(orgId: string) {
       .order("name", { ascending: true }),
     supabaseAdmin
       .from("org_users")
-      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)")
+      .select("id, full_name, email, employee_id, department, department_id, role_label, status, role_id, created_at, roles(id, key, name)")
       .eq("org_id", orgId)
       .order("full_name", { ascending: true }),
   ]);
+  let userResult: {
+    data: Array<{
+      id: string;
+      full_name: string;
+      email: string;
+      employee_id?: string | null;
+      department?: string | null;
+      department_id?: string | null;
+      role_label?: string | null;
+      status?: string | null;
+      role_id: string;
+      created_at?: string | null;
+      roles?: unknown;
+    }> | null;
+    error: { code?: string; message?: string } | null;
+  } = initialUserResult;
+
+  if (isMissingRoleLabelError(userResult.error)) {
+    userResult = await supabaseAdmin
+      .from("org_users")
+      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)")
+      .eq("org_id", orgId)
+      .order("full_name", { ascending: true });
+  }
 
   if (collegeResult.error) {
     throw new Error(collegeResult.error.message || "Failed to load colleges.");
@@ -111,7 +135,7 @@ async function loadHierarchy(orgId: string) {
         status: user.status ?? "active",
         roleId: user.role_id,
         roleKey: role?.key ?? "",
-        roleName: role?.name ?? "Unassigned",
+        roleName: user.role_label ?? role?.name ?? "Unassigned",
         createdAt: user.created_at ?? null,
       };
     }),
