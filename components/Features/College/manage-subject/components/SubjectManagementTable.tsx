@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, Plus, Search, X } from "lucide-react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 type SubjectStatus =
@@ -324,18 +325,15 @@ export default function SubjectManagementTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Department <span className="text-red-500">*</span>
                   </span>
-                  <select
+                  <StyledSelect
                     value={form.department}
-                    onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))}
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    <option value="">Select Department</option>
-                    {departmentSelectOptions.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((current) => ({ ...current, department: value }))}
+                    options={[
+                      { value: "", label: "Select Department" },
+                      ...departmentSelectOptions.map((department) => ({ value: department, label: department })),
+                    ]}
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1">
@@ -356,17 +354,12 @@ export default function SubjectManagementTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Year Level
                   </span>
-                  <select
+                  <StyledSelect
                     value={form.level}
-                    onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))}
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    {levelSelectOptions.map((level) => (
-                      <option key={level} value={level}>
-                        {level}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((current) => ({ ...current, level: value }))}
+                    options={levelSelectOptions.map((level) => ({ value: level, label: level }))}
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1">
@@ -446,31 +439,19 @@ export default function SubjectManagementTable() {
             />
           </label>
 
-          <select
+          <StyledSelect
             value={departmentFilter}
-            onChange={(event) => setDepartmentFilter(event.target.value)}
-            className="h-10 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by department"
-          >
-            {departmentOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={setDepartmentFilter}
+            options={departmentOptions.map((option) => ({ value: option, label: option }))}
+            className="min-w-[180px] [&_button]:h-10"
+          />
 
-          <select
+          <StyledSelect
             value={levelFilter}
-            onChange={(event) => setLevelFilter(event.target.value)}
-            className="h-10 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by year level"
-          >
-            {levelOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={setLevelFilter}
+            options={levelOptions.map((option) => ({ value: option, label: option }))}
+            className="min-w-[160px] [&_button]:h-10"
+          />
 
           {canSubmitSubject ? (
             <button

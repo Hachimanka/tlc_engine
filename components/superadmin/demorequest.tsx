@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
@@ -21,6 +22,9 @@ type ConversionResult = {
 	adminEmail: string;
 	tempPassword: string;
 	slug: string;
+	loginUrl: string;
+	emailSentTo: string;
+	emailDeliveryId?: string | null;
 	warning?: string;
 };
 
@@ -253,15 +257,11 @@ function AddDemoModal({ onClose, onAdded }: {
 						</div>
 						<div>
 							<FormLabel label="Institution Size" />
-							<select
-								className={inputCls("institution_size")}
+							<StyledSelect
 								value={form.institution_size}
-								onChange={e => setForm(f => ({ ...f, institution_size: e.target.value }))}
-							>
-								{INSTITUTION_SIZES.map(s => (
-									<option key={s} value={s}>{s} employees</option>
-								))}
-							</select>
+								onChange={value => setForm(f => ({ ...f, institution_size: value }))}
+								options={INSTITUTION_SIZES.map(s => ({ value: s, label: `${s} employees` }))}
+							/>
 						</div>
 					</div>
 
@@ -290,15 +290,11 @@ function AddDemoModal({ onClose, onAdded }: {
 					{/* Status */}
 					<div>
 						<FormLabel label="Status" />
-						<select
-							className={inputCls("status")}
+						<StyledSelect
 							value={form.status}
-							onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-						>
-							{STATUS_OPTIONS.filter(o => o.value !== "").map(opt => (
-								<option key={opt.value} value={opt.value}>{opt.label}</option>
-							))}
-						</select>
+							onChange={value => setForm(f => ({ ...f, status: value }))}
+							options={STATUS_OPTIONS.filter(o => o.value !== "")}
+						/>
 					</div>
 
 					{/* Message */}
@@ -499,6 +495,9 @@ export default function DemoRequestTable() {
 				adminEmail: payload.adminEmail,
 				tempPassword: payload.tempPassword,
 				slug: payload.slug,
+				loginUrl: payload.loginUrl,
+				emailSentTo: payload.emailSentTo,
+				emailDeliveryId: payload.emailDeliveryId,
 				warning: payload.warning,
 			});
 
@@ -522,7 +521,7 @@ export default function DemoRequestTable() {
 
 	const selectedLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
 	const loginUrl = conversionResult?.slug
-		? `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
+		? conversionResult.loginUrl || `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
 		: "";
 
 	return (
@@ -784,6 +783,11 @@ export default function DemoRequestTable() {
 						<p className="text-sm text-gray-500 mt-1">
 							Admin account created for <span className="font-semibold text-gray-700">{selectedRequest?.institution_name}</span>.
 						</p>
+						{conversionResult.emailSentTo && (
+							<p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+								Account details were emailed to <span className="font-semibold">{conversionResult.emailSentTo}</span>.
+							</p>
+						)}
 
 						<div className="mt-4 space-y-3">
 							<div>

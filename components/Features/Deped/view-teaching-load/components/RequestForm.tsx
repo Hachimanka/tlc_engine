@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { AppIcon } from "@/public/icons";
 
 type RequestFormProps = {
@@ -73,9 +74,13 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 	}
 
 	const handleChange = (
-		e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement>,
+		e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
 	) => {
 		const { name, value } = e.target;
+		setFormData((prev) => ({ ...prev, [name]: value }));
+	};
+
+	const handleSelectChange = (name: keyof FormData, value: string) => {
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
@@ -129,38 +134,24 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 							<label htmlFor="subjectConcerned" className="text-label-input text-[#364153]">
 								Subject Concerned
 							</label>
-							<select
-								id="subjectConcerned"
-								name="subjectConcerned"
+							<StyledSelect
 								value={formData.subjectConcerned}
-								onChange={handleChange}
-								className="text-body-small h-10 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-[var(--color-high-emphasis)] shadow-level-1"
-							>
-								{subjectOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
+								onChange={(value) => handleSelectChange("subjectConcerned", value)}
+								options={subjectOptions}
+								className="[&_button]:h-10"
+							/>
 						</div>
 
 						<div className="space-y-2">
 							<label htmlFor="requestType" className="text-label-input text-[#364153]">
 								Type of Request
 							</label>
-							<select
-								id="requestType"
-								name="requestType"
+							<StyledSelect
 								value={formData.requestType}
-								onChange={handleChange}
-								className="text-body-small h-10 w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 text-[var(--color-high-emphasis)] shadow-level-1"
-							>
-								{requestTypeOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
+								onChange={(value) => handleSelectChange("requestType", value)}
+								options={requestTypeOptions}
+								className="[&_button]:h-10"
+							/>
 						</div>
 
 						<div className="space-y-2">

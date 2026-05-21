@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 export type SubjectRow = {
 	id: string;
@@ -113,61 +114,22 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-2">
-						<div className="relative flex items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-low-emphasis)]">
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 24 24"
-								fill="none"
-								className="h-4 w-4 shrink-0 text-[var(--color-low-emphasis)]"
-							>
-								<path
-									d="M4 6H20M7 12H17M10 18H14"
-									stroke="currentColor"
-									strokeWidth="1.8"
-									strokeLinecap="round"
-								/>
-							</svg>
-							<select
+						<div className="min-w-[220px]">
+							<StyledSelect
 								value={departmentFilter}
-								onChange={(event) => setDepartmentFilter(event.target.value)}
-								className="appearance-none bg-transparent pr-6 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-							>
-								{departmentOptions.map((option) => (
-									<option key={option} value={option}>
-										{option}
-									</option>
-								))}
-							</select>
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 24 24"
-								fill="none"
-								className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--color-low-emphasis)]"
-							>
-								<path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-							</svg>
+								onChange={setDepartmentFilter}
+								options={departmentOptions.map((option) => ({ value: option, label: option }))}
+								className="[&_button]:h-10"
+							/>
 						</div>
 
-						<div className="relative flex items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-low-emphasis)]">
-							<select
+						<div className="min-w-[160px]">
+							<StyledSelect
 								value={yearLevelFilter}
-								onChange={(event) => setYearLevelFilter(event.target.value)}
-								className="appearance-none bg-transparent pr-6 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-							>
-								{yearLevelOptions.map((option) => (
-									<option key={option} value={option}>
-										{option}
-									</option>
-								))}
-							</select>
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 24 24"
-								fill="none"
-								className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--color-low-emphasis)]"
-							>
-								<path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-							</svg>
+								onChange={setYearLevelFilter}
+								options={yearLevelOptions.map((option) => ({ value: option, label: option }))}
+								className="[&_button]:h-10"
+							/>
 						</div>
 
 						<button

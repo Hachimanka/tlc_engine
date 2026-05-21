@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 type SubjectFormData = {
   title: string;
@@ -34,11 +35,15 @@ export default function CreateSubjectForm({ onClose, onSave }: Props) {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     const numFields = ["lecHours", "labHours", "units"];
     setForm((prev) => ({ ...prev, [name]: numFields.includes(name) ? Number(value) : value }));
+  };
+
+  const handleSelectChange = (name: keyof typeof form, value: string) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = () => {
@@ -88,17 +93,17 @@ export default function CreateSubjectForm({ onClose, onSave }: Props) {
         {/* Department */}
         <div>
           <label className="block text-sm font-medium text-[#1F2125] mb-1">Department *</label>
-          <select
-            name="department"
+          <StyledSelect
             value={form.department}
-            onChange={handleChange}
-            className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30"
-          >
-            <option value="">Select Department</option>
-            <option>Computer Engineering</option>
-            <option>Civil Engineering</option>
-            <option>Electrical Engineering</option>
-          </select>
+            onChange={(value) => handleSelectChange("department", value)}
+            options={[
+              { value: "", label: "Select Department" },
+              { value: "Computer Engineering", label: "Computer Engineering" },
+              { value: "Civil Engineering", label: "Civil Engineering" },
+              { value: "Electrical Engineering", label: "Electrical Engineering" },
+            ]}
+            className="[&_button]:h-10"
+          />
         </div>
 
         {/* Units */}

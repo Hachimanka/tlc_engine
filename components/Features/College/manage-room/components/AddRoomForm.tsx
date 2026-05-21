@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 type Room = {
   id?: number;
@@ -32,9 +33,13 @@ export default function AddRoomForm({ room, onClose, onSave }: Props) {
     if (room) setForm(room);
   }, [room]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: name === "capacity" ? Number(value) : value }));
+  };
+
+  const handleSelectChange = (name: "type" | "status", value: string) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = () => {
@@ -94,31 +99,31 @@ export default function AddRoomForm({ room, onClose, onSave }: Props) {
             </div>
             <div>
               <label className="block text-sm font-medium text-[#1F2125] mb-1">Room Type</label>
-              <select
-                name="type"
+              <StyledSelect
                 value={form.type}
-                onChange={handleChange}
-                className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30"
-              >
-                <option>Lecture</option>
-                <option>Laboratory</option>
-                <option>Seminar</option>
-              </select>
+                onChange={(value) => handleSelectChange("type", value)}
+                options={[
+                  { value: "Lecture", label: "Lecture" },
+                  { value: "Laboratory", label: "Laboratory" },
+                  { value: "Seminar", label: "Seminar" },
+                ]}
+                className="[&_button]:h-10 [&_button]:bg-[#F3F3F1]"
+              />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-[#1F2125] mb-1">Status</label>
-            <select
-              name="status"
+            <StyledSelect
               value={form.status}
-              onChange={handleChange}
-              className="w-full border border-[#C5EEEA] rounded-md px-3 py-2 text-sm bg-[#F3F3F1] focus:outline-none focus:ring-2 focus:ring-[#006B5F]/30"
-            >
-              <option>Available</option>
-              <option>Occupied</option>
-              <option>Under Maintenance</option>
-            </select>
+              onChange={(value) => handleSelectChange("status", value)}
+              options={[
+                { value: "Available", label: "Available" },
+                { value: "Occupied", label: "Occupied" },
+                { value: "Under Maintenance", label: "Under Maintenance" },
+              ]}
+              className="[&_button]:h-10 [&_button]:bg-[#F3F3F1]"
+            />
           </div>
         </div>
 

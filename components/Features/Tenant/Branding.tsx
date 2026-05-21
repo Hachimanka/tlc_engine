@@ -9,7 +9,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import {
   DEFAULT_TENANT_BRANDING,
@@ -19,6 +18,16 @@ import {
   type TenantBrandingColorField,
 } from "@/lib/tenantBranding";
 import { supabase } from "@/lib/supabaseClient";
+
+type LogoPalette = {
+  primaryColor: string;
+  lightPrimaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  defaultColor: string;
+  backgroundColor: string;
+  cardColor: string;
+};
 
 type BrandingProps = {
   onBrandingUpdated?: (branding: TenantBranding) => void;
@@ -30,6 +39,182 @@ type BrandingPayload = {
     name?: string;
   };
   error?: string;
+};
+
+const clampColor = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const componentToHex = (value: number) => clampColor(value).toString(16).padStart(2, "0");
+
+const rgbToHex = (r: number, g: number, b: number) =>
+  `#${componentToHex(r)}${componentToHex(g)}${componentToHex(b)}`;
+
+const hexToRgb = (hex: string) => {
+  const clean = hex.replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
+    return null;
+  }
+
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+};
+
+const blendHex = (base: string, overlay: string, amount: number) => {
+  const baseRgb = hexToRgb(base);
+  const overlayRgb = hexToRgb(overlay);
+
+  if (!baseRgb || !overlayRgb) {
+    return base;
+  }
+
+  return rgbToHex(
+    baseRgb.r + (overlayRgb.r - baseRgb.r) * amount,
+    baseRgb.g + (overlayRgb.g - baseRgb.g) * amount,
+    baseRgb.b + (overlayRgb.b - baseRgb.b) * amount,
+  );
+};
+
+const lightenHex = (hex: string, amount: number) => blendHex(hex, "#ffffff", amount);
+
+const darkenHex = (hex: string, amount: number) => blendHex(hex, "#000000", amount);
+
+const rgbToHsl = (r: number, g: number, b: number) => {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const delta = max - min;
+  const l = (max + min) / 2;
+  const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+  const h = delta === 0
+    ? 0
+    : max === rr
+      ? ((gg - bb) / delta) % 6
+      : max === gg
+        ? (bb - rr) / delta + 2
+        : (rr - gg) / delta + 4;
+
+  return { h: (h * 60 + 360) % 360, s, l };
+};
+
+const isNearWhite = (hex: string) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return false;
+  }
+
+  return rgb.r > 235 && rgb.g > 235 && rgb.b > 235;
+};
+
+const colorDistance = (hexA: string, hexB: string) => {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+
+  if (!a || !b) {
+    return 0;
+  }
+
+  return Math.sqrt(
+    (a.r - b.r) ** 2 +
+      (a.g - b.g) ** 2 +
+      (a.b - b.b) ** 2,
+  );
+};
+
+const extractLogoPalette = async (file: File): Promise<string[] | null> => {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 64;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.floor(bitmap.width * scale));
+    const height = Math.max(1, Math.floor(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+    const counts = new Map<string, number>();
+
+    for (let i = 0; i < imageData.length; i += 4) {
+      const alpha = imageData[i + 3];
+      if (alpha < 100) {
+        continue;
+      }
+
+      const r = (imageData[i] >> 4) << 4;
+      const g = (imageData[i + 1] >> 4) << 4;
+      const b = (imageData[i + 2] >> 4) << 4;
+      const hex = rgbToHex(r, g, b);
+      const count = counts.get(hex) ?? 0;
+      counts.set(hex, count + 1);
+    }
+
+    const colors = Array.from(counts.entries())
+      .map(([color, count]) => ({ color, count }))
+      .filter(({ color }) => !isNearWhite(color))
+      .sort((a, b) => {
+        const aRgb = hexToRgb(a.color);
+        const bRgb = hexToRgb(b.color);
+        const aHsl = aRgb ? rgbToHsl(aRgb.r, aRgb.g, aRgb.b) : { s: 0, l: 1 };
+        const bHsl = bRgb ? rgbToHsl(bRgb.r, bRgb.g, bRgb.b) : { s: 0, l: 1 };
+        const aScore = a.count * (0.6 + aHsl.s * 0.4) * (1 - aHsl.l);
+        const bScore = b.count * (0.6 + bHsl.s * 0.4) * (1 - bHsl.l);
+        return bScore - aScore;
+      })
+      .map(({ color }) => color);
+
+    if (colors.length === 0) {
+      return null;
+    }
+
+    return colors.slice(0, 5);
+  } catch {
+    return null;
+  }
+};
+
+const deriveBrandingFromLogo = async (file: File): Promise<LogoPalette> => {
+  const colors = await extractLogoPalette(file);
+  const primary = colors?.[0] ?? DEFAULT_TENANT_BRANDING.primaryColor;
+  const secondaryCandidate = colors?.[1];
+  const accentCandidate = colors?.[2];
+  const primaryLuma = hexToRgb(primary);
+
+  const secondary =
+    secondaryCandidate && colorDistance(primary, secondaryCandidate) > 40
+      ? secondaryCandidate
+      : lightenHex(primary, 0.18);
+
+  const accent =
+    accentCandidate && colorDistance(primary, accentCandidate) > 40
+      ? accentCandidate
+      : secondary;
+
+  const lightPrimaryColor = primaryLuma && rgbToHsl(primaryLuma.r, primaryLuma.g, primaryLuma.b).l > 0.75
+    ? darkenHex(primary, 0.16)
+    : lightenHex(primary, 0.18);
+
+  const defaultColor = lightenHex(primary, 0.68);
+  const backgroundColor = lightenHex(primary, 0.86);
+  const cardColor = lightenHex(primary, 0.92);
+
+  return {
+    primaryColor: primary,
+    lightPrimaryColor,
+    secondaryColor: secondary,
+    accentColor: accent,
+    defaultColor,
+    backgroundColor,
+    cardColor,
+  };
 };
 
 const colorLabels: Record<TenantBrandingColorField, { label: string; hint: string }> = {
@@ -77,6 +262,66 @@ const snapshotBranding = (branding: TenantBranding) =>
     loginTitle: branding.loginTitle,
     loginSubtitle: branding.loginSubtitle,
   });
+
+function BrandingSkeleton() {
+  const block = "rounded bg-[#c8e5e1]";
+
+  return (
+    <TenantBrandScope branding={DEFAULT_TENANT_BRANDING} className="space-y-5">
+      <div className="flex animate-pulse flex-wrap items-start justify-between gap-4" role="status" aria-label="Loading branding">
+        <span className="sr-only">Loading branding</span>
+        <div className="space-y-3">
+          <div className={`h-7 w-44 rounded-full bg-[#c8e5e1]`} />
+          <div className={`h-8 w-72 ${block}`} />
+          <div className={`h-4 w-[560px] max-w-full ${block}`} />
+        </div>
+        <div className="flex gap-2">
+          <div className={`h-10 w-24 ${block}`} />
+          <div className={`h-10 w-32 ${block}`} />
+        </div>
+      </div>
+
+      <div className="grid animate-pulse gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className={`h-6 w-36 ${block}`} />
+          <div className={`mt-3 h-4 w-72 ${block}`} />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <div key={index} className="rounded-lg border border-[var(--color-default)] p-4">
+                <div className={`h-5 w-28 ${block}`} />
+                <div className={`mt-2 h-3 w-40 ${block}`} />
+                <div className="mt-4 flex gap-3">
+                  <div className={`h-11 w-14 ${block}`} />
+                  <div className={`h-11 flex-1 ${block}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className={`h-6 w-20 ${block}`} />
+          <div className={`mt-3 h-4 w-44 ${block}`} />
+          <div className={`mt-5 h-40 w-full rounded-lg bg-[#c8e5e1]`} />
+          <div className={`mt-4 h-11 w-full ${block}`} />
+          <div className="mt-4 flex gap-2">
+            <div className={`h-10 w-32 ${block}`} />
+            <div className={`h-10 w-28 ${block}`} />
+          </div>
+        </section>
+      </div>
+
+      <section className="animate-pulse rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className={`h-6 w-28 ${block}`} />
+        <div className={`mt-3 h-4 w-80 ${block}`} />
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className={`h-20 ${block}`} />
+          <div className={`h-20 ${block}`} />
+        </div>
+      </section>
+    </TenantBrandScope>
+  );
+}
 
 const buildDefaultDraft = (orgName = "Institution") => ({
   ...DEFAULT_TENANT_BRANDING,
@@ -164,7 +409,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
     setMessage("");
   };
 
-  const handleLogoChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -190,6 +435,17 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
     setRemoveLogo(false);
     setError("");
     setMessage("");
+
+    try {
+      const palette = await deriveBrandingFromLogo(file);
+      setDraft((current) => ({
+        ...current,
+        ...palette,
+      }));
+      setMessage("Brand colors were updated from the logo palette.");
+    } catch {
+      // Keep the logo preview even if palette extraction fails.
+    }
   };
 
   const removeCurrentLogo = () => {
@@ -312,13 +568,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] items-center justify-center rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading branding"
-        useStoredBranding
-      />
-    );
+    return <BrandingSkeleton />;
   }
 
   return (

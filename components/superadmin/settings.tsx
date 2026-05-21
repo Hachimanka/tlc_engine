@@ -1,4 +1,5 @@
 import React, { useEffect, useState, type ChangeEvent } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -923,17 +924,18 @@ export default function SuperAdminSettings() {
 											<p className="text-sm font-medium text-gray-800">Session Timeout</p>
 											<p className="text-xs text-gray-400 mt-0.5">Auto-logout after inactivity</p>
 										</div>
-										<select
-											className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-700"
+										<StyledSelect
 											value={sessionTimeout}
-											onChange={e => setSessionTimeout(e.target.value)}
-										>
-											<option value="15">15 minutes</option>
-											<option value="30">30 minutes</option>
-											<option value="60">1 hour</option>
-											<option value="120">2 hours</option>
-											<option value="480">8 hours</option>
-										</select>
+											onChange={setSessionTimeout}
+											options={[
+												{ value: "15", label: "15 minutes" },
+												{ value: "30", label: "30 minutes" },
+												{ value: "60", label: "1 hour" },
+												{ value: "120", label: "2 hours" },
+												{ value: "480", label: "8 hours" },
+											]}
+											className="w-40 [&_button]:h-9"
+										/>
 									</div>
 									<div className="pt-3 border-t border-gray-100">
 										<p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Active Sessions</p>
@@ -1074,12 +1076,16 @@ export default function SuperAdminSettings() {
 											<input className={INPUT_CLASS} type="number" value={maxOrgsPerPlan} onChange={e => setMaxOrgsPerPlan(e.target.value)} />
 										</Field>
 										<Field label="Default Plan">
-											<select className={INPUT_CLASS} value={defaultPlan} onChange={e => setDefaultPlan(e.target.value)}>
-												<option value="starter">Starter</option>
-												<option value="basic">Basic</option>
-												<option value="premium">Premium</option>
-												<option value="diamond">Diamond</option>
-											</select>
+											<StyledSelect
+												value={defaultPlan}
+												onChange={setDefaultPlan}
+												options={[
+													{ value: "starter", label: "Starter" },
+													{ value: "basic", label: "Basic" },
+													{ value: "premium", label: "Premium" },
+													{ value: "diamond", label: "Diamond" },
+												]}
+											/>
 										</Field>
 									</div>
 

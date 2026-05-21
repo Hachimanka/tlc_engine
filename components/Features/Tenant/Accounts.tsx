@@ -8,6 +8,7 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
@@ -113,6 +114,45 @@ const formatDate = (value?: string | null) => {
 const roleRequiresDepartment = (role?: AccountRole | null) =>
   Boolean(role?.requiresDepartment ?? role?.requires_department) ||
   isDepartmentRequiredRole(role?.key);
+
+function AccountsTableSkeleton() {
+  const cellWidths = ["w-24", "w-36", "w-44", "w-40", "w-48", "w-16", "w-24", "w-28"];
+
+  return (
+    <div className="overflow-x-auto" role="status" aria-label="Loading accounts table">
+      <span className="sr-only">Loading accounts table</span>
+      <table className="min-w-full border-collapse text-left">
+        <thead className="bg-[var(--color-primary)] text-white">
+          <tr>
+            <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
+            <th className="px-4 py-3 text-xs font-semibold">Name</th>
+            <th className="px-4 py-3 text-xs font-semibold">Email</th>
+            <th className="px-4 py-3 text-xs font-semibold">Department</th>
+            <th className="px-4 py-3 text-xs font-semibold">Role</th>
+            <th className="px-4 py-3 text-xs font-semibold">Status</th>
+            <th className="px-4 py-3 text-xs font-semibold">Created</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--color-default)] bg-white">
+          {[0, 1, 2, 3].map((rowIndex) => (
+            <tr key={rowIndex} className="animate-pulse">
+              {cellWidths.map((width, cellIndex) => (
+                <td key={`${rowIndex}-${cellIndex}`} className="px-4 py-4">
+                  <div
+                    className={`h-4 rounded bg-[#c8e5e1] ${
+                      cellIndex === cellWidths.length - 1 ? "ml-auto" : ""
+                    } ${width}`}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function FieldRow({
   label,
@@ -310,16 +350,15 @@ function EditAccountForm({
             <label htmlFor="edit-status" className="text-sm font-medium text-[#344054]">
               Status
             </label>
-            <select
-              id="edit-status"
+            <StyledSelect
               value={status}
               disabled={isProtectedAdmin}
-              onChange={(event) => setStatus(event.target.value as "active" | "disabled")}
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#667085]"
-            >
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
-            </select>
+              onChange={(value) => setStatus(value as "active" | "disabled")}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "disabled", label: "Disabled" },
+              ]}
+            />
           </div>
         </div>
 
@@ -327,19 +366,12 @@ function EditAccountForm({
           <label htmlFor="edit-role" className="text-sm font-medium text-[#344054]">
             Role
           </label>
-          <select
-            id="edit-role"
+          <StyledSelect
             value={roleId}
             disabled={isProtectedAdmin}
-            onChange={(event) => handleRoleChange(event.target.value)}
-            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#667085]"
-          >
-            {roleOptions.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            onChange={handleRoleChange}
+            options={roleOptions.map((role) => ({ value: role.id, label: role.name }))}
+          />
         </div>
 
         <div className="space-y-2">
@@ -350,48 +382,28 @@ function EditAccountForm({
             ) : null}
           </label>
           {hasManagedDepartments ? (
-            <select
-              id="edit-department"
+            <StyledSelect
               value={departmentId}
-              onChange={(event) => setDepartmentId(event.target.value)}
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-            >
-              <option value="">
-                {user.departmentId
-                  ? `No ${assignmentLabel.toLowerCase()}`
-                  : user.department
-                  ? `Keep legacy: ${user.department}`
-                  : requiresDepartment
-                  ? `Select ${assignmentLabel.toLowerCase()}`
-                  : `No ${assignmentLabel.toLowerCase()}`}
-              </option>
-              {departments.map((departmentOption) => (
-                <option key={departmentOption.id} value={departmentOption.id}>
-                  {departmentOption.code
+              onChange={setDepartmentId}
+              options={[
+                {
+                  value: "",
+                  label: user.departmentId
+                    ? "No department"
+                    : user.department
+                    ? `Keep legacy: ${user.department}`
+                    : requiresDepartment
+                    ? "Select a department"
+                    : "No department",
+                },
+                ...departments.map((departmentOption) => ({
+                  value: departmentOption.id,
+                  label: departmentOption.code
                     ? `${departmentOption.code} - ${departmentOption.name}`
-                    : departmentOption.name}
-                </option>
-              ))}
-            </select>
-          ) : hasAssignmentOptions ? (
-            <select
-              id="edit-department"
-              value={department}
-              onChange={(event) => setDepartment(event.target.value)}
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-            >
-              <option value="">
-                {requiresDepartment ? `Select ${assignmentLabel.toLowerCase()}` : `No ${assignmentLabel.toLowerCase()}`}
-              </option>
-              {assignmentOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-              {user.department && !assignmentOptions.includes(user.department) ? (
-                <option value={user.department}>{user.department}</option>
-              ) : null}
-            </select>
+                    : departmentOption.name,
+                })),
+              ]}
+            />
           ) : (
             <input
               id="edit-department"
@@ -625,7 +637,12 @@ export default function Accounts() {
       ...current,
     ]);
 
-    return { tempPassword: data.tempPassword, user: createdUser };
+    return {
+      tempPassword: data.tempPassword,
+      user: createdUser,
+      emailSentTo: data.emailSentTo,
+      loginUrl: data.loginUrl ?? null,
+    };
   };
 
   const openAccountPanel = (user: AccountUser, mode: "view" | "edit" = "view") => {
@@ -708,16 +725,6 @@ export default function Accounts() {
       tempPassword: payload.tempPassword,
     });
   };
-
-  if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading accounts"
-        useStoredBranding
-      />
-    );
-  }
 
   if (loadError) {
     return (
@@ -812,49 +819,40 @@ export default function Accounts() {
             />
           </label>
 
-          <select
+          <StyledSelect
             value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value)}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by role"
-          >
-            <option value="all">All roles</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            onChange={setRoleFilter}
+            options={[
+              { value: "all", label: "All roles" },
+              ...roles.map((role) => ({ value: role.id, label: role.name })),
+            ]}
+          />
 
-          <select
+          <StyledSelect
             value={departmentFilter}
-            onChange={(event) => setDepartmentFilter(event.target.value)}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by department"
-          >
-            <option value="all">{isDeped ? "All grade levels" : "All departments"}</option>
-            {departmentOptions.map((department) => (
-              <option key={department} value={department}>
-                {department}
-              </option>
-            ))}
-          </select>
+            onChange={setDepartmentFilter}
+            options={[
+              { value: "all", label: "All departments" },
+              ...departmentOptions.map((department) => ({ value: department, label: department })),
+            ]}
+          />
 
-          <select
+          <StyledSelect
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "disabled")}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
-          </select>
+            onChange={(value) => setStatusFilter(value as "all" | "active" | "disabled")}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "active", label: "Active" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+          />
         </div>
       </section>
 
       <section className="overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        {filteredUsers.length === 0 ? (
+        {isLoading ? (
+          <AccountsTableSkeleton />
+        ) : filteredUsers.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-[var(--color-low-emphasis)]">
             No accounts match the current filters.
           </div>

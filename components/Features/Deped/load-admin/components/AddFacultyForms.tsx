@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEventHandler, useEffect, useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 type FacultyOption = {
 	label: string;
@@ -82,24 +83,16 @@ export default function AddFacultyForms({ isOpen, onClose }: AddFacultyFormsProp
 							<label className="text-sm font-semibold text-[var(--color-high-emphasis)]" htmlFor="faculty-select">
 								Select Faculty*
 							</label>
-							<div className="relative">
-								<select
-									id="faculty-select"
+							<div>
+								<StyledSelect
 									value={selectedFaculty}
-									onChange={(event) => handleFacultyChange(event.target.value)}
-									className="w-full appearance-none rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-4 py-3 pr-12 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.12)]"
-								>
-									{facultyOptions.map((option) => (
-										<option key={option.label} value={option.label}>
-											{option.label}
-										</option>
-									))}
-								</select>
-								<div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
-									<svg aria-hidden="true" className="h-4 w-4 text-[var(--color-high-emphasis)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-										<path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-									</svg>
-								</div>
+									onChange={handleFacultyChange}
+									options={facultyOptions.map((option) => ({
+										value: option.label,
+										label: option.label,
+									}))}
+									className="[&_button]:min-h-12 [&_button]:py-3"
+								/>
 							</div>
 						</div>
 

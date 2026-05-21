@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import type { RoomRow } from "@/components/Features/Deped/manage-room/components/RoomsTable";
+import StyledSelect, {
+	type StyledSelectOption,
+} from "@/components/Global/StyledSelect";
 
 export type RoomFormValues = Omit<RoomRow, "id">;
 
@@ -9,6 +12,7 @@ type RoomFormModalProps = {
 	isOpen: boolean;
 	mode: "create" | "edit";
 	initialValues?: RoomRow | null;
+	buildingOptions?: string[];
 	onClose: () => void;
 	onSubmit: (values: RoomFormValues) => void;
 };
@@ -28,6 +32,9 @@ const emptyValues: RoomFormValues = {
 const roomTypeOptions = ["Classroom", "Laboratory", "Computer Room", "Library", "Office"];
 const statusOptions: RoomFormValues["status"][] = ["Available", "Not Available"];
 const yearLevelOptions = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "N/A"];
+const addNewBuildingValue = "__add_new_building__";
+const toSelectOptions = (options: string[]): StyledSelectOption[] =>
+	options.map((option) => ({ value: option, label: option }));
 
 const getInitialValues = (room?: RoomRow | null): RoomFormValues => {
 	if (!room) {
@@ -45,18 +52,29 @@ const getInitialValues = (room?: RoomRow | null): RoomFormValues => {
 	};
 };
 
+const getInitialBuildingSelection = (
+	values: RoomFormValues,
+	buildingOptions: string[],
+) => values.building && buildingOptions.includes(values.building) ? values.building : addNewBuildingValue;
+
 export default function RoomFormModal({
 	isOpen,
 	mode,
 	initialValues,
+	buildingOptions = [],
 	onClose,
 	onSubmit,
 }: RoomFormModalProps) {
-	const [formValues, setFormValues] = useState<RoomFormValues>(() => getInitialValues(initialValues));
+	const initialFormValues = getInitialValues(initialValues);
+	const [formValues, setFormValues] = useState<RoomFormValues>(() => initialFormValues);
+	const [buildingSelection, setBuildingSelection] = useState(() =>
+		getInitialBuildingSelection(initialFormValues, buildingOptions),
+	);
 	const [errors, setErrors] = useState<FormErrors>({});
 
 	const handleClose = useCallback(() => {
 		setFormValues(emptyValues);
+		setBuildingSelection(addNewBuildingValue);
 		setErrors({});
 		onClose();
 	}, [onClose]);
@@ -83,10 +101,24 @@ export default function RoomFormModal({
 		};
 	}, [handleClose, isOpen]);
 
-	const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+	const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = event.target;
 		setFormValues((prev) => ({ ...prev, [name]: value }));
 		setErrors((prev) => ({ ...prev, [name]: undefined }));
+	};
+
+	const handleSelectChange = (name: keyof RoomFormValues, value: string) => {
+		setFormValues((prev) => ({ ...prev, [name]: value }));
+		setErrors((prev) => ({ ...prev, [name]: undefined }));
+	};
+
+	const handleBuildingSelect = (nextSelection: string) => {
+		setBuildingSelection(nextSelection);
+		setFormValues((prev) => ({
+			...prev,
+			building: nextSelection === addNewBuildingValue ? "" : nextSelection,
+		}));
+		setErrors((prev) => ({ ...prev, building: undefined }));
 	};
 
 	const validate = () => {
@@ -184,27 +216,35 @@ export default function RoomFormModal({
 							</Field>
 
 							<Field label="Building" error={errors.building} required>
-								<input
-									name="building"
-									value={formValues.building}
-									onChange={handleChange}
-									placeholder="e.g., Senior High School Building"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								/>
+								<div className="space-y-3">
+									<StyledSelect
+										value={buildingSelection}
+										onChange={handleBuildingSelect}
+										options={[
+											...toSelectOptions(buildingOptions),
+											{ value: addNewBuildingValue, label: "Add new building" },
+										]}
+									/>
+
+									{buildingSelection === addNewBuildingValue ? (
+										<input
+											name="building"
+											value={formValues.building}
+											onChange={handleChange}
+											placeholder="e.g., Senior High School Building"
+											className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+										/>
+									) : null}
+								</div>
 							</Field>
 
 							<Field label="Room Type" error={errors.type} required>
-								<select
-									name="type"
+								<StyledSelect
 									value={formValues.type}
-									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								>
-									<option value="">Select room type</option>
-									{roomTypeOptions.map((option) => (
-										<option key={option} value={option}>{option}</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("type", value)}
+									options={toSelectOptions(roomTypeOptions)}
+									placeholder="Select room type"
+								/>
 							</Field>
 
 							<Field label="Capacity" error={errors.capacity} required>
@@ -221,30 +261,20 @@ export default function RoomFormModal({
 							</Field>
 
 							<Field label="Status" error={errors.status} required>
-								<select
-									name="status"
+								<StyledSelect
 									value={formValues.status}
-									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								>
-									{statusOptions.map((option) => (
-										<option key={option} value={option}>{option}</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("status", value as RoomFormValues["status"])}
+									options={toSelectOptions(statusOptions)}
+								/>
 							</Field>
 
 							<Field label="Year Level" error={errors.yearLevel} required>
-								<select
-									name="yearLevel"
+								<StyledSelect
 									value={formValues.yearLevel}
-									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								>
-									<option value="">Select year level</option>
-									{yearLevelOptions.map((option) => (
-										<option key={option} value={option}>{option}</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("yearLevel", value)}
+									options={toSelectOptions(yearLevelOptions)}
+									placeholder="Select year level"
+								/>
 							</Field>
 						</div>
 					</div>
@@ -282,12 +312,12 @@ function Field({
 	children: ReactNode;
 }) {
 	return (
-		<label className="space-y-2 text-sm font-medium text-[var(--color-high-emphasis)]">
+		<div className="space-y-2 text-sm font-medium text-[var(--color-high-emphasis)]">
 			<span>
 				{label} {required ? <span className="text-[#f04444]">*</span> : null}
 			</span>
 			{children}
 			{error ? <p className="text-xs text-[#f04444]">{error}</p> : null}
-		</label>
+		</div>
 	);
 }

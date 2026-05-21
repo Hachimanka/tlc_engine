@@ -120,6 +120,14 @@ function DepedRoomContent() {
     [rooms, selectedRoomId],
   );
 
+  const buildingOptions = useMemo(
+    () =>
+      Array.from(new Set(rooms.map((room) => room.building).filter(Boolean))).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    [rooms],
+  );
+
   const handleSubmitRoom = (values: RoomFormValues) => {
     if (roomModal?.mode === "edit") {
       setRooms((currentRooms) =>
@@ -187,6 +195,7 @@ function DepedRoomContent() {
         isOpen={roomModal !== null}
         mode={roomModal?.mode ?? "create"}
         initialValues={roomModal?.mode === "edit" ? roomModal.room : null}
+        buildingOptions={buildingOptions}
         onClose={() => setRoomModal(null)}
         onSubmit={handleSubmitRoom}
       />
