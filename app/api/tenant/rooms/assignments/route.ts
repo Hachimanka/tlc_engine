@@ -43,6 +43,7 @@ const assignmentSelect = `
     subject_code,
     department,
     year_level,
+    meetings_per_week,
     units
   ),
   room:academic_rooms!academic_room_assignments_room_id_fkey(
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       .maybeSingle(),
     supabaseAdmin
       .from("academic_subjects")
-      .select("id")
+      .select("id, subject_code, meetings_per_week")
       .eq("id", values.subjectId)
       .eq("org_id", context.org.id)
       .maybeSingle(),
@@ -140,6 +141,39 @@ export async function POST(req: Request) {
 
   if (!subjectResult.data) {
     return jsonError("Only approved subjects can be assigned to rooms.", 400);
+  }
+
+  const meetingsPerWeek = Number(
+    (subjectResult.data as { meetings_per_week?: number | string | null }).meetings_per_week ?? 2,
+  );
+
+  if (!Number.isFinite(meetingsPerWeek) || meetingsPerWeek <= 0) {
+    return jsonError("Subject meetings per week must be greater than zero.", 400);
+  }
+
+  const { count: subjectMeetingCount, error: subjectMeetingCountError } = await supabaseAdmin
+    .from("academic_room_assignments")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", context.org.id)
+    .eq("subject_id", values.subjectId);
+
+  if (subjectMeetingCountError) {
+    return jsonError(
+      subjectMeetingCountError.message || "Failed to check subject meeting limit.",
+      500,
+    );
+  }
+
+  if ((subjectMeetingCount ?? 0) >= meetingsPerWeek) {
+    const subjectCode =
+      (subjectResult.data as { subject_code?: string | null }).subject_code ?? "This subject";
+
+    return jsonError(
+      `${subjectCode} already reached its ${meetingsPerWeek} meeting${
+        meetingsPerWeek === 1 ? "" : "s"
+      } per week limit.`,
+      409,
+    );
   }
 
   const { data: existingAssignments, error: conflictError } = await supabaseAdmin

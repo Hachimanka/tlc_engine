@@ -147,6 +147,7 @@ const getSubjectDetails = (payload: unknown) => {
     ["Units", String(subject.units ?? "")],
     ["Lecture Hours", String(subject.lectureHours ?? "")],
     ["Laboratory Hours", String(subject.labHours ?? "")],
+    ["Meetings/Week", String(subject.meetingsPerWeek ?? "")],
   ].filter(([, value]) => value);
 };
 

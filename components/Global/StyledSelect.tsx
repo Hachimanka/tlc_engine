@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 export type StyledSelectOption = {
 	value: string;
 	label: string;
+	disabled?: boolean;
+	description?: string;
 };
 
 type StyledSelectProps = {
@@ -56,13 +58,15 @@ export default function StyledSelect({
 	}, [isOpen]);
 
 	const moveSelection = (direction: 1 | -1) => {
-		if (options.length === 0) {
+		const enabledOptions = options.filter((option) => !option.disabled);
+
+		if (enabledOptions.length === 0) {
 			return;
 		}
 
-		const currentIndex = Math.max(0, options.findIndex((option) => option.value === value));
-		const nextIndex = (currentIndex + direction + options.length) % options.length;
-		onChange(options[nextIndex].value);
+		const currentIndex = Math.max(0, enabledOptions.findIndex((option) => option.value === value));
+		const nextIndex = (currentIndex + direction + enabledOptions.length) % enabledOptions.length;
+		onChange(enabledOptions[nextIndex].value);
 	};
 
 	const handleButtonKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -112,17 +116,32 @@ export default function StyledSelect({
 									type="button"
 									role="option"
 									aria-selected={isSelected}
+									aria-disabled={option.disabled}
+									disabled={option.disabled}
 									onClick={() => {
+										if (option.disabled) {
+											return;
+										}
+
 										onChange(option.value);
 										setIsOpen(false);
 									}}
 									className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
-										isSelected
+										option.disabled
+											? "cursor-not-allowed text-[var(--color-low-emphasis,#8a9099)] opacity-60"
+											: isSelected
 											? "bg-[#e0f4f1] font-semibold text-[var(--color-primary,#007f73)]"
 											: "text-[var(--color-high-emphasis,#1f2937)] hover:bg-[#ecf8f6]"
 									}`}
 								>
-									<span className="min-w-0 truncate">{option.label}</span>
+									<span className="min-w-0">
+										<span className="block truncate">{option.label}</span>
+										{option.description ? (
+											<span className="mt-0.5 block truncate text-xs font-normal text-[var(--color-low-emphasis,#8a9099)]">
+												{option.description}
+											</span>
+										) : null}
+									</span>
 									{isSelected ? (
 										<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
 											<path d="M5 12.5L9.2 16.5L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

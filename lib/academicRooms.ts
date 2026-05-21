@@ -23,6 +23,7 @@ export type AcademicSubjectOptionRow = {
   subject_code: string;
   department: string | null;
   year_level: string | null;
+  meetings_per_week?: number | string | null;
   units: number | string | null;
 };
 
@@ -144,6 +145,7 @@ export const mapSubjectOption = (row: AcademicSubjectOptionRow) => ({
   code: row.subject_code,
   department: row.department ?? "",
   yearLevel: row.year_level ?? "",
+  meetingsPerWeek: Number(row.meetings_per_week ?? 2),
   units: Number(row.units ?? 0),
 });
 
@@ -169,6 +171,7 @@ export const mapRoomAssignment = (row: AcademicRoomAssignmentRow) => {
           code: subject.subject_code,
           department: subject.department ?? "",
           yearLevel: subject.year_level ?? "",
+          meetingsPerWeek: Number(subject.meetings_per_week ?? 2),
           units: Number(subject.units ?? 0),
         }
       : null,

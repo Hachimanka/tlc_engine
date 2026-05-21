@@ -28,7 +28,7 @@ type RoomRequest = {
 };
 
 const roomSelect = "id, room_name, building, room_type, capacity, status, created_at, updated_at";
-const subjectSelect = "id, subject_title, subject_code, department, year_level, units";
+const subjectSelect = "id, subject_title, subject_code, department, year_level, meetings_per_week, units";
 const assignmentSelect = `
   id,
   section,
@@ -43,6 +43,7 @@ const assignmentSelect = `
     subject_code,
     department,
     year_level,
+    meetings_per_week,
     units
   ),
   room:academic_rooms!academic_room_assignments_room_id_fkey(

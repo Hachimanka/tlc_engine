@@ -25,6 +25,7 @@ type SubjectOption = {
   code: string;
   department: string;
   yearLevel: string;
+  meetingsPerWeek: number;
   units: number;
 };
 
@@ -140,6 +141,9 @@ const formatMinutes = (minutes: number) => {
 
 const getRoomScheduleTag = (roomType?: string) =>
   roomType?.toLowerCase().includes("lab") ? "LAB" : "LEC";
+
+const getMeetingsLabel = (count: number, limit: number) =>
+  `${count}/${limit} meeting${limit === 1 ? "" : "s"} used`;
 
 const normalizeYearLevel = (value: string) => {
   const normalized = value.trim().toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ");
@@ -416,6 +420,38 @@ export default function RoomsTable() {
     [subjects],
   );
 
+  const subjectMeetingCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    assignments.forEach((assignment) => {
+      const subjectId = assignment.subject?.id;
+
+      if (!subjectId) {
+        return;
+      }
+
+      counts.set(subjectId, (counts.get(subjectId) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [assignments]);
+
+  const hasReachedSubjectMeetingLimit = useCallback(
+    (subject: SubjectOption) => {
+      const limit = Number(subject.meetingsPerWeek || 2);
+      const count = subjectMeetingCounts.get(subject.id) ?? 0;
+
+      return Number.isFinite(limit) && limit > 0 && count >= limit;
+    },
+    [subjectMeetingCounts],
+  );
+
+  const getFirstAssignableSubject = useCallback(
+    (nextSubjects: SubjectOption[]) =>
+      nextSubjects.find((subject) => !hasReachedSubjectMeetingLimit(subject)),
+    [hasReachedSubjectMeetingLimit],
+  );
+
   const filteredAssignmentSubjects = useMemo(() => {
     return subjects.filter(
       (subject) =>
@@ -456,6 +492,18 @@ export default function RoomsTable() {
     assignmentForm.startTime,
     selectedRoomAssignments,
   ]);
+
+  const selectedAssignmentSubject = useMemo(
+    () => subjects.find((subject) => subject.id === assignmentForm.subjectId) ?? null,
+    [assignmentForm.subjectId, subjects],
+  );
+
+  const selectedSubjectReachedLimit = selectedAssignmentSubject
+    ? hasReachedSubjectMeetingLimit(selectedAssignmentSubject)
+    : false;
+  const hasAssignableFilteredSubjects = filteredAssignmentSubjects.some(
+    (subject) => !hasReachedSubjectMeetingLimit(subject),
+  );
 
   const openCreateForm = () => {
     const defaultBuilding = registeredBuildings[0] ?? "";
@@ -504,7 +552,7 @@ export default function RoomsTable() {
       ...emptyAssignmentForm,
       department: defaultDepartment,
       yearLevel: "",
-      subjectId: defaultSubjects[0]?.id ?? "",
+      subjectId: getFirstAssignableSubject(defaultSubjects)?.id ?? "",
     });
     setAssignmentSaveError("");
     setShowAssignForm(true);
@@ -584,6 +632,16 @@ export default function RoomsTable() {
 
     if (!assignmentForm.subjectId || !assignmentForm.section.trim()) {
       setAssignmentSaveError("Subject and section are required.");
+      return;
+    }
+
+    if (selectedAssignmentSubject && selectedSubjectReachedLimit) {
+      const limit = Number(selectedAssignmentSubject.meetingsPerWeek || 2);
+      setAssignmentSaveError(
+        `${selectedAssignmentSubject.code} already reached its ${limit} meeting${
+          limit === 1 ? "" : "s"
+        } per week limit.`,
+      );
       return;
     }
 
@@ -914,6 +972,12 @@ export default function RoomsTable() {
                 </div>
               ) : null}
 
+              {filteredAssignmentSubjects.length > 0 && !hasAssignableFilteredSubjects ? (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  All subjects in this filter already reached their weekly meeting limit.
+                </div>
+              ) : null}
+
               <form onSubmit={handleAssignSubmit} className="grid gap-4 lg:grid-cols-2">
                 <label className="space-y-1 lg:col-span-2">
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
@@ -934,7 +998,7 @@ export default function RoomsTable() {
                       setAssignmentForm((current) => ({
                         ...current,
                         department: nextDepartment,
-                        subjectId: nextSubjects[0]?.id ?? "",
+                        subjectId: getFirstAssignableSubject(nextSubjects)?.id ?? "",
                       }));
                     }}
                     disabled={subjectDepartments.length === 0}
@@ -966,7 +1030,7 @@ export default function RoomsTable() {
                       setAssignmentForm((current) => ({
                         ...current,
                         yearLevel: nextYearLevel,
-                        subjectId: nextSubjects[0]?.id ?? "",
+                        subjectId: getFirstAssignableSubject(nextSubjects)?.id ?? "",
                       }));
                     }}
                     options={[
@@ -999,6 +1063,16 @@ export default function RoomsTable() {
                         : filteredAssignmentSubjects.map((subject) => ({
                             value: subject.id,
                             label: `${subject.code} - ${subject.title}`,
+                            disabled: hasReachedSubjectMeetingLimit(subject),
+                            description: hasReachedSubjectMeetingLimit(subject)
+                              ? `Limit reached: ${getMeetingsLabel(
+                                  subjectMeetingCounts.get(subject.id) ?? 0,
+                                  Number(subject.meetingsPerWeek || 2),
+                                )}`
+                              : getMeetingsLabel(
+                                  subjectMeetingCounts.get(subject.id) ?? 0,
+                                  Number(subject.meetingsPerWeek || 2),
+                                ),
                           }))
                     }
                     className="[&_button]:h-10"
@@ -1087,7 +1161,12 @@ export default function RoomsTable() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isAssigning || filteredAssignmentSubjects.length === 0}
+                    disabled={
+                      isAssigning ||
+                      filteredAssignmentSubjects.length === 0 ||
+                      !hasAssignableFilteredSubjects ||
+                      selectedSubjectReachedLimit
+                    }
                     className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isAssigning ? "Assigning..." : "Assign Subject"}
