@@ -10,6 +10,7 @@ import {
   TrendingUp,
   UsersRound,
 } from "lucide-react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { fetchSuperadminOverview } from "@/lib/superadminOverviewClient";
 import type {
   SuperadminOverviewActivityItem,
@@ -291,15 +292,17 @@ function RecentActivityRow({ activity }: { activity: SuperadminOverviewActivityI
 function AnalyticsSkeleton() {
   return (
     <div className="w-full px-8 py-6">
-      <div className="mb-6 h-14 animate-pulse rounded-lg bg-white" />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 animate-pulse">
+        <BrandedSkeletonBlock className="h-14 rounded-lg" />
+      </div>
+      <div className="mb-6 grid animate-pulse grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-36 animate-pulse rounded-lg bg-white" />
+          <BrandedSkeletonBlock key={index} className="h-36 rounded-lg" />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="h-64 animate-pulse rounded-lg bg-white" />
-        <div className="h-64 animate-pulse rounded-lg bg-white lg:col-span-2" />
+      <div className="grid animate-pulse grid-cols-1 gap-4 lg:grid-cols-3">
+        <BrandedSkeletonBlock className="h-64 rounded-lg" />
+        <BrandedSkeletonBlock className="h-64 rounded-lg lg:col-span-2" />
       </div>
     </div>
   );

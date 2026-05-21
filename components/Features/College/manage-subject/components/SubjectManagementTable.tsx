@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, Plus, Search, X } from "lucide-react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -492,7 +493,7 @@ export default function SubjectManagementTable() {
                         <tr key={row} className="animate-pulse">
                           {Array.from({ length: 10 }).map((_, column) => (
                             <td key={column} className="px-4 py-3">
-                              <div className="h-3 w-full min-w-16 rounded bg-[var(--color-default)]" />
+                              <BrandedSkeletonBlock className="h-3 w-full min-w-16" />
                             </td>
                           ))}
                         </tr>

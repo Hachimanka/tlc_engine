@@ -9,6 +9,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 type ApprovalRequestType =
@@ -361,13 +362,13 @@ export default function AcademicApprovalsDashboard() {
               {[0, 1, 2].map((item) => (
                 <div key={item} className="animate-pulse space-y-3 rounded-lg border border-[var(--color-default)] px-4 py-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="h-4 w-48 rounded bg-[var(--color-default)]" />
-                    <div className="h-5 w-20 rounded-full bg-[var(--color-default)]" />
+                    <BrandedSkeletonBlock className="h-4 w-48" />
+                    <BrandedSkeletonBlock className="h-5 w-20 rounded-full" />
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="h-3 rounded bg-[var(--color-default)]" />
-                    <div className="h-3 rounded bg-[var(--color-default)]" />
-                    <div className="h-3 rounded bg-[var(--color-default)]" />
+                    <BrandedSkeletonBlock className="h-3" />
+                    <BrandedSkeletonBlock className="h-3" />
+                    <BrandedSkeletonBlock className="h-3" />
                   </div>
                 </div>
               ))}

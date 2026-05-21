@@ -20,6 +20,7 @@ import {
   UsersRound,
   Zap,
 } from "lucide-react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { fetchSuperadminOverview } from "@/lib/superadminOverviewClient";
 import type {
   SuperadminOverviewHealthCheck,
@@ -264,15 +265,17 @@ function DashboardSkeleton() {
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1400px] space-y-6">
-        <div className="h-20 animate-pulse rounded-lg bg-white" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="animate-pulse">
+          <BrandedSkeletonBlock className="h-20 rounded-lg" />
+        </div>
+        <div className="grid animate-pulse grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="h-40 animate-pulse rounded-lg bg-white" />
+            <BrandedSkeletonBlock key={index} className="h-40 rounded-lg" />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-          <div className="h-80 animate-pulse rounded-lg bg-white xl:col-span-8" />
-          <div className="h-80 animate-pulse rounded-lg bg-white xl:col-span-4" />
+        <div className="grid animate-pulse grid-cols-1 gap-5 xl:grid-cols-12">
+          <BrandedSkeletonBlock className="h-80 rounded-lg xl:col-span-8" />
+          <BrandedSkeletonBlock className="h-80 rounded-lg xl:col-span-4" />
         </div>
       </div>
     </div>
