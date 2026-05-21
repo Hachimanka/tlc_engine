@@ -454,8 +454,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const roleRequiresDepartment =
-    Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
   let managedDepartment: ManagedDepartmentRow | null = null;
 
   try {
@@ -474,13 +472,8 @@ export async function POST(req: Request) {
 
   const department = managedDepartment?.name ?? (normalizeDepartment(payload.department) || null);
   const departmentId = managedDepartment?.id ?? null;
-
-  if (roleRequiresDepartment && !department) {
-    return NextResponse.json(
-      { error: "Department is required for this role." },
-      { status: 400 },
-    );
-  }
+  const roleRequiresDepartment =
+    Boolean(roleRow.requires_department) || isDepartmentRequiredRole(roleRow.key);
 
   const { data: orgInfo } = await supabaseAdmin
     .from("organizations")

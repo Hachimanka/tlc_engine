@@ -141,12 +141,6 @@ export default function AddUserModal({
   const selectedRoleLabel = isCustomRole
     ? "Custom role"
     : selectedRole?.name ?? "Select a role";
-  const selectedRoleRequiresDepartment = Boolean(
-    selectedRole?.requiresDepartment ?? selectedRole?.requires_department,
-  );
-  const departmentIsRequired = isCustomRole
-    ? customRoleRequiresDepartment
-    : selectedRoleRequiresDepartment;
   const hasManagedDepartments = departments.length > 0;
   const assignableFeatures = useMemo(
     () =>
@@ -209,19 +203,14 @@ export default function AddUserModal({
     fullName.trim() &&
       (isCustomRole
         ? customRoleName.trim() && customRoleFeatureKeys.length > 0
-        : roleId) &&
-      (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
+        : roleId),
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) {
       setError(
-        departmentIsRequired && !department.trim()
-          ? "Department is required for this role."
-          : departmentIsRequired && hasManagedDepartments && !departmentId
-          ? "Department is required for this role."
-          : isCustomRole && customRoleFeatureKeys.length === 0
+        isCustomRole && customRoleFeatureKeys.length === 0
           ? "Select at least one feature for this custom role."
           : "Please complete all required fields.",
       );
@@ -579,9 +568,6 @@ export default function AddUserModal({
             <div className="space-y-2">
               <label htmlFor="department" className="text-sm font-medium text-[#344054]">
                 Department
-                {departmentIsRequired ? (
-                  <span className="ml-1 text-[var(--color-primary)]">*</span>
-                ) : null}
               </label>
               {hasManagedDepartments ? (
                 <select
@@ -590,9 +576,7 @@ export default function AddUserModal({
                   onChange={(event) => setDepartmentId(event.target.value)}
                   className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
                 >
-                  <option value="">
-                    {departmentIsRequired ? "Select a department" : "No department"}
-                  </option>
+                  <option value="">No department</option>
                   {departments.map((departmentOption) => (
                     <option key={departmentOption.id} value={departmentOption.id}>
                       {departmentOption.code
@@ -611,9 +595,7 @@ export default function AddUserModal({
                 />
               )}
               <p className="text-xs text-[var(--color-low-emphasis)]">
-                {departmentIsRequired
-                  ? "Required because the selected role needs a department."
-                  : "Optional. Leave blank if this account is not assigned to a department."}
+                Optional. Leave blank if this account is not assigned to a department.
               </p>
             </div>
 
