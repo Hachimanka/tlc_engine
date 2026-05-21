@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronDown, Maximize2, Minimize2, Plus, Search } from "lucide-react";
+import { Maximize2, Minimize2, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 export type TenantRoleUser = {
   id: string;
@@ -129,22 +130,15 @@ export default function UserRoles({
             />
           </label>
 
-          <label className="relative flex h-10 items-center rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
+          <div className="min-w-[150px]">
             <span className="sr-only">Filter by role</span>
-            <select
+            <StyledSelect
               value={roleFilter}
-              onChange={(event) => setRoleFilter(event.target.value)}
-              className="h-full min-w-[150px] appearance-none bg-transparent pr-8 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-            >
-              {roleOptions.map((role) => (
-                <option key={role}>{role}</option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--color-low-emphasis)]"
-              aria-hidden="true"
+              onChange={setRoleFilter}
+              options={roleOptions.map((role) => ({ value: role, label: role }))}
+              className="[&_button]:h-10"
             />
-          </label>
+          </div>
         </div>
 
         {isExpanded ? (

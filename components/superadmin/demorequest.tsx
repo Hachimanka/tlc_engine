@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
 
@@ -256,15 +257,11 @@ function AddDemoModal({ onClose, onAdded }: {
 						</div>
 						<div>
 							<FormLabel label="Institution Size" />
-							<select
-								className={inputCls("institution_size")}
+							<StyledSelect
 								value={form.institution_size}
-								onChange={e => setForm(f => ({ ...f, institution_size: e.target.value }))}
-							>
-								{INSTITUTION_SIZES.map(s => (
-									<option key={s} value={s}>{s} employees</option>
-								))}
-							</select>
+								onChange={value => setForm(f => ({ ...f, institution_size: value }))}
+								options={INSTITUTION_SIZES.map(s => ({ value: s, label: `${s} employees` }))}
+							/>
 						</div>
 					</div>
 
@@ -293,15 +290,11 @@ function AddDemoModal({ onClose, onAdded }: {
 					{/* Status */}
 					<div>
 						<FormLabel label="Status" />
-						<select
-							className={inputCls("status")}
+						<StyledSelect
 							value={form.status}
-							onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-						>
-							{STATUS_OPTIONS.filter(o => o.value !== "").map(opt => (
-								<option key={opt.value} value={opt.value}>{opt.label}</option>
-							))}
-						</select>
+							onChange={value => setForm(f => ({ ...f, status: value }))}
+							options={STATUS_OPTIONS.filter(o => o.value !== "")}
+						/>
 					</div>
 
 					{/* Message */}

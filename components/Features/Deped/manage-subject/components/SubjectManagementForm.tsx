@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 export type SubjectFormValues = {
 	subjectTitle: string;
@@ -101,9 +102,14 @@ export default function SubjectManagementForm({
 	}, [handleCancel, isOpen]);
 
 	const handleChange = (
-		event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+		event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
 	) => {
 		const { name, value } = event.target;
+		setFormValues((prev) => ({ ...prev, [name]: value }));
+		setErrors((prev) => ({ ...prev, [name]: undefined }));
+	};
+
+	const handleSelectChange = (name: keyof SubjectFormValues, value: string) => {
 		setFormValues((prev) => ({ ...prev, [name]: value }));
 		setErrors((prev) => ({ ...prev, [name]: undefined }));
 	};
@@ -224,19 +230,11 @@ export default function SubjectManagementForm({
 								>
 									Department <span className="text-[#f04444]">*</span>
 								</label>
-								<select
-									id="department"
-									name="department"
+								<StyledSelect
 									value={formValues.department}
-									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								>
-									{departmentOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("department", value)}
+									options={departmentOptions}
+								/>
 								{errors.department ? (
 									<p className="text-xs text-[#f04444]">{errors.department}</p>
 								) : null}
@@ -249,19 +247,11 @@ export default function SubjectManagementForm({
 								>
 									Year Level <span className="text-[#f04444]">*</span>
 								</label>
-								<select
-									id="yearLevel"
-									name="yearLevel"
+								<StyledSelect
 									value={formValues.yearLevel}
-									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-								>
-									{yearLevelOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
+									onChange={(value) => handleSelectChange("yearLevel", value)}
+									options={yearLevelOptions}
+								/>
 								{errors.yearLevel ? (
 									<p className="text-xs text-[#f04444]">{errors.yearLevel}</p>
 								) : null}

@@ -8,6 +8,8 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import StyledSelect from "@/components/Global/StyledSelect";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
@@ -333,16 +335,15 @@ function EditAccountForm({
             <label htmlFor="edit-status" className="text-sm font-medium text-[#344054]">
               Status
             </label>
-            <select
-              id="edit-status"
+            <StyledSelect
               value={status}
               disabled={isProtectedAdmin}
-              onChange={(event) => setStatus(event.target.value as "active" | "disabled")}
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#667085]"
-            >
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
-            </select>
+              onChange={(value) => setStatus(value as "active" | "disabled")}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "disabled", label: "Disabled" },
+              ]}
+            />
           </div>
         </div>
 
@@ -350,19 +351,12 @@ function EditAccountForm({
           <label htmlFor="edit-role" className="text-sm font-medium text-[#344054]">
             Role
           </label>
-          <select
-            id="edit-role"
+          <StyledSelect
             value={roleId}
             disabled={isProtectedAdmin}
-            onChange={(event) => handleRoleChange(event.target.value)}
-            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#667085]"
-          >
-            {roleOptions.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            onChange={handleRoleChange}
+            options={roleOptions.map((role) => ({ value: role.id, label: role.name }))}
+          />
         </div>
 
         <div className="space-y-2">
@@ -373,29 +367,28 @@ function EditAccountForm({
             ) : null}
           </label>
           {hasManagedDepartments ? (
-            <select
-              id="edit-department"
+            <StyledSelect
               value={departmentId}
-              onChange={(event) => setDepartmentId(event.target.value)}
-              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-            >
-              <option value="">
-                {user.departmentId
-                  ? "No department"
-                  : user.department
-                  ? `Keep legacy: ${user.department}`
-                  : requiresDepartment
-                  ? "Select a department"
-                  : "No department"}
-              </option>
-              {departments.map((departmentOption) => (
-                <option key={departmentOption.id} value={departmentOption.id}>
-                  {departmentOption.code
+              onChange={setDepartmentId}
+              options={[
+                {
+                  value: "",
+                  label: user.departmentId
+                    ? "No department"
+                    : user.department
+                    ? `Keep legacy: ${user.department}`
+                    : requiresDepartment
+                    ? "Select a department"
+                    : "No department",
+                },
+                ...departments.map((departmentOption) => ({
+                  value: departmentOption.id,
+                  label: departmentOption.code
                     ? `${departmentOption.code} - ${departmentOption.name}`
-                    : departmentOption.name}
-                </option>
-              ))}
-            </select>
+                    : departmentOption.name,
+                })),
+              ]}
+            />
           ) : (
             <input
               id="edit-department"
@@ -791,44 +784,33 @@ export default function Accounts() {
             />
           </label>
 
-          <select
+          <StyledSelect
             value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value)}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by role"
-          >
-            <option value="all">All roles</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            onChange={setRoleFilter}
+            options={[
+              { value: "all", label: "All roles" },
+              ...roles.map((role) => ({ value: role.id, label: role.name })),
+            ]}
+          />
 
-          <select
+          <StyledSelect
             value={departmentFilter}
-            onChange={(event) => setDepartmentFilter(event.target.value)}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by department"
-          >
-            <option value="all">All departments</option>
-            {departmentOptions.map((department) => (
-              <option key={department} value={department}>
-                {department}
-              </option>
-            ))}
-          </select>
+            onChange={setDepartmentFilter}
+            options={[
+              { value: "all", label: "All departments" },
+              ...departmentOptions.map((department) => ({ value: department, label: department })),
+            ]}
+          />
 
-          <select
+          <StyledSelect
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "disabled")}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
-          </select>
+            onChange={(value) => setStatusFilter(value as "all" | "active" | "disabled")}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "active", label: "Active" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+          />
         </div>
       </section>
 

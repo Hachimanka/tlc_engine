@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import {
   AlertTriangle,
   BookOpen,
@@ -638,20 +639,14 @@ const SelectField = ({
   options: string[];
   onChange: (value: string) => void;
 }) => (
-  <label className="flex flex-col gap-1.5 text-sm font-medium text-[#344054]">
+  <div className="flex flex-col gap-1.5 text-sm font-medium text-[#344054]">
     {label}
-    <select
+    <StyledSelect
       value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-11 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-    >
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  </label>
+      onChange={onChange}
+      options={options.map((option) => ({ value: option, label: option }))}
+    />
+  </div>
 );
 
 const Section = ({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import type {
   FeatureDefinition,
   FeatureKey,
@@ -626,23 +627,22 @@ export default function AddUserModal({
                 ) : null}
               </label>
               {hasManagedDepartments ? (
-                <select
-                  id="department"
+                <StyledSelect
                   value={departmentId}
-                  onChange={(event) => setDepartmentId(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
-                >
-                  <option value="">
-                    {departmentIsRequired ? "Select a department" : "No department"}
-                  </option>
-                  {departments.map((departmentOption) => (
-                    <option key={departmentOption.id} value={departmentOption.id}>
-                      {departmentOption.code
+                  onChange={setDepartmentId}
+                  options={[
+                    {
+                      value: "",
+                      label: departmentIsRequired ? "Select a department" : "No department",
+                    },
+                    ...departments.map((departmentOption) => ({
+                      value: departmentOption.id,
+                      label: departmentOption.code
                         ? `${departmentOption.code} - ${departmentOption.name}`
-                        : departmentOption.name}
-                    </option>
-                  ))}
-                </select>
+                        : departmentOption.name,
+                    })),
+                  ]}
+                />
               ) : (
                 <input
                   id="department"

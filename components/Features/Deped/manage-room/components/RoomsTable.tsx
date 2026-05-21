@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type KeyboardEvent } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 export type RoomRow = {
 	id: string;
@@ -47,6 +48,7 @@ export default function RoomsTable({
 	const [buildingFilter, setBuildingFilter] = useState("All Buildings");
 
 	const buildingOptions = ["All Buildings", ...new Set(rooms.map((room) => room.building))];
+	const buildingFilterOptions = buildingOptions.map((option) => ({ value: option, label: option }));
 
 	const filteredRooms = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -106,26 +108,12 @@ export default function RoomsTable({
 					</div>
 				</div>
 
-				<div className="relative w-full max-w-[220px] rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-low-emphasis)] shadow-level-1 lg:max-w-[240px]">
-					<select
+				<div className="w-full max-w-[220px] lg:max-w-[240px]">
+					<StyledSelect
 						value={buildingFilter}
-						onChange={(event) => setBuildingFilter(event.target.value)}
-						className="w-full appearance-none bg-transparent pr-6 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-					>
-						{buildingOptions.map((option) => (
-							<option key={option} value={option}>
-								{option}
-							</option>
-						))}
-					</select>
-					<svg
-						aria-hidden="true"
-						viewBox="0 0 24 24"
-						fill="none"
-						className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-low-emphasis)]"
-					>
-						<path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-					</svg>
+						onChange={setBuildingFilter}
+						options={buildingFilterOptions}
+					/>
 				</div>
 			</div>
 

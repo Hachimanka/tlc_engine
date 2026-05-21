@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, Pencil, Plus, Search, X } from "lucide-react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -684,10 +685,9 @@ export default function RoomsTable() {
                     <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                       Building
                     </span>
-                    <select
+                    <StyledSelect
                       value={buildingSelection}
-                      onChange={(event) => {
-                        const nextSelection = event.target.value;
+                      onChange={(nextSelection) => {
                         setBuildingSelection(nextSelection);
                         setForm((current) => ({
                           ...current,
@@ -695,15 +695,12 @@ export default function RoomsTable() {
                             nextSelection === addNewBuildingValue ? "" : nextSelection,
                         }));
                       }}
-                      className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                    >
-                      {registeredBuildings.map((building) => (
-                        <option key={building} value={building}>
-                          {building}
-                        </option>
-                      ))}
-                      <option value={addNewBuildingValue}>Add new building</option>
-                    </select>
+                      options={[
+                        ...registeredBuildings.map((building) => ({ value: building, label: building })),
+                        { value: addNewBuildingValue, label: "Add new building" },
+                      ]}
+                      className="[&_button]:h-10"
+                    />
                   </label>
 
                   {buildingSelection === addNewBuildingValue ? (
@@ -727,17 +724,12 @@ export default function RoomsTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Room Type
                   </span>
-                  <select
+                  <StyledSelect
                     value={form.type}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, type: event.target.value }))
-                    }
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    {roomTypes.map((roomType) => (
-                      <option key={roomType}>{roomType}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((current) => ({ ...current, type: value }))}
+                    options={roomTypes.map((roomType) => ({ value: roomType, label: roomType }))}
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1">
@@ -759,22 +751,17 @@ export default function RoomsTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Status
                   </span>
-                  <select
+                  <StyledSelect
                     value={form.status}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        status: event.target.value as RoomStatus,
+                        status: value as RoomStatus,
                       }))
                     }
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                    options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <div className="flex justify-end gap-3 pt-2 lg:col-span-2">
@@ -849,10 +836,9 @@ export default function RoomsTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Department
                   </span>
-                  <select
+                  <StyledSelect
                     value={assignmentForm.department}
-                    onChange={(event) => {
-                      const nextDepartment = event.target.value;
+                    onChange={(nextDepartment) => {
                       const nextSubjects = nextDepartment
                         ? subjects.filter(
                             (subject) => subject.department.trim() === nextDepartment,
@@ -866,43 +852,38 @@ export default function RoomsTable() {
                       }));
                     }}
                     disabled={subjectDepartments.length === 0}
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis)]"
-                  >
-                    {subjectDepartments.length === 0 ? (
-                      <option value="">No departments available</option>
-                    ) : null}
-                    {subjectDepartments.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </select>
+                    options={
+                      subjectDepartments.length === 0
+                        ? [{ value: "", label: "No departments available" }]
+                        : subjectDepartments.map((department) => ({ value: department, label: department }))
+                    }
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1 lg:col-span-2">
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Approved Subject
                   </span>
-                  <select
+                  <StyledSelect
                     value={assignmentForm.subjectId}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setAssignmentForm((current) => ({
                         ...current,
-                        subjectId: event.target.value,
+                        subjectId: value,
                       }))
                     }
                     disabled={filteredAssignmentSubjects.length === 0}
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis)]"
-                  >
-                    {filteredAssignmentSubjects.length === 0 ? (
-                      <option value="">No approved subjects in this department</option>
-                    ) : null}
-                    {filteredAssignmentSubjects.map((subject) => (
-                      <option key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.title}
-                      </option>
-                    ))}
-                  </select>
+                    options={
+                      filteredAssignmentSubjects.length === 0
+                        ? [{ value: "", label: "No approved subjects in this department" }]
+                        : filteredAssignmentSubjects.map((subject) => ({
+                            value: subject.id,
+                            label: `${subject.code} - ${subject.title}`,
+                          }))
+                    }
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1">
@@ -926,20 +907,17 @@ export default function RoomsTable() {
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Day
                   </span>
-                  <select
+                  <StyledSelect
                     value={assignmentForm.dayOfWeek}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setAssignmentForm((current) => ({
                         ...current,
-                        dayOfWeek: event.target.value,
+                        dayOfWeek: value,
                       }))
                     }
-                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    {scheduleDays.map((day) => (
-                      <option key={day}>{day}</option>
-                    ))}
-                  </select>
+                    options={scheduleDays.map((day) => ({ value: day, label: day }))}
+                    className="[&_button]:h-10"
+                  />
                 </label>
 
                 <label className="space-y-1">
@@ -1016,16 +994,12 @@ export default function RoomsTable() {
             />
           </label>
 
-          <select
+          <StyledSelect
             value={buildingFilter}
-            onChange={(event) => setBuildingFilter(event.target.value)}
-            className="h-10 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm font-medium text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by building"
-          >
-            {buildings.map((building) => (
-              <option key={building}>{building}</option>
-            ))}
-          </select>
+            onChange={setBuildingFilter}
+            options={buildings.map((building) => ({ value: building, label: building }))}
+            className="min-w-[180px] [&_button]:h-10"
+          />
         </div>
       </section>
 

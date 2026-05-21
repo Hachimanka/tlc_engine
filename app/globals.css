@@ -15,6 +15,17 @@
     border: 0;
     outline: none;
   }
+
+  select option {
+    background-color: #ffffff;
+    color: var(--color-high-emphasis);
+  }
+
+  select option:checked {
+    background-color: #e0f4f1;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
 }
 
 @layer components {

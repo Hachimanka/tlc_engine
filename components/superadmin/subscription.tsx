@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 type Plan = {
@@ -192,11 +193,15 @@ function EditModal({ plan, onClose, onSaved }: {
 						</div>
 						<div>
 							<label className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 block">Color Theme</label>
-							<select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 text-gray-800" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}>
-								{Object.keys(colorMap).map(c => (
-									<option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-								))}
-							</select>
+							<StyledSelect
+								value={form.color}
+								onChange={value => setForm(f => ({ ...f, color: value }))}
+								options={Object.keys(colorMap).map(c => ({
+									value: c,
+									label: c.charAt(0).toUpperCase() + c.slice(1),
+								}))}
+								className="[&_button]:h-10"
+							/>
 						</div>
 					</div>
 					<div>

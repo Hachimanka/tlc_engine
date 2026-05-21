@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import StyledSelect from "@/components/Global/StyledSelect";
 
 export type FacultyAccountOption = {
 	id: string;
@@ -192,19 +193,15 @@ export default function AddFacultyForms({
 							<label className="text-sm font-semibold text-[var(--color-high-emphasis)]" htmlFor="employment-type">
 								Employment Type <span className="text-[#f04444]">*</span>
 							</label>
-							<select
-								id="employment-type"
+							<StyledSelect
 								value={employmentType}
-								onChange={(event) => {
-									setEmploymentType(event.target.value);
+								onChange={(value) => {
+									setEmploymentType(value);
 									setErrors((current) => ({ ...current, employmentType: undefined }));
 								}}
-								className="w-full appearance-none rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.12)]"
-							>
-								{employmentTypes.map((type) => (
-									<option key={type} value={type}>{type}</option>
-								))}
-							</select>
+								options={employmentTypes.map((type) => ({ value: type, label: type }))}
+								className="[&_button]:min-h-12 [&_button]:py-3"
+							/>
 							{errors.employmentType ? <p className="text-xs text-[#f04444]">{errors.employmentType}</p> : null}
 						</div>
 
