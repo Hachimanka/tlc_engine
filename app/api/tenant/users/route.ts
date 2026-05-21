@@ -218,6 +218,25 @@ type DepartmentOptionRow = {
 const normalizeRoleLabel = (value?: string | null) =>
   normalizeOptionalText(value) ?? "Staff";
 
+const ROLE_LABEL_MIGRATION_ERROR =
+  "Account role names require the org_users.role_label column. Run scripts/db/20260521_org_user_feature_permissions.sql in Supabase, then try again.";
+
+const ensureRoleLabelColumnAvailable = async (orgId: string) => {
+  const { error } = await supabaseAdmin
+    .from("org_users")
+    .select("role_label")
+    .eq("org_id", orgId)
+    .limit(1);
+
+  if (isMissingRoleLabelError(error)) {
+    throw new Error(ROLE_LABEL_MIGRATION_ERROR);
+  }
+
+  if (error) {
+    throw new Error(error.message || "Failed to verify account role-name storage.");
+  }
+};
+
 const getInternalAccountRole = async (orgId: string) => {
   const { data: existingRole, error: existingError } = await supabaseAdmin
     .from("roles")
@@ -525,6 +544,20 @@ export async function POST(req: Request) {
     );
   }
 
+  try {
+    await ensureRoleLabelColumnAvailable(context.org.id);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : ROLE_LABEL_MIGRATION_ERROR,
+      },
+      { status: 500 },
+    );
+  }
+
   const emailConfigError = getCustomerConversionEmailConfigError();
 
   if (emailConfigError) {
@@ -656,35 +689,7 @@ export async function POST(req: Request) {
   const legacyOrgUserInsertPayload = {
     org_id: context.org.id,
     role_id: roleRow.id,
-    auth_user_id: createdUser.user.id,
-    full_name: fullName,
-    email,
-    employee_id: employeeId,
-    department,
-    department_id: departmentId,
-    status: "active",
-    created_at: now,
-    updated_at: now,
-  };
-  const orgUserInsertPayloadWithoutRoleLabel = {
-    org_id: context.org.id,
-    role_id: roleRow.id,
-    auth_user_id: createdUser.user.id,
-    full_name: fullName,
-    email,
-    employee_id: employeeId,
-    department,
-    department_id: departmentId,
-    teacher_major: teacherMajor,
-    qualified_subjects: qualifiedSubjects,
-    preferred_subject: preferredSubject,
-    status: "active",
-    created_at: now,
-    updated_at: now,
-  };
-  const legacyOrgUserInsertPayloadWithoutRoleLabel = {
-    org_id: context.org.id,
-    role_id: roleRow.id,
+    role_label: roleLabel,
     auth_user_id: createdUser.user.id,
     full_name: fullName,
     email,
@@ -711,19 +716,8 @@ export async function POST(req: Request) {
   }
 
   if (isMissingRoleLabelError(orgUserResult.error)) {
-    orgUserResult = await supabaseAdmin
-      .from("org_users")
-      .insert([orgUserInsertPayloadWithoutRoleLabel])
-      .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, status, role_id, created_at")
-      .single();
-
-    if (isMissingTeacherFieldError(orgUserResult.error)) {
-      orgUserResult = await supabaseAdmin
-        .from("org_users")
-        .insert([legacyOrgUserInsertPayloadWithoutRoleLabel])
-        .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
-        .single();
-    }
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    return NextResponse.json({ error: ROLE_LABEL_MIGRATION_ERROR }, { status: 500 });
   }
 
   if (orgUserResult.error || !orgUserResult.data) {

@@ -61,6 +61,9 @@ const normalizeRoleLabel = (value?: string | null) => {
   return value.trim().replace(/\s+/g, " ") || null;
 };
 
+const ROLE_LABEL_MIGRATION_ERROR =
+  "Account role names require the org_users.role_label column. Run scripts/db/20260521_org_user_feature_permissions.sql in Supabase, then try again.";
+
 type ManagedDepartmentRow = {
   id: string;
   name: string;
@@ -138,15 +141,7 @@ export async function PATCH(
     .maybeSingle<OrgUserRow>();
 
   if (isMissingRoleLabelError(targetError)) {
-    const fallbackTargetResult = await supabaseAdmin
-      .from("org_users")
-      .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
-      .eq("id", userId)
-      .eq("org_id", context.org.id)
-      .maybeSingle<OrgUserRow>();
-
-    targetUser = fallbackTargetResult.data;
-    targetError = fallbackTargetResult.error;
+    return NextResponse.json({ error: ROLE_LABEL_MIGRATION_ERROR }, { status: 500 });
   }
 
   if (targetError || !targetUser?.id) {
@@ -246,22 +241,7 @@ export async function PATCH(
     .single();
 
   if (isMissingRoleLabelError(updateError)) {
-    const fallbackUpdateResult = await supabaseAdmin
-      .from("org_users")
-      .update({
-        full_name: nextFullName,
-        department: nextDepartment,
-        department_id: nextDepartmentId,
-        status: nextStatus,
-        updated_at: now,
-      })
-      .eq("id", targetUser.id)
-      .eq("org_id", context.org.id)
-      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
-      .single();
-
-    updatedUser = fallbackUpdateResult.data as typeof updatedUser;
-    updateError = fallbackUpdateResult.error;
+    return NextResponse.json({ error: ROLE_LABEL_MIGRATION_ERROR }, { status: 500 });
   }
 
   if (updateError || !updatedUser) {
