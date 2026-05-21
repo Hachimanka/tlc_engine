@@ -15,7 +15,6 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
 type CollegePayload = {
@@ -144,6 +143,111 @@ const getPersonGroup = (person: Person) => {
 
   return "Personnel";
 };
+
+function SkeletonBlock({
+  className,
+  strong = false,
+}: {
+  className: string;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded ${className}`}
+      style={{
+        backgroundColor: strong
+          ? "color-mix(in srgb, var(--color-primary) 72%, white)"
+          : "color-mix(in srgb, var(--color-primary) 18%, white)",
+      }}
+    />
+  );
+}
+
+function DepartmentsSkeleton() {
+  return (
+    <div className="space-y-5" role="status" aria-label="Loading colleges and departments">
+      <span className="sr-only">Loading colleges and departments</span>
+
+      <div className="flex animate-pulse flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <SkeletonBlock className="h-8 w-72 max-w-full" />
+          <SkeletonBlock className="h-4 w-52 max-w-full" />
+        </div>
+        <SkeletonBlock className="h-10 w-32" />
+      </div>
+
+      <section className="grid animate-pulse gap-4 xl:grid-cols-2">
+        {[0, 1].map((index) => (
+          <div
+            key={index}
+            className="space-y-5 rounded-lg bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+          >
+            <div className="flex items-center gap-2">
+              <SkeletonBlock className="h-5 w-5" />
+              <SkeletonBlock className="h-6 w-40" />
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_150px]">
+              <SkeletonBlock className="h-14 rounded-lg" />
+              <SkeletonBlock className="h-14 rounded-lg" />
+            </div>
+            <div className={index === 0 ? "" : "grid gap-3 md:grid-cols-2"}>
+              <SkeletonBlock className="h-12 rounded-lg" />
+              {index === 1 ? <SkeletonBlock className="h-12 rounded-lg" /> : null}
+            </div>
+            <SkeletonBlock className="h-12 w-44 rounded-md" strong />
+          </div>
+        ))}
+      </section>
+
+      <div className="animate-pulse space-y-6">
+        <div className="rounded-lg border border-[var(--color-default)] bg-white px-6 py-5 shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0 space-y-3">
+              <div className="flex items-center gap-3">
+                <SkeletonBlock className="h-5 w-5" />
+                <SkeletonBlock className="h-7 w-[360px] max-w-full" />
+                <SkeletonBlock className="h-8 w-28 rounded-full" />
+              </div>
+              <div className="flex items-center gap-2 pl-8">
+                <SkeletonBlock className="h-4 w-4" />
+                <SkeletonBlock className="h-4 w-44" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <SkeletonBlock className="h-11 w-24 rounded-md" />
+              <SkeletonBlock className="h-11 w-28 rounded-md" />
+            </div>
+          </div>
+        </div>
+
+        <section className="space-y-5 rounded-lg bg-white p-6 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className="flex items-center gap-2">
+            <SkeletonBlock className="h-5 w-5" />
+            <SkeletonBlock className="h-7 w-56" />
+          </div>
+          <div className="overflow-hidden rounded-lg border border-[var(--color-default)]">
+            <div className="bg-[#f8fafc] px-4 py-4">
+              <SkeletonBlock className="h-5 w-72 max-w-full" />
+            </div>
+            {[0, 1].map((index) => (
+              <div
+                key={index}
+                className="grid gap-3 border-t border-[var(--color-default)] px-4 py-4 md:grid-cols-[1fr_300px_110px] md:items-center"
+              >
+                <div className="space-y-2">
+                  <SkeletonBlock className="h-5 w-44" />
+                  <SkeletonBlock className="h-4 w-72 max-w-full" />
+                </div>
+                <SkeletonBlock className="h-12 rounded-lg" />
+                <SkeletonBlock className="h-12 rounded-md" strong />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
 
 function PersonLine({
   person,
@@ -1236,13 +1340,7 @@ export default function Departments() {
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading colleges and departments"
-        useStoredBranding
-      />
-    );
+    return <DepartmentsSkeleton />;
   }
 
   if (loadError) {
