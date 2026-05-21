@@ -9,7 +9,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import {
   DEFAULT_TENANT_BRANDING,
@@ -77,6 +76,66 @@ const snapshotBranding = (branding: TenantBranding) =>
     loginTitle: branding.loginTitle,
     loginSubtitle: branding.loginSubtitle,
   });
+
+function BrandingSkeleton() {
+  const block = "rounded bg-[#c8e5e1]";
+
+  return (
+    <TenantBrandScope branding={DEFAULT_TENANT_BRANDING} className="space-y-5">
+      <div className="flex animate-pulse flex-wrap items-start justify-between gap-4" role="status" aria-label="Loading branding">
+        <span className="sr-only">Loading branding</span>
+        <div className="space-y-3">
+          <div className={`h-7 w-44 rounded-full bg-[#c8e5e1]`} />
+          <div className={`h-8 w-72 ${block}`} />
+          <div className={`h-4 w-[560px] max-w-full ${block}`} />
+        </div>
+        <div className="flex gap-2">
+          <div className={`h-10 w-24 ${block}`} />
+          <div className={`h-10 w-32 ${block}`} />
+        </div>
+      </div>
+
+      <div className="grid animate-pulse gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className={`h-6 w-36 ${block}`} />
+          <div className={`mt-3 h-4 w-72 ${block}`} />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <div key={index} className="rounded-lg border border-[var(--color-default)] p-4">
+                <div className={`h-5 w-28 ${block}`} />
+                <div className={`mt-2 h-3 w-40 ${block}`} />
+                <div className="mt-4 flex gap-3">
+                  <div className={`h-11 w-14 ${block}`} />
+                  <div className={`h-11 flex-1 ${block}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div className={`h-6 w-20 ${block}`} />
+          <div className={`mt-3 h-4 w-44 ${block}`} />
+          <div className={`mt-5 h-40 w-full rounded-lg bg-[#c8e5e1]`} />
+          <div className={`mt-4 h-11 w-full ${block}`} />
+          <div className="mt-4 flex gap-2">
+            <div className={`h-10 w-32 ${block}`} />
+            <div className={`h-10 w-28 ${block}`} />
+          </div>
+        </section>
+      </div>
+
+      <section className="animate-pulse rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+        <div className={`h-6 w-28 ${block}`} />
+        <div className={`mt-3 h-4 w-80 ${block}`} />
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className={`h-20 ${block}`} />
+          <div className={`h-20 ${block}`} />
+        </div>
+      </section>
+    </TenantBrandScope>
+  );
+}
 
 const buildDefaultDraft = (orgName = "Institution") => ({
   ...DEFAULT_TENANT_BRANDING,
@@ -312,13 +371,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] items-center justify-center rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading branding"
-        useStoredBranding
-      />
-    );
+    return <BrandingSkeleton />;
   }
 
   return (
