@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Pencil, RefreshCw, Search, UserPlus, X } from "lucide-react";
+import { Pencil, RefreshCw, Search, Trash2, UserPlus, X } from "lucide-react";
 import AddUserModal, {
   type DepartmentOption,
   type AddUserPayload,
@@ -454,6 +454,10 @@ export default function Accounts() {
     userName: string;
     tempPassword: string;
   } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AccountUser | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -714,6 +718,65 @@ export default function Accounts() {
       userName: user.fullName,
       tempPassword: payload.tempPassword,
     });
+  };
+
+  const openDeleteConfirm = (user: AccountUser) => {
+    setDeleteTarget(user);
+    setDeleteConfirmText("");
+    setDeleteError("");
+  };
+
+  const closeDeleteConfirm = () => {
+    if (isDeleting) {
+      return;
+    }
+
+    setDeleteTarget(null);
+    setDeleteConfirmText("");
+    setDeleteError("");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteTarget || deleteConfirmText !== deleteTarget.fullName) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      setIsDeleting(false);
+      setDeleteError("Session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch(`/api/tenant/users/${deleteTarget.id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    setIsDeleting(false);
+
+    if (!response.ok) {
+      setDeleteError(payload?.error || "Failed to delete account.");
+      return;
+    }
+
+    setUsers((current) => current.filter((user) => user.id !== deleteTarget.id));
+    setResetResult((current) =>
+      current?.userId === deleteTarget.id ? null : current,
+    );
+    setPanelMode("view");
+    setPanelOpen(false);
+    setSelectedUser(null);
+    setDeleteTarget(null);
+    setDeleteConfirmText("");
   };
 
   if (loadError) {
@@ -1029,6 +1092,16 @@ export default function Accounts() {
                     </div>
                   ) : null}
                   <div className="flex flex-wrap justify-end gap-2">
+                    {selectedUser.roleKey !== "org_admin" ? (
+                      <button
+                        type="button"
+                        onClick={() => openDeleteConfirm(selectedUser)}
+                        className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        Delete Account
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => handleResetPassword(selectedUser)}
@@ -1057,6 +1130,75 @@ export default function Accounts() {
           </>
         ) : null}
       </aside>
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            className="w-full max-w-[460px] rounded-lg bg-white p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="delete-account-title" className="text-lg font-bold text-red-700">
+                  Delete account
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-low-emphasis)]">
+                  This permanently removes {deleteTarget.fullName} from this organization and deletes their login account.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="rounded-md p-1 text-[var(--color-low-emphasis)] transition hover:bg-[#f2f4f7]"
+                aria-label="Close delete confirmation"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            {deleteError ? (
+              <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {deleteError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 space-y-2">
+              <label htmlFor="delete-account-confirm" className="text-sm font-medium text-[#344054]">
+                Type <span className="font-semibold text-red-700">{deleteTarget.fullName}</span> to confirm
+              </label>
+              <input
+                id="delete-account-confirm"
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                autoFocus
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={isDeleting}
+                className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[#f8fafc] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== deleteTarget.fullName || isDeleting}
+                className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {isDeleting ? "Deleting..." : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
