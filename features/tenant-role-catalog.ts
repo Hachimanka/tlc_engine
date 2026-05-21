@@ -103,7 +103,7 @@ const higherEdSystemRoles: SystemRoleDefinition[] = [
     key: "room_manager",
     name: "Room Manager",
     description: "Creates rooms and assigns approved subjects to room schedules.",
-    featureKeys: ["higher-room-schedule-management"],
+    featureKeys: ["higher-room-schedule-management", "higher-subject-management"],
   },
   {
     key: "load_manager",
