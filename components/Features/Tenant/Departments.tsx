@@ -15,7 +15,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import StyledSelect from "@/components/Global/StyledSelect";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
 type CollegePayload = {
@@ -145,54 +145,6 @@ const getPersonGroup = (person: Person) => {
   return "Personnel";
 };
 
-function DepartmentsSkeleton() {
-  const block = "rounded bg-[#c8e5e1]";
-
-  return (
-    <div className="space-y-5" role="status" aria-label="Loading colleges and departments">
-      <span className="sr-only">Loading colleges and departments</span>
-      <div className="flex animate-pulse flex-wrap items-start justify-between gap-3">
-        <div className="space-y-2">
-          <div className={`h-8 w-72 ${block}`} />
-          <div className={`h-4 w-48 ${block}`} />
-        </div>
-        <div className={`h-10 w-28 ${block}`} />
-      </div>
-
-      <section className="grid animate-pulse gap-4 xl:grid-cols-2">
-        {[0, 1].map((index) => (
-          <div key={index} className="space-y-4 rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-            <div className={`h-5 w-40 ${block}`} />
-            <div className="grid gap-3 md:grid-cols-[1fr_120px]">
-              <div className={`h-11 ${block}`} />
-              <div className={`h-11 ${block}`} />
-            </div>
-            <div className={`h-10 w-full ${block}`} />
-            <div className={`h-10 w-36 ${block}`} />
-          </div>
-        ))}
-      </section>
-
-      <div className="animate-pulse space-y-4">
-        {[0, 1, 2].map((index) => (
-          <div key={index} className="rounded-lg border border-[var(--color-default)] bg-white px-5 py-4 shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-3">
-                <div className={`h-6 w-80 max-w-full ${block}`} />
-                <div className={`h-4 w-52 ${block}`} />
-              </div>
-              <div className="flex gap-2">
-                <div className={`h-9 w-16 ${block}`} />
-                <div className={`h-9 w-20 ${block}`} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PersonLine({
   person,
   departments,
@@ -224,18 +176,19 @@ function PersonLine({
       </div>
 
       {onDepartmentChange ? (
-        <StyledSelect
+        <select
           value={selectedDepartmentId ?? ""}
-          onChange={onDepartmentChange}
-          options={[
-            { value: "", label: "Select department" },
-            ...departments.map((department) => ({
-              value: department.id,
-              label: formatUnitName(department),
-            })),
-          ]}
-          className="[&_button]:h-10"
-        />
+          onChange={(event) => onDepartmentChange(event.target.value)}
+          className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+          aria-label={`Department for ${person.fullName}`}
+        >
+          <option value="">Select department</option>
+          {departments.map((department) => (
+            <option key={department.id} value={department.id}>
+              {formatUnitName(department)}
+            </option>
+          ))}
+        </select>
       ) : (
         <div />
       )}
@@ -289,6 +242,15 @@ export default function Departments() {
   const deanCandidates = useMemo(() => leaderCandidates(users, "dean"), [users]);
   const chairCandidates = useMemo(() => leaderCandidates(users, "department_head"), [users]);
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
+  const deanCollegeByUserId = useMemo(
+    () =>
+      new Map(
+        colleges
+          .filter((college) => college.deanUserId)
+          .map((college) => [college.deanUserId as string, college.id]),
+      ),
+    [colleges],
+  );
   const leadershipAssignedUserIds = useMemo(
     () =>
       new Set(
@@ -639,19 +601,19 @@ export default function Departments() {
     label: string,
     emptyLabel: string,
   ) => (
-    <StyledSelect
+    <select
       value={value}
-      onChange={onChange}
-      placeholder={label}
-      options={[
-        { value: "", label: emptyLabel },
-        ...candidates.map((person) => ({
-          value: person.id,
-          label: `${person.fullName} - ${person.roleName}`,
-        })),
-      ]}
-      className="[&_button]:h-10"
-    />
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+      aria-label={label}
+    >
+      <option value="">{emptyLabel}</option>
+      {candidates.map((person) => (
+        <option key={person.id} value={person.id}>
+          {person.fullName} - {person.roleName}
+        </option>
+      ))}
+    </select>
   );
 
   const getAvailableLeaderCandidates = (candidates: Person[], currentUserId?: string | null) =>
@@ -786,23 +748,24 @@ export default function Departments() {
             {isAddingPersonnel ? (
               <div className="px-4 py-4">
                 <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                  <StyledSelect
+                  <select
                     value={selectedAssignment}
-                    onChange={(value) =>
+                    onChange={(event) =>
                       setAssignmentDrafts((current) => ({
                         ...current,
-                        [department.id]: value,
+                        [department.id]: event.target.value,
                       }))
                     }
-                    options={[
-                      { value: "", label: "Add personnel" },
-                      ...assignablePeople.map((person) => ({
-                        value: person.id,
-                        label: `${person.fullName} - ${person.roleName}`,
-                      })),
-                    ]}
-                    className="[&_button]:h-10"
-                  />
+                    className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                    aria-label={`Assign personnel to ${department.name}`}
+                  >
+                    <option value="">Add personnel</option>
+                    {assignablePeople.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.fullName} - {person.roleName}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     disabled={!selectedAssignment || Boolean(savingKey)}
@@ -1205,23 +1168,24 @@ export default function Departments() {
               <span className="text-xs font-semibold text-[var(--color-low-emphasis)]">
                 College
               </span>
-              <StyledSelect
+              <select
                 value={departmentDraft.collegeId}
-                onChange={(value) =>
+                onChange={(event) =>
                   setDepartmentDraft((current) => ({
                     ...current,
-                    collegeId: value,
+                    collegeId: event.target.value,
                   }))
                 }
-                options={[
-                  { value: "", label: "Unassigned college" },
-                  ...colleges.map((college) => ({
-                    value: college.id,
-                    label: formatUnitName(college),
-                  })),
-                ]}
-                className="mt-1"
-              />
+                className="mt-1 h-11 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+                aria-label="Department college"
+              >
+                <option value="">Unassigned college</option>
+                {colleges.map((college) => (
+                  <option key={college.id} value={college.id}>
+                    {formatUnitName(college)}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-low-emphasis)]">
@@ -1231,7 +1195,7 @@ export default function Departments() {
                 departmentDraft.chairUserId,
                 (value) =>
                   setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
-                getAvailableChairCandidates(editingDepartment.id),
+                chairCandidates,
                 "Department chair",
                 "No assigned chair",
               )}
@@ -1271,6 +1235,16 @@ export default function Departments() {
     return null;
   };
 
+  if (isLoading) {
+    return (
+      <TenantLoadingScreen
+        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+        label="Loading colleges and departments"
+        useStoredBranding
+      />
+    );
+  }
+
   if (loadError) {
     return (
       <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
@@ -1280,9 +1254,6 @@ export default function Departments() {
   }
 
   return (
-    isLoading ? (
-      <DepartmentsSkeleton />
-    ) : (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -1383,28 +1354,29 @@ export default function Departments() {
             />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <StyledSelect
+            <select
               value={departmentForm.collegeId}
-              onChange={(value) =>
+              onChange={(event) =>
                 setDepartmentForm((current) => ({
                   ...current,
-                  collegeId: value,
+                  collegeId: event.target.value,
                 }))
               }
-              options={[
-                { value: "", label: "Unassigned college" },
-                ...colleges.map((college) => ({
-                  value: college.id,
-                  label: formatUnitName(college),
-                })),
-              ]}
-              className="[&_button]:h-10"
-            />
+              className="h-10 rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none"
+              aria-label="Department college"
+            >
+              <option value="">Unassigned college</option>
+              {colleges.map((college) => (
+                <option key={college.id} value={college.id}>
+                  {formatUnitName(college)}
+                </option>
+              ))}
+            </select>
             {renderLeaderSelect(
               departmentForm.chairUserId,
               (value) =>
                 setDepartmentForm((current) => ({ ...current, chairUserId: value })),
-              getAvailableChairCandidates(),
+              chairCandidates,
               "Department chair",
               "No assigned chair",
             )}
@@ -1449,6 +1421,5 @@ export default function Departments() {
         {renderEditPanel()}
       </aside>
     </div>
-    )
   );
 }
