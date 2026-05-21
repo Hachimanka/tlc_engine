@@ -43,7 +43,6 @@ export default function TenantPage() {
     avatarUrl: "",
   });
   const [branding, setBranding] = useState<TenantBranding | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -160,10 +159,8 @@ export default function TenantPage() {
         saveStoredTenantBranding(payload.branding ?? null);
         setActiveView(getDefaultTenantAdminView(detectedType));
 
-        setCheckingAuth(false);
       } catch {
         setAuthError("Unable to reach Supabase Auth. Please check your internet connection and Supabase env values.");
-        setCheckingAuth(false);
       }
     };
 
@@ -187,19 +184,18 @@ export default function TenantPage() {
       return;
     }
 
-    setContentLoading(true);
+    const viewsWithLocalLoaders: TenantAdminView[] = [
+      "accounts",
+      "manage-users",
+      "departments",
+      "policies",
+      "branding",
+    ];
+    const shouldUseSectionLoader = !viewsWithLocalLoaders.includes(key as TenantAdminView);
+
+    setContentLoading(shouldUseSectionLoader);
     setActiveView(key as TenantAdminView);
   };
-
-  if (checkingAuth) {
-    return (
-      <TenantLoadingScreen
-        branding={branding}
-        label="Checking session"
-        useStoredBranding
-      />
-    );
-  }
 
   if (authError) {
     return (
@@ -245,7 +241,12 @@ export default function TenantPage() {
           }}
         />
         <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
-          {contentLoading ? (
+          {contentLoading &&
+          activeView !== "accounts" &&
+          activeView !== "manage-users" &&
+          activeView !== "departments" &&
+          activeView !== "policies" &&
+          activeView !== "branding" ? (
             <TenantLoadingScreen
               branding={branding}
               className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"

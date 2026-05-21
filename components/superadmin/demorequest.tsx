@@ -22,6 +22,9 @@ type ConversionResult = {
 	adminEmail: string;
 	tempPassword: string;
 	slug: string;
+	loginUrl: string;
+	emailSentTo: string;
+	emailDeliveryId?: string | null;
 	warning?: string;
 };
 
@@ -492,6 +495,9 @@ export default function DemoRequestTable() {
 				adminEmail: payload.adminEmail,
 				tempPassword: payload.tempPassword,
 				slug: payload.slug,
+				loginUrl: payload.loginUrl,
+				emailSentTo: payload.emailSentTo,
+				emailDeliveryId: payload.emailDeliveryId,
 				warning: payload.warning,
 			});
 
@@ -515,7 +521,7 @@ export default function DemoRequestTable() {
 
 	const selectedLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
 	const loginUrl = conversionResult?.slug
-		? `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
+		? conversionResult.loginUrl || `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
 		: "";
 
 	return (
@@ -777,6 +783,11 @@ export default function DemoRequestTable() {
 						<p className="text-sm text-gray-500 mt-1">
 							Admin account created for <span className="font-semibold text-gray-700">{selectedRequest?.institution_name}</span>.
 						</p>
+						{conversionResult.emailSentTo && (
+							<p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+								Account details were emailed to <span className="font-semibold">{conversionResult.emailSentTo}</span>.
+							</p>
+						)}
 
 						<div className="mt-4 space-y-3">
 							<div>
