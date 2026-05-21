@@ -29,7 +29,7 @@ export type CreatedUser = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
-  roleId: string;
+  roleId?: string;
   roleKey: string;
   roleName: string;
   description: string;
@@ -48,16 +48,6 @@ export type DepartmentOption = {
   name: string;
   code?: string | null;
   collegeId?: string | null;
-};
-
-export type RoleOption = {
-  id: string;
-  key: string;
-  name: string;
-  description?: string | null;
-  requiresDepartment?: boolean;
-  requires_department?: boolean;
-  featureKeys?: string[];
 };
 
 type AddUserModalProps = {
