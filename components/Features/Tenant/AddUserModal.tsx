@@ -17,6 +17,7 @@ export type RoleOption = {
 
 export type AddUserPayload = {
   fullName: string;
+  recipientEmail: string;
   roleId?: string;
   customRoleName?: string;
   customRoleFeatureKeys?: string[];
@@ -38,6 +39,13 @@ export type CreatedUser = {
   description: string;
 };
 
+export type AddUserResult = {
+  tempPassword: string;
+  user: CreatedUser;
+  emailSentTo: string;
+  loginUrl?: string | null;
+};
+
 export type DepartmentOption = {
   id: string;
   name: string;
@@ -52,7 +60,7 @@ type AddUserModalProps = {
   departments?: DepartmentOption[];
   emailDomain?: string | null;
   onClose: () => void;
-  onCreate: (payload: AddUserPayload) => Promise<{ tempPassword: string; user: CreatedUser }>;
+  onCreate: (payload: AddUserPayload) => Promise<AddUserResult>;
 };
 
 const normalizeNamePart = (value: string) =>
@@ -84,6 +92,9 @@ const getEmailPreview = (fullName: string, emailDomain?: string | null) => {
 };
 
 const customRoleValue = "__custom_role__";
+
+const isValidEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
 const groupFeatures = (features: FeatureDefinition[]) => {
   const groups = features.reduce<Record<string, FeatureDefinition[]>>((currentGroups, feature) => {
@@ -121,6 +132,7 @@ export default function AddUserModal({
   onCreate,
 }: AddUserModalProps) {
   const [fullName, setFullName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [roleId, setRoleId] = useState("");
   const [customRoleName, setCustomRoleName] = useState("");
   const [customRoleFeatureKeys, setCustomRoleFeatureKeys] = useState<string[]>([]);
@@ -130,7 +142,7 @@ export default function AddUserModal({
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ tempPassword: string; user: CreatedUser } | null>(null);
+  const [success, setSuccess] = useState<AddUserResult | null>(null);
 
   const roleOptions = useMemo(() => roles, [roles]);
   const selectedRole = useMemo(
@@ -166,6 +178,7 @@ export default function AddUserModal({
 
   const resetForm = useCallback(() => {
     setFullName("");
+    setRecipientEmail("");
     setRoleId("");
     setCustomRoleName("");
     setCustomRoleFeatureKeys([]);
@@ -210,6 +223,7 @@ export default function AddUserModal({
       (isCustomRole
         ? customRoleName.trim() && customRoleFeatureKeys.length > 0
         : roleId) &&
+      isValidEmail(recipientEmail) &&
       (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
   );
 
@@ -217,9 +231,11 @@ export default function AddUserModal({
     event.preventDefault();
     if (!canSubmit) {
       setError(
-        departmentIsRequired && !department.trim()
-          ? "Department is required for this role."
+        !isValidEmail(recipientEmail)
+          ? "Enter a valid recipient email."
           : departmentIsRequired && hasManagedDepartments && !departmentId
+          ? "Department is required for this role."
+          : departmentIsRequired && !department.trim()
           ? "Department is required for this role."
           : isCustomRole && customRoleFeatureKeys.length === 0
           ? "Select at least one feature for this custom role."
@@ -234,6 +250,7 @@ export default function AddUserModal({
     try {
       const result = await onCreate({
         fullName: fullName.trim(),
+        recipientEmail: recipientEmail.trim(),
         roleId: isCustomRole ? undefined : roleId,
         customRoleName: isCustomRole
           ? customRoleName.trim().replace(/\s+/g, " ")
@@ -310,7 +327,7 @@ export default function AddUserModal({
                 Account created
               </h3>
               <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
-                Share the temporary password securely with the new user.
+                Login details were emailed to {success.emailSentTo}.
               </p>
             </div>
 
@@ -330,6 +347,14 @@ export default function AddUserModal({
                     Department: {success.user.department}
                   </div>
                 ) : null}
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">
+                  Emailed To
+                </div>
+                <div className="mt-1 rounded-md bg-white px-3 py-2 text-sm font-semibold text-[var(--color-high-emphasis)]">
+                  {success.emailSentTo}
+                </div>
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-[#64748b]">
@@ -395,6 +420,23 @@ export default function AddUserModal({
               />
               <p className="text-xs text-[var(--color-low-emphasis)]">
                 The final email is generated from the full name and made unique if needed.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="recipient-email" className="text-sm font-medium text-[#344054]">
+                Recipient Email <span className="text-[var(--color-primary)]">*</span>
+              </label>
+              <input
+                id="recipient-email"
+                type="email"
+                value={recipientEmail}
+                onChange={(event) => setRecipientEmail(event.target.value)}
+                placeholder="e.g., maria.santos@gmail.com"
+                className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+              />
+              <p className="text-xs text-[var(--color-low-emphasis)]">
+                Login credentials will be sent here. This email is not stored on the account.
               </p>
             </div>
 

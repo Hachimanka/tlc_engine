@@ -282,7 +282,12 @@ export default function Employee() {
       ...current,
     ]);
 
-    return { tempPassword: data.tempPassword, user: createdUser };
+    return {
+      tempPassword: data.tempPassword,
+      user: createdUser,
+      emailSentTo: data.emailSentTo,
+      loginUrl: data.loginUrl ?? null,
+    };
   };
 
   if (isLoading) {
