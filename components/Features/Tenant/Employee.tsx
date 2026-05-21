@@ -10,7 +10,14 @@ import AddUserModal, {
 import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
+import {
+  getDepedSelectedLevelSummary,
+  getDepedSubjectOptions,
+  getDepedTeacherAssignmentOptions,
+} from "@/lib/depedTeacherAssignments";
 import { supabase } from "@/lib/supabaseClient";
+
+type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
 
 type EmployeeRole = RoleOption;
 
@@ -20,6 +27,9 @@ type EmployeeUser = {
   email: string;
   employeeId?: string | null;
   department?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: string[];
+  preferredSubject?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -42,6 +52,9 @@ type UserPayload = {
   email: string;
   employee_id?: string | null;
   department?: string | null;
+  teacher_major?: string | null;
+  qualified_subjects?: unknown;
+  preferred_subject?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -59,6 +72,9 @@ const normalizeJoinedRole = (role: unknown) => {
 
 const normalizeUser = (user: UserPayload): EmployeeUser => {
   const role = normalizeJoinedRole(user.roles ?? user.role);
+  const qualifiedSubjects = Array.isArray(user.qualified_subjects)
+    ? user.qualified_subjects.filter((item): item is string => typeof item === "string")
+    : [];
 
   return {
     id: user.id,
@@ -66,6 +82,9 @@ const normalizeUser = (user: UserPayload): EmployeeUser => {
     email: user.email,
     employeeId: user.employee_id ?? null,
     department: user.department ?? null,
+    teacherMajor: user.teacher_major ?? null,
+    qualifiedSubjects,
+    preferredSubject: user.preferred_subject ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -116,10 +135,19 @@ const getStaffGroup = (roleKey: string, roleName: string) => {
   return "Staff";
 };
 
+const isTeacherAccount = (roleKey: string, roleName: string) => {
+  const key = roleKey.toLowerCase();
+  const name = roleName.toLowerCase();
+
+  return key === "teacher" || name.includes("teacher");
+};
+
 export default function Employee() {
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [roles, setRoles] = useState<EmployeeRole[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
+  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("All Groups");
@@ -169,6 +197,8 @@ export default function Employee() {
     setRoles(nextRoles);
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setEmployees(nextEmployees);
+    setInstitutionType((payload.institutionType ?? null) as InstitutionType);
+    setOnboardingConfig((payload.onboardingConfig ?? {}) as Record<string, unknown>);
     setOrgEmailDomain(payload.org?.emailDomain ?? null);
     setIsLoading(false);
   }, []);
@@ -178,23 +208,50 @@ export default function Employee() {
     loadEmployees();
   }, [loadEmployees]);
 
+  const isDeped = institutionType === "deped";
+  const depedAssignmentOptions = useMemo(
+    () => getDepedTeacherAssignmentOptions(onboardingConfig),
+    [onboardingConfig],
+  );
+  const depedSelectedLevels = useMemo(
+    () => getDepedSelectedLevelSummary(onboardingConfig),
+    [onboardingConfig],
+  );
+  const depedSubjectOptions = useMemo(
+    () => getDepedSubjectOptions(onboardingConfig),
+    [onboardingConfig],
+  );
+
   const assignableRoles = useMemo(
-    () => roles.filter((role) => role.key !== "org_admin"),
-    [roles],
+    () =>
+      roles.filter((role) =>
+        isDeped ? role.key === "teacher" : role.key !== "org_admin",
+      ),
+    [isDeped, roles],
+  );
+
+  const visibleEmployees = useMemo(
+    () =>
+      isDeped
+        ? employees.filter((employee) =>
+            isTeacherAccount(employee.roleKey, employee.roleName),
+          )
+        : employees,
+    [employees, isDeped],
   );
 
   const groups = useMemo(() => {
-    const staffGroups = employees.map((employee) =>
+    const staffGroups = visibleEmployees.map((employee) =>
       getStaffGroup(employee.roleKey, employee.roleName),
     );
 
     return ["All Groups", ...Array.from(new Set(staffGroups))];
-  }, [employees]);
+  }, [visibleEmployees]);
 
   const filteredEmployees = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return employees.filter((employee) => {
+    return visibleEmployees.filter((employee) => {
       const staffGroup = getStaffGroup(employee.roleKey, employee.roleName);
       const matchesGroup = groupFilter === "All Groups" || staffGroup === groupFilter;
       const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
@@ -209,7 +266,7 @@ export default function Employee() {
 
       return matchesGroup && matchesStatus && matchesSearch;
     });
-  }, [employees, groupFilter, search, statusFilter]);
+  }, [groupFilter, search, statusFilter, visibleEmployees]);
 
   const handleCreateUser = async (payload: AddUserPayload) => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -239,6 +296,11 @@ export default function Employee() {
       email: data.user.email,
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
+      teacherMajor: data.user.teacher_major ?? null,
+      qualifiedSubjects: Array.isArray(data.user.qualified_subjects)
+        ? data.user.qualified_subjects
+        : [],
+      preferredSubject: data.user.preferred_subject ?? null,
       roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
@@ -315,6 +377,19 @@ export default function Employee() {
         isOpen={isAddUserOpen}
         roles={assignableRoles}
         features={features}
+        assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
+        assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
+        assignmentHint={
+          isDeped
+            ? "Assign the teacher to one of the enabled DepEd grade levels from onboarding."
+            : undefined
+        }
+        assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+        assignmentRequiredError={
+          isDeped ? "Grade level assignment is required for teacher accounts." : undefined
+        }
+        showTeacherProfileFields={isDeped}
+        subjectOptions={isDeped ? depedSubjectOptions : undefined}
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}
@@ -323,10 +398,10 @@ export default function Employee() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-bold leading-none text-[var(--color-high-emphasis)]">
-            Faculty & Staff
+            {isDeped ? "Teachers" : "Faculty & Staff"}
           </h1>
           <p className="mt-2 text-sm text-[var(--color-low-emphasis)]">
-            {employees.length} database-backed profile{employees.length === 1 ? "" : "s"}
+            {visibleEmployees.length} {isDeped ? "teacher" : "database-backed"} profile{visibleEmployees.length === 1 ? "" : "s"}
           </p>
         </div>
 
@@ -336,9 +411,43 @@ export default function Employee() {
           className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
         >
           <UserPlus className="h-4 w-4" aria-hidden="true" />
-          Add Faculty / Staff
+          {isDeped ? "Add Teacher" : "Add Faculty / Staff"}
         </button>
       </div>
+
+      {isDeped ? (
+        <section className="mb-5 rounded-lg border border-[var(--color-default)] bg-white p-5 shadow-level-1">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
+                Teacher setup from onboarding
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-[var(--color-low-emphasis)]">
+                New teacher accounts are scoped to the DepEd grade levels enabled during onboarding. Use this page for teacher accounts; broader admin and load roles can still be managed in Accounts.
+              </p>
+            </div>
+            <div className="rounded-lg bg-[#ecf8f6] px-3 py-2 text-sm font-semibold text-[var(--color-primary)]">
+              {depedSelectedLevels.length} level{depedSelectedLevels.length === 1 ? "" : "s"} enabled
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {(depedSelectedLevels.length > 0
+              ? depedSelectedLevels
+              : [{ label: "No grade levels selected", detail: "Run onboarding setup" }]
+            ).map((level) => (
+              <div key={level.label} className="rounded-lg border border-[var(--color-default)] bg-[#f8fafc] px-4 py-3">
+                <p className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+                  {level.label}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+                  {level.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mb-4 grid gap-3 xl:grid-cols-[1fr_220px_180px]">
         <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
@@ -348,7 +457,7 @@ export default function Employee() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search name, email, ID, department, group, or role..."
+            placeholder={isDeped ? "Search teacher, email, ID, grade level, or role..." : "Search name, email, ID, department, group, or role..."}
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
           />
         </label>
@@ -386,7 +495,15 @@ export default function Employee() {
                 <th className="px-5 py-4 text-sm font-semibold">ID No.</th>
                 <th className="px-5 py-4 text-sm font-semibold">Name</th>
                 <th className="px-5 py-4 text-sm font-semibold">Email</th>
-                <th className="px-5 py-4 text-sm font-semibold">Department</th>
+                <th className="px-5 py-4 text-sm font-semibold">
+                  {isDeped ? "Grade Level" : "Department"}
+                </th>
+                {isDeped ? (
+                  <>
+                    <th className="px-5 py-4 text-sm font-semibold">Major</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Can Teach</th>
+                  </>
+                ) : null}
                 <th className="px-5 py-4 text-sm font-semibold">Group</th>
                 <th className="px-5 py-4 text-sm font-semibold">Role</th>
                 <th className="px-5 py-4 text-sm font-semibold">Status</th>
@@ -395,7 +512,7 @@ export default function Employee() {
             <tbody className="divide-y divide-[var(--color-default)] bg-white">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+                  <td colSpan={isDeped ? 9 : 7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
                     No faculty or staff profiles found.
                   </td>
                 </tr>
@@ -417,6 +534,18 @@ export default function Employee() {
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {employee.department || "-"}
                       </td>
+                      {isDeped ? (
+                        <>
+                          <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                            {employee.teacherMajor || "-"}
+                          </td>
+                          <td className="max-w-[260px] px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                            {employee.qualifiedSubjects && employee.qualifiedSubjects.length > 0
+                              ? employee.qualifiedSubjects.join(", ")
+                              : "-"}
+                          </td>
+                        </>
+                      ) : null}
                       <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
                         {staffGroup}
                       </td>
