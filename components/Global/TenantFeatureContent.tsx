@@ -24,6 +24,7 @@ import DepedSubjectTable, {
 import DepedExportForm from "@/components/Features/Deped/view-teaching-load/components/ExportFrom";
 import DepedRequestForm from "@/components/Features/Deped/view-teaching-load/components/RequestForm";
 import DepedTeachingLoadTable from "@/components/Features/Deped/view-teaching-load/components/TeachingLoadTable";
+import DepedSubjectApprovalsDashboard from "@/components/Features/Deped/subject-approvals/DepedSubjectApprovalsDashboard";
 import CollegeRoomsTable from "@/components/Features/College/manage-room/components/RoomsTable";
 import CollegeSubjectManagementTable from "@/components/Features/College/manage-subject/components/SubjectManagementTable";
 import AcademicApprovalsDashboard from "@/components/Features/College/academic-approvals/AcademicApprovalsDashboard";
@@ -365,6 +366,7 @@ function renderFeatureContent(featureKey: FeatureKey, children: ReactNode) {
     ),
     "deped-teaching-load-view": <DepedTeachingLoadContent />,
     "deped-subject-management": <DepedSubjectContent />,
+    "deped-subject-approvals": <DepedSubjectApprovalsDashboard />,
     "deped-room-management": <DepedRoomContent />,
     "deped-department-load": (
       <PageShell title="All Departments View">

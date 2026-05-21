@@ -29,6 +29,7 @@ export type FeatureKey =
   | "deped-teacher-load-assignment"
   | "deped-teaching-load-view"
   | "deped-subject-management"
+  | "deped-subject-approvals"
   | "deped-room-management"
   | "deped-department-load"
   | "deped-school-year-calendar"
@@ -308,6 +309,16 @@ const depedFeatures: FeatureDefinition[] = [
     status: "active",
     href: "/tenant/deped/manage-subject",
     iconName: "file",
+  },
+  {
+    key: "deped-subject-approvals",
+    label: "Subject Approvals",
+    description: "Review and approve pending subjects submitted by subject managers.",
+    group: "Approvals",
+    institutionType: "deped",
+    status: "active",
+    href: "/tenant/deped/subject-approvals",
+    iconName: "shield",
   },
   {
     key: "deped-room-management",
