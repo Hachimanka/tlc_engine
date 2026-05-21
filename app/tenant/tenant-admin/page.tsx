@@ -33,22 +33,80 @@ import {
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
+const TENANT_ADMIN_SHELL_SESSION_KEY = "tlc:tenant-admin-shell";
+
+type TenantAdminShellSnapshot = {
+  institutionType: InstitutionType;
+  orgName: string;
+  orgSlug: string;
+  roleName: string;
+  profile: {
+    displayName: string;
+    email: string;
+    avatarUrl: string;
+  };
+  branding: TenantBranding | null;
+};
+
+const readStoredTenantShell = (): TenantAdminShellSnapshot | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const value = window.sessionStorage.getItem(TENANT_ADMIN_SHELL_SESSION_KEY);
+
+    if (!value) {
+      return null;
+    }
+
+    const snapshot = JSON.parse(value) as TenantAdminShellSnapshot;
+    const expectedSlug = getExpectedTenantSlug();
+
+    if (expectedSlug && snapshot.orgSlug && snapshot.orgSlug !== expectedSlug) {
+      return null;
+    }
+
+    return snapshot;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredTenantShell = (snapshot: TenantAdminShellSnapshot) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    TENANT_ADMIN_SHELL_SESSION_KEY,
+    JSON.stringify(snapshot),
+  );
+};
+
 export default function TenantPage() {
   const router = useRouter();
-  const [activeView, setActiveView] = useState<TenantAdminView>(() => getDefaultTenantAdminView());
-  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
-  const [orgName, setOrgName] = useState("");
-  const [orgSlug, setOrgSlug] = useState("");
-  const [roleName, setRoleName] = useState("Org Admin");
-  const [profile, setProfile] = useState({
-    displayName: "User",
-    email: "",
-    avatarUrl: "",
-  });
-  const [branding, setBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
+  const [storedShell] = useState(() => readStoredTenantShell());
+  const [activeView, setActiveView] = useState<TenantAdminView>(() =>
+    getDefaultTenantAdminView(storedShell?.institutionType ?? null),
   );
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(
+    storedShell?.institutionType ?? null,
+  );
+  const [orgName, setOrgName] = useState(storedShell?.orgName ?? "");
+  const [orgSlug, setOrgSlug] = useState(storedShell?.orgSlug ?? "");
+  const [roleName, setRoleName] = useState(storedShell?.roleName ?? "Org Admin");
+  const [profile, setProfile] = useState(
+    storedShell?.profile ?? {
+      displayName: "User",
+      email: "",
+      avatarUrl: "",
+    },
+  );
+  const [branding, setBranding] = useState<TenantBranding | null>(() =>
+    storedShell?.branding ?? readStoredTenantBranding(),
+  );
+  const [isBootstrapping, setIsBootstrapping] = useState(!storedShell);
   const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -69,13 +127,26 @@ export default function TenantPage() {
     }));
   }, [activeView, institutionType]);
 
+  const handleBrandingUpdated = (nextBranding: TenantBranding | null) => {
+    setBranding(nextBranding);
+    saveStoredTenantBranding(nextBranding);
+    saveStoredTenantShell({
+      institutionType,
+      orgName,
+      orgSlug,
+      roleName,
+      profile,
+      branding: nextBranding,
+    });
+  };
+
   const content = {
     accounts: <Accounts />,
     policies: <Policies />,
     "manage-users": <TenantRolePermissionsPanel />,
     departments: <Departments />,
     employees: <Employee />,
-    branding: <Branding onBrandingUpdated={setBranding} />,
+    branding: <Branding onBrandingUpdated={handleBrandingUpdated} />,
   }[activeView];
 
   useEffect(() => {
@@ -152,17 +223,31 @@ export default function TenantPage() {
         }
 
         const detectedType = payload.org?.institutionType ?? metadata?.institution_type ?? null;
-        setInstitutionType(detectedType);
-        setOrgName(payload.org?.name || "");
-        setOrgSlug(payload.org?.slug || "");
-        setRoleName(payload.role?.name || "Org Admin");
-        setProfile({
+        const nextOrgName = payload.org?.name || "";
+        const nextOrgSlug = payload.org?.slug || "";
+        const nextRoleName = payload.role?.name || "Org Admin";
+        const nextProfile = {
           displayName: payload.user?.fullName || user.email || "User",
           email: payload.user?.email || user.email || "",
           avatarUrl: payload.user?.avatarUrl || "",
+        };
+        const nextBranding = payload.branding ?? null;
+
+        setInstitutionType(detectedType);
+        setOrgName(nextOrgName);
+        setOrgSlug(nextOrgSlug);
+        setRoleName(nextRoleName);
+        setProfile(nextProfile);
+        setBranding(nextBranding);
+        saveStoredTenantBranding(nextBranding);
+        saveStoredTenantShell({
+          institutionType: detectedType,
+          orgName: nextOrgName,
+          orgSlug: nextOrgSlug,
+          roleName: nextRoleName,
+          profile: nextProfile,
+          branding: nextBranding,
         });
-        setBranding(payload.branding ?? null);
-        saveStoredTenantBranding(payload.branding ?? null);
         setActiveView(getDefaultTenantAdminView(detectedType));
         setIsBootstrapping(false);
 
