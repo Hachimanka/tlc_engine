@@ -28,7 +28,6 @@ type ScheduleBlock = {
 
 type TeachingScheduleGridProps = {
   rows: TeachingScheduleRow[];
-  timeSlots?: string[];
 };
 
 const weekDays = [
