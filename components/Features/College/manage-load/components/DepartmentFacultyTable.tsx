@@ -73,6 +73,7 @@ export default function DepartmentFacultyTable() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedAvailableSubjectId, setSelectedAvailableSubjectId] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const loadFaculty = useCallback(async () => {
     setIsLoading(true);
@@ -105,7 +106,11 @@ export default function DepartmentFacultyTable() {
     setDepartment(payload.department ?? "");
     setFacultyRows(nextFacultyRows);
     setAvailableSubjects(payload.availableSubjects ?? []);
-    setSelectedFacultyId(nextFacultyRows[0]?.id ?? "");
+    setSelectedFacultyId((current) =>
+      current && nextFacultyRows.some((faculty) => faculty.id === current)
+        ? current
+        : nextFacultyRows[0]?.id ?? "",
+    );
     setEmptyMessage(payload.message ?? "");
     setIsLoading(false);
   }, []);
@@ -144,10 +149,11 @@ export default function DepartmentFacultyTable() {
   const closeAssignModal = () => {
     setAssignError("");
     setSelectedAvailableSubjectId("");
+    setIsAssigning(false);
     setIsAssignOpen(false);
   };
 
-  const handleAssignSubject = () => {
+  const handleAssignSubject = async () => {
     if (!selectedFaculty) {
       setAssignError("Select a teacher before assigning a subject.");
       return;
@@ -162,48 +168,38 @@ export default function DepartmentFacultyTable() {
       return;
     }
 
-    setFacultyRows((currentRows) =>
-      currentRows.map((faculty) => {
-        if (faculty.id !== selectedFaculty.id) {
-          return faculty;
-        }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
 
-        if (faculty.subjects.some((subject) => subject.id === selectedSubject.id)) {
-          return faculty;
-        }
+    if (!token) {
+      setAssignError("Your session expired. Please log in again.");
+      return;
+    }
 
-        const nextSubjects = [
-          ...faculty.subjects,
-          {
-            id: selectedSubject.id,
-            subjectTitle: selectedSubject.subjectTitle,
-            subjectCode: selectedSubject.subjectCode,
-            section: selectedSubject.section,
-            schedule: selectedSubject.schedule,
-            room: selectedSubject.room,
-            units: selectedSubject.units,
-          },
-        ];
-        const assignedUnits = nextSubjects.reduce((sum, subject) => sum + subject.units, 0);
-        const nextVersion = (faculty.history?.length ?? 0) + 1;
+    setIsAssigning(true);
+    setAssignError("");
 
-        return {
-          ...faculty,
-          subjects: nextSubjects,
-          assignedUnits: `${assignedUnits}/24`,
-          history: [
-            {
-              id: `${selectedSubject.id}-${Date.now()}`,
-              version: `v${nextVersion}`,
-              changedBy: "Current user",
-              changedAt: new Date().toLocaleString(),
-              action: `Assigned ${selectedSubject.subjectCode} to ${faculty.name}`,
-            },
-            ...(faculty.history ?? []),
-          ],
-        };
+    const response = await fetch("/api/tenant/faculty-loads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        facultyId: selectedFaculty.id,
+        assignmentIds: selectedSubject.id.split("|"),
       }),
-    );
+    });
+    const payload: { error?: string } = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setIsAssigning(false);
+      setAssignError(payload.error || "Unable to assign subject to this teacher.");
+      return;
+    }
+
+    await loadFaculty();
+    setIsAssigning(false);
     closeAssignModal();
   };
 
@@ -504,10 +500,10 @@ export default function DepartmentFacultyTable() {
                 <button
                   type="button"
                   onClick={handleAssignSubject}
-                  disabled={!selectedAvailableSubjectId}
+                  disabled={!selectedAvailableSubjectId || isAssigning}
                   className="h-10 rounded-md bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Assign Subject
+                  {isAssigning ? "Assigning..." : "Assign Subject"}
                 </button>
               </div>
             </div>
