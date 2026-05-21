@@ -35,6 +35,10 @@ const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView
     return ["accounts", "manage-users", "departments", "policies", "branding"];
   }
 
+  if (institutionType === "deped") {
+    return ["employees", "accounts", "manage-users", "policies", "branding"];
+  }
+
   if (institutionType === "tesda" || institutionType === "training") {
     return ["accounts", "employees", "manage-users", "policies", "branding"];
   }
@@ -43,7 +47,10 @@ const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView
 };
 
 export const getDefaultTenantAdminView = (institutionType?: InstitutionType): TenantAdminView => {
-  void institutionType;
+  if (institutionType === "deped") {
+    return "employees";
+  }
+
   return "accounts";
 };
 

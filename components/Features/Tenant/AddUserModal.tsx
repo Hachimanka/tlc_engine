@@ -23,6 +23,9 @@ export type AddUserPayload = {
   customRoleRequiresDepartment?: boolean;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: string[];
+  preferredSubject?: string | null;
 };
 
 export type CreatedUser = {
@@ -32,6 +35,9 @@ export type CreatedUser = {
   employeeId?: string | null;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: string[];
+  preferredSubject?: string | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -50,6 +56,13 @@ type AddUserModalProps = {
   roles: RoleOption[];
   features: FeatureDefinition[];
   departments?: DepartmentOption[];
+  assignmentLabel?: string;
+  assignmentPlaceholder?: string;
+  assignmentHint?: string;
+  assignmentOptions?: string[];
+  assignmentRequiredError?: string;
+  showTeacherProfileFields?: boolean;
+  subjectOptions?: string[];
   emailDomain?: string | null;
   onClose: () => void;
   onCreate: (payload: AddUserPayload) => Promise<{ tempPassword: string; user: CreatedUser }>;
@@ -116,6 +129,13 @@ export default function AddUserModal({
   roles,
   features,
   departments = [],
+  assignmentLabel = "Department",
+  assignmentPlaceholder = "e.g., Computer Engineering",
+  assignmentHint,
+  assignmentOptions = [],
+  assignmentRequiredError,
+  showTeacherProfileFields = false,
+  subjectOptions = [],
   emailDomain,
   onClose,
   onCreate,
@@ -127,6 +147,9 @@ export default function AddUserModal({
   const [customRoleRequiresDepartment, setCustomRoleRequiresDepartment] = useState(false);
   const [department, setDepartment] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [teacherMajor, setTeacherMajor] = useState("");
+  const [qualifiedSubjects, setQualifiedSubjects] = useState<string[]>([]);
+  const [preferredSubject, setPreferredSubject] = useState("");
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,6 +171,9 @@ export default function AddUserModal({
     ? customRoleRequiresDepartment
     : selectedRoleRequiresDepartment;
   const hasManagedDepartments = departments.length > 0;
+  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
+  const requiredAssignmentMessage =
+    assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
   const assignableFeatures = useMemo(
     () =>
       features.filter(
@@ -172,6 +198,9 @@ export default function AddUserModal({
     setCustomRoleRequiresDepartment(false);
     setDepartment("");
     setDepartmentId("");
+    setTeacherMajor("");
+    setQualifiedSubjects([]);
+    setPreferredSubject("");
     setIsRoleMenuOpen(false);
     setError("");
     setIsSubmitting(false);
@@ -218,9 +247,9 @@ export default function AddUserModal({
     if (!canSubmit) {
       setError(
         departmentIsRequired && !department.trim()
-          ? "Department is required for this role."
+          ? requiredAssignmentMessage
           : departmentIsRequired && hasManagedDepartments && !departmentId
-          ? "Department is required for this role."
+          ? requiredAssignmentMessage
           : isCustomRole && customRoleFeatureKeys.length === 0
           ? "Select at least one feature for this custom role."
           : "Please complete all required fields.",
@@ -248,6 +277,13 @@ export default function AddUserModal({
           ? department.trim().replace(/\s+/g, " ")
           : null,
         departmentId: hasManagedDepartments ? departmentId || null : undefined,
+        teacherMajor: showTeacherProfileFields
+          ? teacherMajor.trim().replace(/\s+/g, " ") || null
+          : undefined,
+        qualifiedSubjects: showTeacherProfileFields ? qualifiedSubjects : undefined,
+        preferredSubject: showTeacherProfileFields
+          ? preferredSubject.trim().replace(/\s+/g, " ") || null
+          : undefined,
       });
       setSuccess(result);
     } catch (err) {
@@ -280,6 +316,16 @@ export default function AddUserModal({
       }
 
       return current.filter((key) => key !== featureKey);
+    });
+  };
+
+  const handleQualifiedSubjectToggle = (subject: string, enabled: boolean) => {
+    setQualifiedSubjects((current) => {
+      if (enabled) {
+        return Array.from(new Set([...current, subject]));
+      }
+
+      return current.filter((item) => item !== subject);
     });
   };
 
@@ -327,7 +373,7 @@ export default function AddUserModal({
                 </div>
                 {success.user.department ? (
                   <div className="text-xs text-[var(--color-low-emphasis)]">
-                    Department: {success.user.department}
+                    {assignmentLabel}: {success.user.department}
                   </div>
                 ) : null}
               </div>
@@ -498,9 +544,9 @@ export default function AddUserModal({
                     <span className="block text-sm font-semibold text-[var(--color-high-emphasis)]">
                       Requires department
                     </span>
-                    <span className="mt-1 block text-xs text-[var(--color-low-emphasis)]">
-                      Turn this on when every account with this custom role must belong to a department.
-                    </span>
+                      <span className="mt-1 block text-xs text-[var(--color-low-emphasis)]">
+                      Turn this on when every account with this custom role must have a required assignment.
+                      </span>
                   </span>
                 </label>
 
@@ -578,7 +624,7 @@ export default function AddUserModal({
 
             <div className="space-y-2">
               <label htmlFor="department" className="text-sm font-medium text-[#344054]">
-                Department
+                {assignmentLabel}
                 {departmentIsRequired ? (
                   <span className="ml-1 text-[var(--color-primary)]">*</span>
                 ) : null}
@@ -591,7 +637,7 @@ export default function AddUserModal({
                   className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
                 >
                   <option value="">
-                    {departmentIsRequired ? "Select a department" : "No department"}
+                    {departmentIsRequired ? `Select ${assignmentLabel.toLowerCase()}` : `No ${assignmentLabel.toLowerCase()}`}
                   </option>
                   {departments.map((departmentOption) => (
                     <option key={departmentOption.id} value={departmentOption.id}>
@@ -601,21 +647,115 @@ export default function AddUserModal({
                     </option>
                   ))}
                 </select>
+              ) : hasAssignmentOptions ? (
+                <select
+                  id="department"
+                  value={department}
+                  onChange={(event) => setDepartment(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                >
+                  <option value="">
+                    {departmentIsRequired ? `Select ${assignmentLabel.toLowerCase()}` : `No ${assignmentLabel.toLowerCase()}`}
+                  </option>
+                  {assignmentOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   id="department"
                   value={department}
                   onChange={(event) => setDepartment(event.target.value)}
-                  placeholder="e.g., Computer Engineering"
+                  placeholder={assignmentPlaceholder}
                   className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
                 />
               )}
               <p className="text-xs text-[var(--color-low-emphasis)]">
                 {departmentIsRequired
-                  ? "Required because the selected role needs a department."
-                  : "Optional. Leave blank if this account is not assigned to a department."}
+                  ? `Required because the selected role needs a ${assignmentLabel.toLowerCase()}.`
+                  : assignmentHint ?? `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
               </p>
             </div>
+
+            {showTeacherProfileFields ? (
+              <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+                    Teacher Qualification
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+                    Major is used as the primary match. Can-teach subjects are allowed secondary assignments.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="teacher-major" className="text-sm font-medium text-[#344054]">
+                      Major / Specialization
+                    </label>
+                    <input
+                      id="teacher-major"
+                      value={teacherMajor}
+                      onChange={(event) => {
+                        setTeacherMajor(event.target.value);
+                        if (!preferredSubject) {
+                          setPreferredSubject(event.target.value);
+                        }
+                      }}
+                      placeholder="e.g., Science"
+                      className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="preferred-subject" className="text-sm font-medium text-[#344054]">
+                      Preferred Subject
+                    </label>
+                    <input
+                      id="preferred-subject"
+                      value={preferredSubject}
+                      onChange={(event) => setPreferredSubject(event.target.value)}
+                      placeholder="e.g., Science"
+                      className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                    />
+                  </div>
+                </div>
+
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-[#344054]">
+                    Can Teach Subjects
+                  </legend>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {subjectOptions.map((subject) => {
+                      const isSelected = qualifiedSubjects.includes(subject);
+
+                      return (
+                        <label
+                          key={subject}
+                          className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
+                            isSelected
+                              ? "border-[var(--color-primary)] bg-[#ecf8f6] text-[var(--color-primary)]"
+                              : "border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(event) =>
+                              handleQualifiedSubjectToggle(subject, event.target.checked)
+                            }
+                            className="h-4 w-4 rounded border-[#cfd5dd] text-[var(--color-primary)]"
+                          />
+                          <span className="font-medium">{subject}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              </div>
+            ) : null}
 
             <div className="flex justify-end gap-2 pt-3">
               <button

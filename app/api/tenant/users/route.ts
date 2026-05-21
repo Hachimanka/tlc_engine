@@ -17,6 +17,14 @@ import { generateTempPassword } from "@/lib/tempPassword";
 
 export const runtime = "nodejs";
 
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+};
+
 type CreateUserRequest = {
   fullName?: string;
   roleId?: string;
@@ -25,6 +33,9 @@ type CreateUserRequest = {
   customRoleRequiresDepartment?: boolean;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: unknown;
+  preferredSubject?: string | null;
 };
 
 const normalizeIdentifierPart = (value: string) =>
@@ -70,6 +81,47 @@ const normalizeDepartment = (value?: string | null) => {
   }
 
   return value.trim().replace(/\s+/g, " ");
+};
+
+const normalizeOptionalText = (value?: string | null) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim().replace(/\s+/g, " ") || null;
+};
+
+const normalizeStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().replace(/\s+/g, " "))
+        .filter(Boolean),
+    ),
+  );
+};
+
+const teacherFieldColumns =
+  "teacher_major, qualified_subjects, preferred_subject";
+const userSelectColumns =
+  `id, full_name, email, employee_id, department, department_id, ${teacherFieldColumns}, status, role_id, created_at, roles(id, key, name)`;
+const legacyUserSelectColumns =
+  "id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)";
+
+const isMissingTeacherFieldError = (error?: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (
+    error?.code === "42703" ||
+    message.includes("teacher_major") ||
+    message.includes("qualified_subjects") ||
+    message.includes("preferred_subject")
+  );
 };
 
 type ManagedDepartmentRow = {
@@ -283,11 +335,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: rolesError.message || "Failed to load roles." }, { status: 500 });
   }
 
-  const { data: users, error: usersError } = await supabaseAdmin
+  const usersResult = await supabaseAdmin
     .from("org_users")
-    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at, roles(id, key, name)")
+    .select(userSelectColumns)
     .eq("org_id", context.org.id)
     .order("created_at", { ascending: false });
+  let usersData: unknown[] | null = usersResult.data;
+  let usersError = usersResult.error;
+
+  if (isMissingTeacherFieldError(usersError)) {
+    const legacyUsersResult = await supabaseAdmin
+      .from("org_users")
+      .select(legacyUserSelectColumns)
+      .eq("org_id", context.org.id)
+      .order("created_at", { ascending: false });
+
+    usersData = legacyUsersResult.data;
+    usersError = legacyUsersResult.error;
+  }
 
   if (usersError) {
     return NextResponse.json({ error: usersError.message || "Failed to load users." }, { status: 500 });
@@ -345,6 +410,8 @@ export async function GET(req: Request) {
   const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
 
   return NextResponse.json({
+    institutionType: context.institutionType,
+    onboardingConfig: asRecord(context.org.onboarding_config),
     org: {
       emailDomain: getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug),
     },
@@ -364,7 +431,7 @@ export async function GET(req: Request) {
       code: department.code ?? null,
       collegeId: department.college_id ?? null,
     })),
-    users: users ?? [],
+    users: usersData ?? [],
   });
 }
 
@@ -474,6 +541,9 @@ export async function POST(req: Request) {
 
   const department = managedDepartment?.name ?? (normalizeDepartment(payload.department) || null);
   const departmentId = managedDepartment?.id ?? null;
+  const teacherMajor = normalizeOptionalText(payload.teacherMajor);
+  const qualifiedSubjects = normalizeStringArray(payload.qualifiedSubjects);
+  const preferredSubject = normalizeOptionalText(payload.preferredSubject);
 
   if (roleRequiresDepartment && !department) {
     return NextResponse.json(
@@ -524,6 +594,9 @@ export async function POST(req: Request) {
       account_status: "active",
       department,
       department_id: departmentId,
+      teacher_major: teacherMajor,
+      qualified_subjects: qualifiedSubjects,
+      preferred_subject: preferredSubject,
       full_name: fullName,
       first_login: false,
       onboarding_complete: true,
@@ -541,38 +614,62 @@ export async function POST(req: Request) {
 
   const now = new Date().toISOString();
 
-  const { data: orgUserRow, error: orgUserError } = await supabaseAdmin
+  const orgUserInsertPayload = {
+    org_id: context.org.id,
+    role_id: roleRow.id,
+    auth_user_id: createdUser.user.id,
+    full_name: fullName,
+    email,
+    employee_id: employeeId,
+    department,
+    department_id: departmentId,
+    teacher_major: teacherMajor,
+    qualified_subjects: qualifiedSubjects,
+    preferred_subject: preferredSubject,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+  };
+  const legacyOrgUserInsertPayload = {
+    org_id: context.org.id,
+    role_id: roleRow.id,
+    auth_user_id: createdUser.user.id,
+    full_name: fullName,
+    email,
+    employee_id: employeeId,
+    department,
+    department_id: departmentId,
+    status: "active",
+    created_at: now,
+    updated_at: now,
+  };
+
+  let orgUserResult = await supabaseAdmin
     .from("org_users")
-    .insert([
-      {
-        org_id: context.org.id,
-        role_id: roleRow.id,
-        auth_user_id: createdUser.user.id,
-        full_name: fullName,
-        email,
-        employee_id: employeeId,
-        department,
-        department_id: departmentId,
-        status: "active",
-        created_at: now,
-        updated_at: now,
-      },
-    ])
-    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+    .insert([orgUserInsertPayload])
+    .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, status, role_id, created_at")
     .single();
 
-  if (orgUserError || !orgUserRow) {
+  if (isMissingTeacherFieldError(orgUserResult.error)) {
+    orgUserResult = await supabaseAdmin
+      .from("org_users")
+      .insert([legacyOrgUserInsertPayload])
+      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+      .single();
+  }
+
+  if (orgUserResult.error || !orgUserResult.data) {
     await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
     if (customRoleName) {
       await deleteCustomRole(roleRow.id);
     }
-    return NextResponse.json({ error: orgUserError?.message || "Failed to save user." }, { status: 500 });
+    return NextResponse.json({ error: orgUserResult.error?.message || "Failed to save user." }, { status: 500 });
   }
 
   return NextResponse.json({
     tempPassword,
     user: {
-      ...orgUserRow,
+      ...orgUserResult.data,
       role: {
         id: roleRow.id,
         key: roleRow.key,

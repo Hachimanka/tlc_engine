@@ -11,9 +11,13 @@ import AddUserModal, {
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
+import {
+  getDepedTeacherAssignmentOptions,
+} from "@/lib/depedTeacherAssignments";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountRole = RoleOption;
+type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
 
 type AccountUser = {
   id: string;
@@ -149,12 +153,20 @@ function EditAccountForm({
   user,
   roles,
   departments,
+  assignmentLabel = "Department",
+  assignmentPlaceholder = "e.g., Mathematics Department",
+  assignmentOptions = [],
+  assignmentRequiredError,
   onCancel,
   onSave,
 }: {
   user: AccountUser;
   roles: AccountRole[];
   departments: DepartmentOption[];
+  assignmentLabel?: string;
+  assignmentPlaceholder?: string;
+  assignmentOptions?: string[];
+  assignmentRequiredError?: string;
   onSave: (payload: EditAccountPayload) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -177,6 +189,9 @@ function EditAccountForm({
   );
   const requiresDepartment = roleRequiresDepartment(selectedRole);
   const hasManagedDepartments = departments.length > 0;
+  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
+  const requiredAssignmentMessage =
+    assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
 
   useEffect(() => {
     setFullName(user.fullName);
@@ -200,7 +215,7 @@ function EditAccountForm({
     ) {
       setError(
         requiresDepartment
-          ? "Full name, role, and department are required."
+          ? `Full name, role, and ${assignmentLabel.toLowerCase()} are required.`
           : "Full name and role are required.",
       );
       return;
@@ -329,7 +344,7 @@ function EditAccountForm({
 
         <div className="space-y-2">
           <label htmlFor="edit-department" className="text-sm font-medium text-[#344054]">
-            Department
+            {assignmentLabel}
             {requiresDepartment ? (
               <span className="ml-1 text-[var(--color-primary)]">*</span>
             ) : null}
@@ -343,12 +358,12 @@ function EditAccountForm({
             >
               <option value="">
                 {user.departmentId
-                  ? "No department"
+                  ? `No ${assignmentLabel.toLowerCase()}`
                   : user.department
                   ? `Keep legacy: ${user.department}`
                   : requiresDepartment
-                  ? "Select a department"
-                  : "No department"}
+                  ? `Select ${assignmentLabel.toLowerCase()}`
+                  : `No ${assignmentLabel.toLowerCase()}`}
               </option>
               {departments.map((departmentOption) => (
                 <option key={departmentOption.id} value={departmentOption.id}>
@@ -358,19 +373,38 @@ function EditAccountForm({
                 </option>
               ))}
             </select>
+          ) : hasAssignmentOptions ? (
+            <select
+              id="edit-department"
+              value={department}
+              onChange={(event) => setDepartment(event.target.value)}
+              className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+            >
+              <option value="">
+                {requiresDepartment ? `Select ${assignmentLabel.toLowerCase()}` : `No ${assignmentLabel.toLowerCase()}`}
+              </option>
+              {assignmentOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+              {user.department && !assignmentOptions.includes(user.department) ? (
+                <option value={user.department}>{user.department}</option>
+              ) : null}
+            </select>
           ) : (
             <input
               id="edit-department"
               value={department}
               onChange={(event) => setDepartment(event.target.value)}
-              placeholder="e.g., Mathematics Department"
+              placeholder={assignmentPlaceholder}
               className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
             />
           )}
           <p className="text-xs text-[var(--color-low-emphasis)]">
             {requiresDepartment
-              ? "Required because the selected role needs a department."
-              : "Optional. Leave blank if this account is not assigned to a department."}
+              ? requiredAssignmentMessage
+              : `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
           </p>
         </div>
       </div>
@@ -400,6 +434,8 @@ export default function Accounts() {
   const [roles, setRoles] = useState<AccountRole[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [managedDepartments, setManagedDepartments] = useState<DepartmentOption[]>([]);
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
+  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -459,6 +495,8 @@ export default function Accounts() {
     setRoles(nextRoles);
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setManagedDepartments((payload.departments ?? []) as DepartmentOption[]);
+    setInstitutionType((payload.institutionType ?? null) as InstitutionType);
+    setOnboardingConfig((payload.onboardingConfig ?? {}) as Record<string, unknown>);
     setUsers(nextUsers);
     setSelectedUser((current) =>
       current ? nextUsers.find((user) => user.id === current.id) ?? current : current,
@@ -475,6 +513,11 @@ export default function Accounts() {
   const assignableRoles = useMemo(
     () => roles.filter((role) => role.key !== "org_admin"),
     [roles],
+  );
+  const isDeped = institutionType === "deped";
+  const depedAssignmentOptions = useMemo(
+    () => getDepedTeacherAssignmentOptions(onboardingConfig),
+    [onboardingConfig],
   );
 
   const departmentOptions = useMemo(
@@ -691,6 +734,17 @@ export default function Accounts() {
         roles={assignableRoles}
         features={features}
         departments={managedDepartments}
+        assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
+        assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
+        assignmentHint={
+          isDeped
+            ? "Use this to scope teacher accounts to the enabled DepEd grade levels."
+            : undefined
+        }
+        assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+        assignmentRequiredError={
+          isDeped ? "Grade level assignment is required for this role." : undefined
+        }
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}
@@ -778,7 +832,7 @@ export default function Accounts() {
             className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
             aria-label="Filter by department"
           >
-            <option value="all">All departments</option>
+            <option value="all">{isDeped ? "All grade levels" : "All departments"}</option>
             {departmentOptions.map((department) => (
               <option key={department} value={department}>
                 {department}
@@ -812,7 +866,9 @@ export default function Accounts() {
                   <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
                   <th className="px-4 py-3 text-xs font-semibold">Name</th>
                   <th className="px-4 py-3 text-xs font-semibold">Email</th>
-                  <th className="px-4 py-3 text-xs font-semibold">Department</th>
+                  <th className="px-4 py-3 text-xs font-semibold">
+                    {isDeped ? "Grade Level" : "Department"}
+                  </th>
                   <th className="px-4 py-3 text-xs font-semibold">Role</th>
                   <th className="px-4 py-3 text-xs font-semibold">Status</th>
                   <th className="px-4 py-3 text-xs font-semibold">Created</th>
@@ -935,6 +991,12 @@ export default function Accounts() {
                     user={selectedUser}
                     roles={roles}
                     departments={managedDepartments}
+                    assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
+                    assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
+                    assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+                    assignmentRequiredError={
+                      isDeped ? "Grade level assignment is required for this role." : undefined
+                    }
                     onCancel={() => setPanelMode("view")}
                     onSave={(payload) => handleSaveAccount(selectedUser, payload)}
                   />
@@ -950,7 +1012,7 @@ export default function Accounts() {
                     }
                   />
                   <FieldRow label="Employee ID" value={selectedUser.employeeId || "-"} />
-                  <FieldRow label="Department" value={selectedUser.department || "-"} />
+                  <FieldRow label={isDeped ? "Grade Level" : "Department"} value={selectedUser.department || "-"} />
                   <FieldRow label="Role" value={selectedUser.roleName} />
                   <FieldRow label="Status" value={<StatusBadge status={selectedUser.status} />} />
                   <FieldRow label="Created" value={formatDate(selectedUser.createdAt)} />
