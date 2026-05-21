@@ -594,7 +594,7 @@ export default function Accounts() {
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
       departmentId: data.user.department_id ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
+      roleId: data.user.role?.id ?? data.user.role_id ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name
