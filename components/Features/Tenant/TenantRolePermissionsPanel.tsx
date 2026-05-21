@@ -183,7 +183,6 @@ export default function TenantRolePermissionsPanel() {
       };
     });
     const nextSelectedUser =
-      nextUsers.find((user) => user.id === selectedUserId) ??
       nextUsers.find((user) => user.roleKey !== "org_admin") ??
       nextUsers[0] ??
       null;
@@ -194,7 +193,7 @@ export default function TenantRolePermissionsPanel() {
     setRoleNameDraft(nextSelectedUser?.roleName ?? "");
     setFeatureDraft(nextSelectedUser?.featureKeys ?? []);
     setIsLoading(false);
-  }, [selectedUserId]);
+  }, []);
 
   useEffect(() => {
     loadAccessData();
