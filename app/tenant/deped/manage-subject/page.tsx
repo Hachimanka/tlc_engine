@@ -31,34 +31,32 @@ export default function TenantPage() {
   };
 
   return (
-    <>
+    <TenantRoleLayout
+      tenantType="Deped"
+      role="subject-room-manager"
+      title="Deped Menu"
+      iconSvg={ICON_SVGS.menu}
+      requiredFeatureKey="deped-subject-management"
+      contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
+    >
       <SubjectManagementForm
         isOpen={isCreateSubjectOpen}
         onClose={() => setIsCreateSubjectOpen(false)}
         onSubmit={handleCreateSubject}
       />
 
-      <TenantRoleLayout
-        tenantType="Deped"
-        role="subject-room-manager"
-        title="Deped Menu"
-        iconSvg={ICON_SVGS.menu}
-        requiredFeatureKey="deped-subject-management"
-        contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
-      >
-        <div className="mx-auto w-full max-w-none space-y-4">
-          <div>
-            <h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
-              Subject Management
-            </h1>
-          </div>
-
-          <SubjectTable
-            subjectRows={subjectRows}
-            onCreateSubjectClick={() => setIsCreateSubjectOpen(true)}
-          />
+      <div className="mx-auto w-full max-w-none space-y-4">
+        <div>
+          <h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
+            Subject Management
+          </h1>
         </div>
-      </TenantRoleLayout>
-    </>
+
+        <SubjectTable
+          subjectRows={subjectRows}
+          onCreateSubjectClick={() => setIsCreateSubjectOpen(true)}
+        />
+      </div>
+    </TenantRoleLayout>
   );
 }

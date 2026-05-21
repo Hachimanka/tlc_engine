@@ -87,7 +87,7 @@ export default function ScheduleTable({
 	onAssignSubjectClick,
 }: ScheduleTableProps) {
 	return (
-		<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-white shadow-level-1">
+		<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
 			<div className="flex items-center justify-between gap-3 border-b border-[var(--color-default)] px-4 py-3">
 				<div className="text-left text-[16px] font-semibold text-[var(--color-high-emphasis)]">
 					{roomName}
@@ -132,7 +132,7 @@ export default function ScheduleTable({
 						</tr>
 					</thead>
 
-					<tbody>
+					<tbody className="bg-[var(--color-card)]">
 						{scheduleSlots.map((slot) => (
 							<tr key={`${slot.start}-${slot.end}`}>
 								<td className="border border-[var(--color-default)] px-3 py-4 text-[12px] font-medium text-[var(--color-high-emphasis)] sm:px-4">
@@ -147,7 +147,7 @@ export default function ScheduleTable({
 											className="h-[72px] border border-[var(--color-default)] px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4"
 										>
 											{assignment ? (
-												<div className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-white shadow-level-1">
+												<div className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-white shadow-level-1 ring-1 ring-[var(--color-default)]">
 													<p className="font-semibold">{assignment.subject}</p>
 													<p className="mt-1 text-[11px] text-white/80">
 														{formatTime(assignment.timeStart)} - {formatTime(assignment.timeEnd)}

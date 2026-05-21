@@ -82,7 +82,7 @@ export default function RoomsTable({
 					<label htmlFor="room-search" className="sr-only">
 						Search rooms
 					</label>
-					<div className="flex h-10 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-white px-3 shadow-level-1">
+					<div className="flex h-10 items-center gap-2 rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 shadow-level-1">
 						<svg
 							aria-hidden="true"
 							viewBox="0 0 24 24"
@@ -117,7 +117,7 @@ export default function RoomsTable({
 				</div>
 			</div>
 
-			<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-white shadow-level-1">
+			<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
 				<div className="flex items-center justify-between gap-3 border-b border-[var(--color-default)] px-3 py-2.5 sm:px-4">
 					<p className="text-[13px] font-semibold text-[var(--color-high-emphasis)]">
 						Rooms ({filteredRooms.length})
@@ -161,7 +161,7 @@ export default function RoomsTable({
 								</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
+						<tbody className="divide-y divide-[color:var(--color-default)] bg-[var(--color-card)]">
 							{filteredRooms.length === 0 ? (
 								<tr>
 									<td colSpan={8} className="px-6 py-12 text-center">
@@ -183,8 +183,8 @@ export default function RoomsTable({
 										onKeyDown={(event) => handleRowKeyDown(event, () => onRoomSelect(room))}
 										tabIndex={0}
 										aria-selected={isSelected}
-										className={`cursor-pointer outline-none transition-colors hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] ${
-											isSelected ? "bg-[#e0f4f1]" : "bg-white"
+										className={`cursor-pointer outline-none transition-colors hover:bg-[var(--color-background)] focus:bg-[var(--color-background)] ${
+											isSelected ? "bg-[var(--color-default)]" : "bg-[var(--color-card)]"
 										}`}
 									>
 										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
@@ -221,7 +221,7 @@ export default function RoomsTable({
 													event.stopPropagation();
 													onEditRoomClick(room);
 												}}
-												className="rounded-md border border-[var(--color-default)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+												className="rounded-md border border-[var(--color-default)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-default)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
 											>
 												Edit
 											</button>
