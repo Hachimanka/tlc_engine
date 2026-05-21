@@ -42,30 +42,33 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
     setIsLoading(true);
     setLoadError("");
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
-    if (!token) {
+      if (!token) {
+        setLoadError("Your session expired. Please log in again.");
+        return;
+      }
+
+      const response = await fetch("/api/tenant/my-teaching-load", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload: TeachingLoadPayload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setLoadError(payload.error || "Unable to load teaching load.");
+        return;
+      }
+
+      setRows(payload.rows ?? []);
+    } catch {
+      setLoadError("Unable to load teaching load. Please check your connection and try again.");
+    } finally {
       setIsLoading(false);
-      setLoadError("Your session expired. Please log in again.");
-      return;
     }
-
-    const response = await fetch("/api/tenant/my-teaching-load", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const payload: TeachingLoadPayload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      setIsLoading(false);
-      setLoadError(payload.error || "Unable to load teaching load.");
-      return;
-    }
-
-    setRows(payload.rows ?? []);
-    setIsLoading(false);
   }, [providedRows]);
 
   useEffect(() => {
