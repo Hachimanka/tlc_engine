@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeRoleKey } from "@/features/tenant-role-catalog";
+import { parseTimeToMinutes, rangesOverlap } from "@/lib/academicRooms";
 import { loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -53,6 +54,12 @@ type FacultyLoadAssignmentRow = {
 
 type AssignFacultyLoadRequest = {
   facultyId?: string;
+  assignmentIds?: string[];
+};
+
+type DeleteFacultyLoadRequest = {
+  facultyId?: string;
+  assignmentId?: string;
   assignmentIds?: string[];
 };
 
@@ -252,6 +259,41 @@ const buildHistory = (subjects: ReturnType<typeof groupFacultyAssignments>) =>
       changedAt: new Date(subject.createdAt).toLocaleString(),
       action: `Assigned ${subject.subjectCode}`,
     }));
+
+const findScheduleConflict = (
+  candidates: SubjectRoomAssignmentRow[],
+  existingAssignments: SubjectRoomAssignmentRow[],
+) => {
+  for (const candidate of candidates) {
+    const candidateStart = parseTimeToMinutes(candidate.start_time);
+    const candidateEnd = parseTimeToMinutes(candidate.end_time);
+
+    if (candidateStart === null || candidateEnd === null) {
+      continue;
+    }
+
+    const conflict = existingAssignments.find((existing) => {
+      if (existing.id === candidate.id || existing.day_of_week !== candidate.day_of_week) {
+        return false;
+      }
+
+      const existingStart = parseTimeToMinutes(existing.start_time);
+      const existingEnd = parseTimeToMinutes(existing.end_time);
+
+      return (
+        existingStart !== null &&
+        existingEnd !== null &&
+        rangesOverlap(candidateStart, candidateEnd, existingStart, existingEnd)
+      );
+    });
+
+    if (conflict) {
+      return { candidate, conflict };
+    }
+  }
+
+  return null;
+};
 
 export async function GET(req: Request) {
   const result = await loadTenantContext(req);
@@ -502,9 +544,20 @@ export async function POST(req: Request) {
     .select(
       `
         id,
+        section,
+        day_of_week,
+        start_time,
+        end_time,
         subject:academic_subjects!academic_room_assignments_subject_id_fkey(
           id,
+          subject_title,
+          subject_code,
           department
+        ),
+        room:academic_rooms!academic_room_assignments_room_id_fkey(
+          id,
+          room_name,
+          building
         )
       `,
     )
@@ -520,8 +573,20 @@ export async function POST(req: Request) {
 
   const verifiedAssignments = (roomAssignments ?? []) as unknown as Array<{
     id: string;
-    subject: { id: string; department: string | null } | null;
-  }>;
+    section: string;
+    day_of_week: string;
+    start_time: string;
+    end_time: string;
+    subject: {
+      id: string;
+      subject_title: string;
+      subject_code: string;
+      department: string | null;
+      year_level: string | null;
+      units: number | string | null;
+    } | null;
+    room: { id: string; room_name: string; building: string } | null;
+  }> as SubjectRoomAssignmentRow[];
 
   if (verifiedAssignments.length !== assignmentIds.length) {
     return NextResponse.json(
@@ -537,6 +602,85 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "You can only assign subjects within your department." },
       { status: 403 },
+    );
+  }
+
+  const selectedConflict = findScheduleConflict(verifiedAssignments, verifiedAssignments);
+
+  if (selectedConflict) {
+    return NextResponse.json(
+      {
+        error: `${selectedConflict.candidate.subject?.subject_code ?? "Selected subject"} conflicts with ${
+          selectedConflict.conflict.subject?.subject_code ?? "another selected subject"
+        } on ${selectedConflict.candidate.day_of_week} from ${formatDisplayTime(
+          selectedConflict.candidate.start_time,
+        )} to ${formatDisplayTime(selectedConflict.candidate.end_time)}.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  const { data: existingFacultyAssignments, error: existingFacultyAssignmentsError } =
+    await supabaseAdmin
+      .from("academic_faculty_load_assignments")
+      .select(
+        `
+          room_assignment:academic_room_assignments!academic_faculty_load_assignments_room_assignment_id_fkey(
+            id,
+            section,
+            day_of_week,
+            start_time,
+            end_time,
+            subject:academic_subjects!academic_room_assignments_subject_id_fkey(
+              id,
+              subject_title,
+              subject_code,
+              department,
+              year_level,
+              units
+            ),
+            room:academic_rooms!academic_room_assignments_room_id_fkey(
+              id,
+              room_name,
+              building
+            )
+          )
+        `,
+      )
+      .eq("org_id", context.org.id)
+      .eq("faculty_org_user_id", facultyId);
+
+  if (existingFacultyAssignmentsError) {
+    return NextResponse.json(
+      {
+        error:
+          existingFacultyAssignmentsError.message ||
+          "Failed to check teacher schedule conflicts.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const existingScheduledAssignments = (
+    (existingFacultyAssignments ?? []) as unknown as FacultyLoadAssignmentRow[]
+  )
+    .map((assignment) => assignment.room_assignment)
+    .filter((assignment): assignment is SubjectRoomAssignmentRow => Boolean(assignment?.id));
+  const existingConflict = findScheduleConflict(
+    verifiedAssignments,
+    existingScheduledAssignments,
+  );
+
+  if (existingConflict) {
+    return NextResponse.json(
+      {
+        error: `${existingConflict.candidate.subject?.subject_code ?? "Selected subject"} conflicts with ${
+          existingConflict.conflict.subject?.subject_code ?? "an assigned subject"
+        } on ${existingConflict.candidate.day_of_week} from ${formatDisplayTime(
+          existingConflict.candidate.start_time,
+        )} to ${formatDisplayTime(existingConflict.candidate.end_time)}.`,
+      },
+      { status: 409 },
     );
   }
 
@@ -563,4 +707,140 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });
+}
+
+export async function DELETE(req: Request) {
+  const result = await loadTenantContext(req);
+
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+  const roleKey = normalizeRoleKey(context.role.key);
+
+  if (!managerRoleKeys.has(roleKey)) {
+    return NextResponse.json(
+      { error: "Only load managers, program chairs, deans, or admins can remove faculty loads." },
+      { status: 403 },
+    );
+  }
+
+  let payload: DeleteFacultyLoadRequest = {};
+
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const facultyId = typeof payload.facultyId === "string" ? payload.facultyId.trim() : "";
+  const assignmentIds = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(payload.assignmentIds) ? payload.assignmentIds : []),
+        ...(typeof payload.assignmentId === "string" ? [payload.assignmentId] : []),
+      ].flatMap((id) => splitGroupedIds(String(id))),
+    ),
+  );
+
+  if (!facultyId || assignmentIds.length === 0) {
+    return NextResponse.json(
+      { error: "Faculty and subject assignment are required." },
+      { status: 400 },
+    );
+  }
+
+  const department = context.orgUser.department?.trim() ?? "";
+
+  if (!department && roleKey !== "org_admin" && roleKey !== "dean") {
+    return NextResponse.json(
+      { error: "Your account has no department assigned yet." },
+      { status: 403 },
+    );
+  }
+
+  const { data: facultyUser, error: facultyError } = await supabaseAdmin
+    .from("org_users")
+    .select("id, department, status, roles(key)")
+    .eq("id", facultyId)
+    .eq("org_id", context.org.id)
+    .maybeSingle<FacultyUserRow>();
+
+  if (facultyError) {
+    return NextResponse.json(
+      { error: facultyError.message || "Failed to verify faculty user." },
+      { status: 500 },
+    );
+  }
+
+  const facultyRole = getRole(facultyUser?.roles);
+
+  if (
+    !facultyUser?.id ||
+    facultyUser.status !== "active" ||
+    !facultyRoleKeys.has(normalizeRoleKey(facultyRole?.key ?? ""))
+  ) {
+    return NextResponse.json({ error: "Faculty user not found." }, { status: 404 });
+  }
+
+  if (department && !sameDepartment(facultyUser.department, department)) {
+    return NextResponse.json(
+      { error: "You can only remove loads within your department." },
+      { status: 403 },
+    );
+  }
+
+  if (department) {
+    const { data: roomAssignments, error: roomAssignmentsError } = await supabaseAdmin
+      .from("academic_room_assignments")
+      .select(
+        `
+          id,
+          subject:academic_subjects!academic_room_assignments_subject_id_fkey(
+            department
+          )
+        `,
+      )
+      .eq("org_id", context.org.id)
+      .in("id", assignmentIds);
+
+    if (roomAssignmentsError) {
+      return NextResponse.json(
+        { error: roomAssignmentsError.message || "Failed to verify subject assignment." },
+        { status: 500 },
+      );
+    }
+
+    const verifiedAssignments = (roomAssignments ?? []) as unknown as Array<{
+      id: string;
+      subject: { department: string | null } | null;
+    }>;
+
+    if (
+      verifiedAssignments.length !== assignmentIds.length ||
+      verifiedAssignments.some((assignment) => !sameDepartment(assignment.subject?.department, department))
+    ) {
+      return NextResponse.json(
+        { error: "You can only remove subjects within your department." },
+        { status: 403 },
+      );
+    }
+  }
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("academic_faculty_load_assignments")
+    .delete()
+    .eq("org_id", context.org.id)
+    .eq("faculty_org_user_id", facultyId)
+    .in("room_assignment_id", assignmentIds);
+
+  if (deleteError) {
+    return NextResponse.json(
+      { error: deleteError.message || "Failed to remove assigned subject." },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }

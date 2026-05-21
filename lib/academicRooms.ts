@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
+import { normalizeRoleKey } from "@/features/tenant-role-catalog";
 import type { TenantContext } from "@/lib/tenantAccess";
 
 export type RoomStatus = "available" | "occupied" | "under_maintenance";
@@ -40,7 +41,12 @@ export type AcademicRoomAssignmentRow = {
     | null;
 };
 
-const roomManagerRoles = new Set(["room_manager", "subject_room_manager"]);
+const roomManagerRoles = new Set([
+  "room_manager",
+  "manage_rooms",
+  "room_management",
+  "subject_room_manager",
+]);
 
 export const validRoomScheduleDays = new Set([
   "Monday",
@@ -56,7 +62,9 @@ export const canUseHigherEdRooms = (context: TenantContext) =>
   context.institutionType === "higher_ed";
 
 export const canManageRooms = (context: TenantContext) =>
-  context.isOrgAdmin || roomManagerRoles.has(context.role.key);
+  context.isOrgAdmin ||
+  roomManagerRoles.has(normalizeRoleKey(context.role.key)) ||
+  roomManagerRoles.has(normalizeRoleKey(context.role.name));
 
 export const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });

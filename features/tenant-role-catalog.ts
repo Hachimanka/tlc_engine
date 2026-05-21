@@ -165,7 +165,7 @@ const legacyRoleTargets: Partial<Record<Exclude<InstitutionType, null>, Record<s
 };
 
 export function normalizeRoleKey(value: string) {
-  return value.toLowerCase().trim().replace(/-/g, "_");
+  return value.toLowerCase().trim().replace(/[\s-]+/g, "_");
 }
 
 export const departmentRequiredRoleKeys = new Set([

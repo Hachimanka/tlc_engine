@@ -1,6 +1,9 @@
   "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import TeachingScheduleGrid from "@/components/Features/TeachingScheduleGrid";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import { supabase } from "@/lib/supabaseClient";
 import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data-college";
 
 const collegeScheduleTimeSlots = [
@@ -19,9 +22,75 @@ type TeachingLoadTableProps = {
   rows?: TeacherLoadRow[];
 };
 
-export default function TeachingLoadTable({ rows = teacherLoadRows }: TeachingLoadTableProps) {
+type TeachingLoadPayload = {
+  rows?: TeacherLoadRow[];
+  error?: string;
+};
+
+export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTableProps) {
+  const [rows, setRows] = useState<TeacherLoadRow[]>(providedRows ?? teacherLoadRows);
+  const [isLoading, setIsLoading] = useState(!providedRows);
+  const [loadError, setLoadError] = useState("");
+
+  const loadTeachingLoad = useCallback(async () => {
+    if (providedRows) {
+      setRows(providedRows);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setIsLoading(false);
+      setLoadError("Your session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch("/api/tenant/my-teaching-load", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const payload: TeachingLoadPayload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setIsLoading(false);
+      setLoadError(payload.error || "Unable to load teaching load.");
+      return;
+    }
+
+    setRows(payload.rows ?? []);
+    setIsLoading(false);
+  }, [providedRows]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadTeachingLoad();
+  }, [loadTeachingLoad]);
+
+  if (isLoading) {
+    return (
+      <TenantLoadingScreen
+        className="flex min-h-[280px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-level-1"
+        label="Loading teaching load"
+        useStoredBranding
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {loadError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
@@ -86,7 +155,7 @@ export default function TeachingLoadTable({ rows = teacherLoadRows }: TeachingLo
         </div>
       </div>
 
-      <TeachingScheduleGrid rows={rows} timeSlots={collegeScheduleTimeSlots} />
+      <TeachingScheduleGrid rows={rows} timeSlots={rows.length === 0 ? collegeScheduleTimeSlots : undefined} />
     </div>
   );
 }

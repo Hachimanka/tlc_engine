@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarDays, Pencil, Plus, Search, X } from "lucide-react";
+import { CalendarDays, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
@@ -50,6 +50,7 @@ type RoomForm = {
 
 type AssignmentForm = {
   department: string;
+  yearLevel: string;
   subjectId: string;
   section: string;
   dayOfWeek: string;
@@ -67,6 +68,7 @@ const emptyForm: RoomForm = {
 
 const emptyAssignmentForm: AssignmentForm = {
   department: "",
+  yearLevel: "",
   subjectId: "",
   section: "",
   dayOfWeek: "Monday",
@@ -76,6 +78,7 @@ const emptyAssignmentForm: AssignmentForm = {
 
 const addNewBuildingValue = "__add_new_building__";
 const roomTypes = ["Lecture Room", "Laboratory", "Seminar Room"];
+const yearLevelFilters = ["First Year", "Second Year", "Third Year", "Fourth Year"];
 const scheduleDays = [
   "Monday",
   "Tuesday",
@@ -138,12 +141,38 @@ const formatMinutes = (minutes: number) => {
 const getRoomScheduleTag = (roomType?: string) =>
   roomType?.toLowerCase().includes("lab") ? "LAB" : "LEC";
 
+const normalizeYearLevel = (value: string) => {
+  const normalized = value.trim().toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ");
+
+  if (["first year", "1st year", "year 1"].includes(normalized)) {
+    return "first year";
+  }
+
+  if (["second year", "2nd year", "year 2"].includes(normalized)) {
+    return "second year";
+  }
+
+  if (["third year", "3rd year", "year 3"].includes(normalized)) {
+    return "third year";
+  }
+
+  if (["fourth year", "4th year", "year 4"].includes(normalized)) {
+    return "fourth year";
+  }
+
+  return normalized;
+};
+
 function RoomScheduleGrid({
   assignments,
   room,
+  removingAssignmentId,
+  onRemoveAssignment,
 }: {
   assignments: RoomAssignment[];
   room: Room;
+  removingAssignmentId: string;
+  onRemoveAssignment: (assignment: RoomAssignment) => void;
 }) {
   const bodyHeight = timeSlots.length * scheduleRowHeight;
   const assignmentsByDay = useMemo(() => {
@@ -223,10 +252,23 @@ function RoomScheduleGrid({
                   return (
                     <div
                       key={assignment.id}
-                      className="absolute left-2 right-2 flex min-h-10 flex-col items-center justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-2 py-1 text-center text-white shadow-sm"
+                      className="group absolute left-2 right-2 flex min-h-10 flex-col items-center justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-2 py-1 text-center text-white shadow-sm"
                       style={{ top, height: Math.max(height - 6, 42) }}
                       title={`${subjectCode} ${assignment.section} ${assignment.startTime}-${assignment.endTime}`}
                     >
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRemoveAssignment(assignment);
+                        }}
+                        disabled={removingAssignmentId === assignment.id}
+                        className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-white opacity-0 transition hover:bg-white/25 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100"
+                        aria-label={`Remove ${subjectCode} from ${day}`}
+                        title={`Remove ${subjectCode}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
                       <span className="max-w-full truncate text-xs font-bold">{subjectCode}</span>
                       <span className="mt-1 flex max-w-full items-center gap-1 text-[11px] font-semibold">
                         <span className="rounded bg-white/20 px-1.5 py-0.5">{usageTag}</span>
@@ -262,8 +304,10 @@ export default function RoomsTable() {
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(emptyAssignmentForm);
   const [saveError, setSaveError] = useState("");
   const [assignmentSaveError, setAssignmentSaveError] = useState("");
+  const [scheduleActionError, setScheduleActionError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [removingAssignmentId, setRemovingAssignmentId] = useState("");
 
   const loadRooms = useCallback(async () => {
     setIsLoading(true);
@@ -373,14 +417,14 @@ export default function RoomsTable() {
   );
 
   const filteredAssignmentSubjects = useMemo(() => {
-    if (!assignmentForm.department) {
-      return subjects;
-    }
-
     return subjects.filter(
-      (subject) => subject.department.trim() === assignmentForm.department,
+      (subject) =>
+        (!assignmentForm.department ||
+          subject.department.trim() === assignmentForm.department) &&
+        (!assignmentForm.yearLevel ||
+          normalizeYearLevel(subject.yearLevel) === normalizeYearLevel(assignmentForm.yearLevel)),
     );
-  }, [assignmentForm.department, subjects]);
+  }, [assignmentForm.department, assignmentForm.yearLevel, subjects]);
 
   const assignmentConflict = useMemo(() => {
     const start = parseTimeToMinutes(assignmentForm.startTime);
@@ -459,6 +503,7 @@ export default function RoomsTable() {
     setAssignmentForm({
       ...emptyAssignmentForm,
       department: defaultDepartment,
+      yearLevel: "",
       subjectId: defaultSubjects[0]?.id ?? "",
     });
     setAssignmentSaveError("");
@@ -590,6 +635,44 @@ export default function RoomsTable() {
 
     setAssignments((current) => [...current, payload.assignment as RoomAssignment]);
     closeAssignForm();
+  };
+
+  const handleRemoveAssignment = async (assignment: RoomAssignment) => {
+    const subjectCode = assignment.subject?.code ?? "this subject";
+    const confirmed = window.confirm(`Remove ${subjectCode} from this room schedule?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setScheduleActionError("Your session expired. Please log in again.");
+      return;
+    }
+
+    setScheduleActionError("");
+    setRemovingAssignmentId(assignment.id);
+    const response = await fetch(
+      `/api/tenant/rooms/assignments?id=${encodeURIComponent(assignment.id)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    const payload: { error?: string } = await response.json().catch(() => ({}));
+    setRemovingAssignmentId("");
+
+    if (!response.ok) {
+      setScheduleActionError(payload.error || "Unable to remove subject from room schedule.");
+      return;
+    }
+
+    setAssignments((current) => current.filter((item) => item.id !== assignment.id));
   };
 
   if (isLoading) {
@@ -839,11 +922,14 @@ export default function RoomsTable() {
                   <StyledSelect
                     value={assignmentForm.department}
                     onChange={(nextDepartment) => {
-                      const nextSubjects = nextDepartment
-                        ? subjects.filter(
-                            (subject) => subject.department.trim() === nextDepartment,
-                          )
-                        : subjects;
+                      const nextSubjects = subjects.filter(
+                        (subject) =>
+                          (!nextDepartment ||
+                            subject.department.trim() === nextDepartment) &&
+                          (!assignmentForm.yearLevel ||
+                            normalizeYearLevel(subject.yearLevel) ===
+                              normalizeYearLevel(assignmentForm.yearLevel)),
+                      );
 
                       setAssignmentForm((current) => ({
                         ...current,
@@ -863,6 +949,39 @@ export default function RoomsTable() {
 
                 <label className="space-y-1 lg:col-span-2">
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Year Level
+                  </span>
+                  <StyledSelect
+                    value={assignmentForm.yearLevel}
+                    onChange={(nextYearLevel) => {
+                      const nextSubjects = subjects.filter(
+                        (subject) =>
+                          (!assignmentForm.department ||
+                            subject.department.trim() === assignmentForm.department) &&
+                          (!nextYearLevel ||
+                            normalizeYearLevel(subject.yearLevel) ===
+                              normalizeYearLevel(nextYearLevel)),
+                      );
+
+                      setAssignmentForm((current) => ({
+                        ...current,
+                        yearLevel: nextYearLevel,
+                        subjectId: nextSubjects[0]?.id ?? "",
+                      }));
+                    }}
+                    options={[
+                      { value: "", label: "All Year Levels" },
+                      ...yearLevelFilters.map((yearLevel) => ({
+                        value: yearLevel,
+                        label: yearLevel,
+                      })),
+                    ]}
+                    className="[&_button]:h-10"
+                  />
+                </label>
+
+                <label className="space-y-1 lg:col-span-2">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Approved Subject
                   </span>
                   <StyledSelect
@@ -876,7 +995,7 @@ export default function RoomsTable() {
                     disabled={filteredAssignmentSubjects.length === 0}
                     options={
                       filteredAssignmentSubjects.length === 0
-                        ? [{ value: "", label: "No approved subjects in this department" }]
+                        ? [{ value: "", label: "No approved subjects for this filter" }]
                         : filteredAssignmentSubjects.map((subject) => ({
                             value: subject.id,
                             label: `${subject.code} - ${subject.title}`,
@@ -1110,8 +1229,19 @@ export default function RoomsTable() {
           ) : null}
         </div>
 
+        {scheduleActionError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {scheduleActionError}
+          </div>
+        ) : null}
+
         {selectedRoom ? (
-          <RoomScheduleGrid assignments={selectedRoomAssignments} room={selectedRoom} />
+          <RoomScheduleGrid
+            assignments={selectedRoomAssignments}
+            room={selectedRoom}
+            removingAssignmentId={removingAssignmentId}
+            onRemoveAssignment={handleRemoveAssignment}
+          />
         ) : (
           <div className="rounded-lg border border-dashed border-[var(--color-default)] px-4 py-12 text-center text-sm text-[var(--color-low-emphasis)]">
             Select a room to preview its weekly schedule.

@@ -17,6 +17,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 
 type AssignmentRequest = {
+  id?: string;
   roomId?: string;
   subjectId?: string;
   section?: string;
@@ -203,4 +204,46 @@ export async function POST(req: Request) {
     { assignment: mapRoomAssignment(data as AcademicRoomAssignmentRow) },
     { status: 201 },
   );
+}
+
+export async function DELETE(req: Request) {
+  const result = await loadTenantContext(req);
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (!canUseHigherEdRooms(context)) {
+    return jsonError("Room schedules are available for Higher Ed institutions only.", 400);
+  }
+
+  if (!canManageRooms(context)) {
+    return jsonError("Only room managers or org admins can remove room assignments.", 403);
+  }
+
+  const url = new URL(req.url);
+  const assignmentId = normalizeText(url.searchParams.get("id"));
+
+  if (!assignmentId) {
+    return jsonError("Assignment id is required.", 400);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("academic_room_assignments")
+    .delete()
+    .eq("id", assignmentId)
+    .eq("org_id", context.org.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return jsonError(error.message || "Failed to remove room assignment.", 500);
+  }
+
+  if (!data?.id) {
+    return jsonError("Room assignment not found.", 404);
+  }
+
+  return NextResponse.json({ ok: true, id: data.id });
 }
