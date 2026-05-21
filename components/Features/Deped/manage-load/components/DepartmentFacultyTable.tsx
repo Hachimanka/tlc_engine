@@ -1,16 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import AddFacultyForms from "./AddFacultyForms";
-import SubjectAssignmentModal from "./SubjectAssignmentModal";
+import AddFacultyForms, {
+	type FacultyAccountOption,
+	type FacultyFormValues,
+} from "./AddFacultyForms";
+import SubjectAssignmentModal, { type SubjectOption } from "./SubjectAssignmentModal";
 import VersionHistory from "./VersionHistory";
 
 type FacultyRow = {
 	id: string;
+	accountId: string;
 	name: string;
 	specialization: string;
 	employmentType: string;
-	totalTeachingHours: string;
 };
 
 type SubjectRow = {
@@ -22,147 +25,91 @@ type SubjectRow = {
 	hoursPerDay: string;
 };
 
-type FacultyDetail = {
-	subjects: SubjectRow[];
+type DepartmentFacultyTableProps = {
+	departmentName?: string;
 };
 
-const facultyRows: FacultyRow[] = [
+const approvedDepedSubjects: SubjectOption[] = [
 	{
-		id: "faculty-1",
-		name: "John Michael Montero Inoc",
-		specialization: "Filipino",
-		employmentType: "Full Time",
-		totalTeachingHours: "24/30",
+		id: "filipino-7-approved",
+		subjectTitle: "Filipino 7",
+		department: "Filipino Department",
+		yearLevel: "Grade 7",
+		schedule: "Mon-Fri 7:00 - 7:45",
+		room: "Room 1",
+		section: "Amethyst",
+		hoursPerDay: "45 minutes",
+		status: "Approved",
 	},
 	{
-		id: "faculty-2",
-		name: "Michael Montero",
-		specialization: "Filipino",
-		employmentType: "Full Time",
-		totalTeachingHours: "16/30",
+		id: "filipino-8-approved",
+		subjectTitle: "Filipino 8",
+		department: "Filipino Department",
+		yearLevel: "Grade 8",
+		schedule: "Mon-Fri 8:00 - 8:45",
+		room: "Room 11",
+		section: "Mercury",
+		hoursPerDay: "45 minutes",
+		status: "Approved",
 	},
 	{
-		id: "faculty-3",
-		name: "Michael Inoc",
-		specialization: "Filipino",
-		employmentType: "Full Time",
-		totalTeachingHours: "30/30",
+		id: "english-7-approved",
+		subjectTitle: "English 7",
+		department: "English Department",
+		yearLevel: "Grade 7",
+		schedule: "Mon-Fri 9:00 - 9:45",
+		room: "Room 2",
+		section: "Daisy",
+		hoursPerDay: "45 minutes",
+		status: "Approved",
 	},
 	{
-		id: "faculty-4",
-		name: "John Michael",
-		specialization: "Filipino",
-		employmentType: "Full Time",
-		totalTeachingHours: "6/30",
+		id: "math-7-approved",
+		subjectTitle: "Mathematics 7",
+		department: "Math Department",
+		yearLevel: "Grade 7",
+		schedule: "Mon-Fri 10:00 - 10:45",
+		room: "Room 3",
+		section: "Ruby",
+		hoursPerDay: "45 minutes",
+		status: "Approved",
 	},
 ];
 
-const facultyDetails: Record<string, FacultyDetail> = {
-	"faculty-1": {
-		subjects: [
-			{
-				id: "faculty-1-subject-1",
-				subjectTitle: "Filipino",
-				section: "Grade 7 Amethyst",
-				schedule: "Mon-Fri 7:00 - 7:45",
-				room: "Room 1",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-1-subject-2",
-				subjectTitle: "Fundamentals of Mixed Signals and Sensors",
-				section: "Grade 7 Ruby",
-				schedule: "Mon-Fri 8:00 - 8:45",
-				room: "Room 2",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-1-subject-3",
-				subjectTitle: "Data Structures and Algorithm",
-				section: "Grade 7 Pearl",
-				schedule: "Mon-Fri 1:00 - 1:45",
-				room: "Room 3",
-				hoursPerDay: "45 minutes",
-			},
-		],
+const depedFacultyAccounts: FacultyAccountOption[] = [
+	{
+		id: "acct-filipino-1",
+		name: "Maria Santos",
+		email: "maria.santos@faculty.tlc.local",
+		department: "Filipino Department",
+		employmentType: "Full Time",
+		specialization: "Filipino",
 	},
-	"faculty-2": {
-		subjects: [
-			{
-				id: "faculty-2-subject-1",
-				subjectTitle: "Filipino",
-				section: "Grade 7 Amethyst",
-				schedule: "Mon-Fri 7:00 - 7:45",
-				room: "Room 4",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-2-subject-2",
-				subjectTitle: "Reading and Writing",
-				section: "Grade 7 Topaz",
-				schedule: "Mon-Fri 8:00 - 8:45",
-				room: "Room 6",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-2-subject-3",
-				subjectTitle: "21st Century Literature",
-				section: "Grade 8 Emerald",
-				schedule: "Mon-Fri 1:00 - 1:45",
-				room: "Room 8",
-				hoursPerDay: "45 minutes",
-			},
-		],
+	{
+		id: "acct-filipino-2",
+		name: "Jose Reyes",
+		email: "jose.reyes@faculty.tlc.local",
+		department: "Filipino Department",
+		employmentType: "Part Time",
+		specialization: "Filipino",
 	},
-	"faculty-3": {
-		subjects: [
-			{
-				id: "faculty-3-subject-1",
-				subjectTitle: "Filipino",
-				section: "Grade 9 Rizal",
-				schedule: "Mon-Fri 7:00 - 7:45",
-				room: "Room 9",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-3-subject-2",
-				subjectTitle: "Research in Daily Life",
-				section: "Grade 9 Mabini",
-				schedule: "Mon-Fri 8:00 - 8:45",
-				room: "Room 10",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-3-subject-3",
-				subjectTitle: "Practical Research",
-				section: "Grade 10 Bonifacio",
-				schedule: "Mon-Fri 1:00 - 1:45",
-				room: "Room 12",
-				hoursPerDay: "45 minutes",
-			},
-		],
+	{
+		id: "acct-english-1",
+		name: "Anna Cruz",
+		email: "anna.cruz@faculty.tlc.local",
+		department: "English Department",
+		employmentType: "Full Time",
+		specialization: "English",
 	},
-	"faculty-4": {
-		subjects: [
-			{
-				id: "faculty-4-subject-1",
-				subjectTitle: "Filipino",
-				section: "Grade 7 Amethyst",
-				schedule: "Mon-Fri 7:00 - 7:45",
-				room: "Room 5",
-				hoursPerDay: "45 minutes",
-			},
-			{
-				id: "faculty-4-subject-2",
-				subjectTitle: "Values Education",
-				section: "Grade 7 Pearl",
-				schedule: "Mon-Fri 8:00 - 8:45",
-				room: "Room 7",
-				hoursPerDay: "45 minutes",
-			},
-		],
+	{
+		id: "acct-math-1",
+		name: "Daniel Garcia",
+		email: "daniel.garcia@faculty.tlc.local",
+		department: "Math Department",
+		employmentType: "Full Time",
+		specialization: "Math",
 	},
-};
+];
 
 function formatTotalMinutes(subjects: SubjectRow[]) {
 	const totalMinutes = subjects.reduce((sum, subject) => {
@@ -173,49 +120,170 @@ function formatTotalMinutes(subjects: SubjectRow[]) {
 	const hours = Math.floor(totalMinutes / 60);
 	const minutes = totalMinutes % 60;
 
-	if (hours === 0) {
-		return `${minutes} minutes`;
-	}
-
-	if (minutes === 0) {
-		return `${hours} hour${hours > 1 ? "s" : ""}`;
-	}
-
+	if (totalMinutes === 0) return "0 minutes";
+	if (hours === 0) return `${minutes} minutes`;
+	if (minutes === 0) return `${hours} hour${hours > 1 ? "s" : ""}`;
 	return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minutes`;
 }
 
-export default function DepartmentFacultyTable() {
-	const [selectedFacultyId, setSelectedFacultyId] = useState(facultyRows[1].id);
+function getFacultyMaxHours(employmentType: string) {
+	return employmentType === "Part Time" ? 3 : 6;
+}
+
+function getTotalHours(subjects: SubjectRow[]) {
+	const totalMinutes = subjects.reduce((sum, subject) => {
+		const parsedMinutes = Number(subject.hoursPerDay.replace(/[^0-9]/g, ""));
+		return sum + parsedMinutes;
+	}, 0);
+
+	return totalMinutes / 60;
+}
+
+function getTotalMinutes(subjects: SubjectRow[]) {
+	return subjects.reduce((sum, subject) => {
+		const parsedMinutes = Number(subject.hoursPerDay.replace(/[^0-9]/g, ""));
+		return sum + parsedMinutes;
+	}, 0);
+}
+
+function formatHoursLoad(subjects: SubjectRow[], employmentType: string) {
+	const totalHours = Math.round(getTotalHours(subjects) * 100) / 100;
+	return `${totalHours} hours / ${getFacultyMaxHours(employmentType)} hours`;
+}
+
+function formatMinutesCapacity(subjects: SubjectRow[], employmentType: string) {
+	const totalMinutes = getTotalMinutes(subjects);
+	const maxMinutes = getFacultyMaxHours(employmentType) * 60;
+	return `${totalMinutes} minutes / ${maxMinutes} minutes`;
+}
+
+export default function DepartmentFacultyTable({
+	departmentName = "Filipino Department",
+}: DepartmentFacultyTableProps) {
+	const [facultyRows, setFacultyRows] = useState<FacultyRow[]>([]);
+	const [facultySubjects, setFacultySubjects] = useState<Record<string, SubjectRow[]>>({});
+	const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
 	const [isAddFacultyOpen, setIsAddFacultyOpen] = useState(false);
 	const [isAssignSubjectOpen, setIsAssignSubjectOpen] = useState(false);
 	const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+	const [assignSubjectError, setAssignSubjectError] = useState("");
 
-	const selectedFaculty = facultyRows.find((faculty) => faculty.id === selectedFacultyId) ?? facultyRows[0];
-	const selectedFacultyDetail = facultyDetails[selectedFaculty.id] ?? { subjects: [] };
+	const selectedFaculty = facultyRows.find((faculty) => faculty.id === selectedFacultyId) ?? null;
+	const selectedSubjects = useMemo(
+		() => (selectedFaculty ? (facultySubjects[selectedFaculty.id] ?? []) : []),
+		[facultySubjects, selectedFaculty],
+	);
 
-	const totalTeachingHoursLabel = useMemo(() => {
-		return formatTotalMinutes(selectedFacultyDetail.subjects);
-	}, [selectedFacultyDetail.subjects]);
+	const availableSubjects = useMemo(
+		() =>
+			approvedDepedSubjects.filter(
+				(subject) =>
+					subject.department === departmentName &&
+					subject.status === "Approved" &&
+					!selectedSubjects.some((assigned) => assigned.id === subject.id),
+			),
+		[departmentName, selectedSubjects],
+	);
+
+	const availableFacultyAccounts = useMemo(
+		() =>
+			depedFacultyAccounts.filter(
+				(account) =>
+					account.department === departmentName &&
+					!facultyRows.some((faculty) => faculty.accountId === account.id),
+			),
+		[departmentName, facultyRows],
+	);
+
+	const totalTeachingHoursLabel = useMemo(
+		() => formatTotalMinutes(selectedSubjects),
+		[selectedSubjects],
+	);
+
+	const handleAddFaculty = (values: FacultyFormValues) => {
+		const newFaculty: FacultyRow = {
+			id: `faculty-${Date.now()}`,
+			...values,
+		};
+
+		setFacultyRows((currentRows) => [...currentRows, newFaculty]);
+		setSelectedFacultyId(newFaculty.id);
+		setIsAddFacultyOpen(false);
+	};
+
+	const handleAssignSubject = (subject: SubjectOption) => {
+		if (!selectedFaculty) return;
+
+		const nextTotalHours =
+			getTotalHours(selectedSubjects) + getTotalHours([{ ...subject, id: subject.id }]);
+		const maxHours = getFacultyMaxHours(selectedFaculty.employmentType);
+		if (nextTotalHours > maxHours) {
+			setAssignSubjectError(
+				`${selectedFaculty.employmentType} faculty can only have up to ${maxHours} teaching hours.`,
+			);
+			return;
+		}
+
+		const assignedSubject: SubjectRow = {
+			id: subject.id,
+			subjectTitle: subject.subjectTitle,
+			section: `${subject.yearLevel} ${subject.section}`,
+			schedule: subject.schedule,
+			room: subject.room,
+			hoursPerDay: subject.hoursPerDay,
+		};
+
+		setFacultySubjects((currentSubjects) => ({
+			...currentSubjects,
+			[selectedFaculty.id]: [
+				...(currentSubjects[selectedFaculty.id] ?? []),
+				assignedSubject,
+			],
+		}));
+		setAssignSubjectError("");
+		setIsAssignSubjectOpen(false);
+	};
+
+	const handleDeleteSubject = (subjectId: string) => {
+		if (!selectedFaculty) return;
+
+		setFacultySubjects((currentSubjects) => ({
+			...currentSubjects,
+			[selectedFaculty.id]: (currentSubjects[selectedFaculty.id] ?? []).filter(
+				(subject) => subject.id !== subjectId,
+			),
+		}));
+	};
 
 	return (
 		<>
-			<AddFacultyForms isOpen={isAddFacultyOpen} onClose={() => setIsAddFacultyOpen(false)} />
+			<AddFacultyForms
+				isOpen={isAddFacultyOpen}
+				departmentName={departmentName}
+				facultyAccounts={availableFacultyAccounts}
+				onClose={() => setIsAddFacultyOpen(false)}
+				onSubmit={handleAddFaculty}
+			/>
 			<SubjectAssignmentModal
 				isOpen={isAssignSubjectOpen}
 				onClose={() => setIsAssignSubjectOpen(false)}
-				selectedFacultyName={selectedFaculty.name}
+				onSubmit={handleAssignSubject}
+				selectedFacultyName={selectedFaculty?.name ?? "Faculty"}
+				departmentName={departmentName}
+				subjectOptions={availableSubjects}
+				errorMessage={assignSubjectError}
 			/>
 			<VersionHistory
 				isOpen={isVersionHistoryOpen}
 				onClose={() => setIsVersionHistoryOpen(false)}
-				selectedFacultyName={selectedFaculty.name}
+				selectedFacultyName={selectedFaculty?.name ?? "Faculty"}
 			/>
 
 			<div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
 				<div className="flex items-center justify-between gap-4 border-b border-[color:var(--color-default)] px-4 py-3 sm:px-5">
 					<div>
 						<h1 className="text-2xl text-[var(--color-high-emphasis)]">
-							Filipino Department Faculty
+							{departmentName} Faculty
 						</h1>
 						<p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
 							Click a faculty row to load the assigned subjects below.
@@ -238,12 +306,19 @@ export default function DepartmentFacultyTable() {
 								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Faculty Name</th>
 								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Specialization</th>
 								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Employment Type</th>
-								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Total Teaching hours</th>
+								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Teaching Minutes</th>
+								<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Total Teaching Hours</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-							{facultyRows.map((faculty) => {
-								const isSelected = faculty.id === selectedFaculty.id;
+							{facultyRows.length === 0 ? (
+								<tr>
+									<td colSpan={5} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+										No faculty added yet.
+									</td>
+								</tr>
+							) : facultyRows.map((faculty) => {
+								const isSelected = faculty.id === selectedFaculty?.id;
 
 								return (
 									<tr
@@ -261,7 +336,10 @@ export default function DepartmentFacultyTable() {
 											{faculty.employmentType}
 										</td>
 										<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
-											{faculty.totalTeachingHours}
+											{formatMinutesCapacity(facultySubjects[faculty.id] ?? [], faculty.employmentType)}
+										</td>
+										<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+											{formatHoursLoad(facultySubjects[faculty.id] ?? [], faculty.employmentType)}
 										</td>
 									</tr>
 								);
@@ -270,88 +348,103 @@ export default function DepartmentFacultyTable() {
 					</table>
 				</div>
 
-				<div className="border-t border-[color:var(--color-default)] bg-[var(--color-background)] px-4 py-5 sm:px-5">
-					<div className="flex flex-wrap items-center justify-between gap-4">
-						<div>
-							<h2 className="text-heading-h4 text-[var(--color-primary)]">
-								{selectedFaculty.name}
-							</h2>
-							<p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
-								{selectedFaculty.specialization} Department • {selectedFaculty.employmentType}
-							</p>
+				{selectedFaculty ? (
+					<div className="border-t border-[color:var(--color-default)] bg-[var(--color-background)] px-4 py-5 sm:px-5">
+						<div className="flex flex-wrap items-center justify-between gap-4">
+							<div>
+								<h2 className="text-heading-h4 text-[var(--color-primary)]">
+									{selectedFaculty.name}
+								</h2>
+								<p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
+									{selectedFaculty.specialization} Department • {selectedFaculty.employmentType}
+								</p>
+							</div>
+							<button
+								type="button"
+								onClick={() => {
+									setAssignSubjectError("");
+									setIsAssignSubjectOpen(true);
+								}}
+								className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-label-button text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)]"
+							>
+								<span className="text-base leading-none">+</span>
+								Assign Subject
+							</button>
 						</div>
-						<button
-							type="button"
-							onClick={() => setIsAssignSubjectOpen(true)}
-							className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-label-button text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)]"
-						>
-							<span className="text-base leading-none">+</span>
-							Assign Subject
-						</button>
-					</div>
 
-					<div className="mt-4 overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-white">
-						<div className="overflow-x-auto">
-							<table className="min-w-full border-collapse text-left">
-								<thead>
-									<tr>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Subject Title</th>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Section</th>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Schedule</th>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Room</th>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Hours/Day</th>
-										<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Actions</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-									{selectedFacultyDetail.subjects.map((subject) => (
-										<tr key={subject.id} className="bg-white transition-colors hover:bg-[var(--color-default)]/25">
-											<td className="px-4 py-3 text-body-small font-semibold text-[var(--color-high-emphasis)]">
-												{subject.subjectTitle}
-											</td>
-											<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
-												{subject.section}
-											</td>
-											<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
-												{subject.schedule}
-											</td>
-											<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
-												{subject.room}
-											</td>
-											<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
-												{subject.hoursPerDay}
-											</td>
-											<td className="px-4 py-3">
-												<button type="button" className="text-label-button text-[var(--color-error)] transition hover:opacity-80">
-													Delete
-												</button>
-											</td>
+						<div className="mt-4 overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-white">
+							<div className="overflow-x-auto">
+								<table className="min-w-full border-collapse text-left">
+									<thead>
+										<tr>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Subject Title</th>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Section</th>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Schedule</th>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Room</th>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Hours/Day</th>
+											<th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">Actions</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
+									</thead>
+									<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
+										{selectedSubjects.length === 0 ? (
+											<tr>
+												<td colSpan={6} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+													No subjects assigned yet.
+												</td>
+											</tr>
+										) : selectedSubjects.map((subject) => (
+											<tr key={subject.id} className="bg-white transition-colors hover:bg-[var(--color-default)]/25">
+												<td className="px-4 py-3 text-body-small font-semibold text-[var(--color-high-emphasis)]">
+													{subject.subjectTitle}
+												</td>
+												<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+													{subject.section}
+												</td>
+												<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+													{subject.schedule}
+												</td>
+												<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+													{subject.room}
+												</td>
+												<td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+													{subject.hoursPerDay}
+												</td>
+												<td className="px-4 py-3">
+													<button
+														type="button"
+														onClick={() => handleDeleteSubject(subject.id)}
+														className="text-label-button text-[var(--color-error)] transition hover:opacity-80"
+													>
+														Delete
+													</button>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+
+							<div className="flex items-center justify-end border-t border-[color:var(--color-default)] bg-[var(--color-card)] px-4 py-4 text-base sm:px-5">
+								<p>
+									<span className="text-label-button text-[var(--color-error)]">Total:</span>{" "}
+									<span className="text-label-button text-[var(--color-high-emphasis)]">
+										{totalTeachingHoursLabel}
+									</span>
+								</p>
+							</div>
 						</div>
 
-						<div className="flex items-center justify-end border-t border-[color:var(--color-default)] bg-[var(--color-card)] px-4 py-4 text-base sm:px-5">
-							<p>
-								<span className="text-label-button text-[var(--color-error)]">Total:</span>{" "}
-								<span className="text-label-button text-[var(--color-high-emphasis)]">
-									{totalTeachingHoursLabel}
-								</span>
-							</p>
+						<div className="mt-3 flex justify-end">
+							<button
+								type="button"
+								onClick={() => setIsVersionHistoryOpen(true)}
+								className="rounded-md px-1 py-1 text-label-button text-[var(--color-primary)] transition hover:opacity-80"
+							>
+								View Version History
+							</button>
 						</div>
 					</div>
-
-					<div className="mt-3 flex justify-end">
-						<button
-							type="button"
-							onClick={() => setIsVersionHistoryOpen(true)}
-							className="rounded-md px-1 py-1 text-label-button text-[var(--color-primary)] transition hover:opacity-80"
-						>
-							View Version History
-						</button>
-					</div>
-				</div>
+				) : null}
 			</div>
 		</>
 	);

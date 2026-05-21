@@ -22,8 +22,6 @@ type TeachingLoadTableProps = {
 export default function TeachingLoadTable({ rows = teacherLoadRows }: TeachingLoadTableProps) {
   return (
     <div className="space-y-4">
-      <TeachingScheduleGrid rows={rows} timeSlots={collegeScheduleTimeSlots} />
-
       <div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
@@ -87,6 +85,8 @@ export default function TeachingLoadTable({ rows = teacherLoadRows }: TeachingLo
           </table>
         </div>
       </div>
+
+      <TeachingScheduleGrid rows={rows} timeSlots={collegeScheduleTimeSlots} />
     </div>
   );
 }

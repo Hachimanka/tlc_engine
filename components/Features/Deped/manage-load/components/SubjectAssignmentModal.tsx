@@ -1,74 +1,66 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-type SubjectOption = {
+export type SubjectOption = {
 	id: string;
 	subjectTitle: string;
+	department: string;
 	yearLevel: string;
 	schedule: string;
 	room: string;
 	section: string;
+	hoursPerDay: string;
+	status: "Approved" | "Pending" | "Rejected";
 };
 
 type SubjectAssignmentModalProps = {
 	isOpen: boolean;
 	onClose: () => void;
+	onSubmit: (subject: SubjectOption) => void;
 	selectedFacultyName: string;
+	departmentName: string;
+	subjectOptions: SubjectOption[];
+	errorMessage?: string;
 };
 
-const subjectOptions: SubjectOption[] = [
-	{
-		id: "subj-1",
-		subjectTitle: "Filipino",
-		yearLevel: "Grade 7",
-		schedule: "Mon-Fri 7:00 - 7:45",
-		room: "Room 1",
-		section: "Amethyst",
-	},
-	{
-		id: "subj-2",
-		subjectTitle: "Filipino",
-		yearLevel: "Grade 8",
-		schedule: "Mon-Fri 7:00 - 7:45",
-		room: "Room 11",
-		section: "Mercury",
-	},
-	{
-		id: "subj-3",
-		subjectTitle: "Filipino",
-		yearLevel: "Grade 9",
-		schedule: "Mon-Fri 7:00 - 7:45",
-		room: "Room 21",
-		section: "Gumamela",
-	},
-];
-
-export default function SubjectAssignmentModal({ isOpen, onClose, selectedFacultyName }: SubjectAssignmentModalProps) {
-	const [selectedSubjectId, setSelectedSubjectId] = useState(subjectOptions[0].id);
-
-	useEffect(() => {
-		if (isOpen) {
-			// eslint-disable-next-line react-hooks/set-state-in-effect
-			setSelectedSubjectId(subjectOptions[0].id);
-		}
-	}, [isOpen]);
+export default function SubjectAssignmentModal({
+	isOpen,
+	onClose,
+	onSubmit,
+	selectedFacultyName,
+	departmentName,
+	subjectOptions,
+	errorMessage,
+}: SubjectAssignmentModalProps) {
+	const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
 	if (!isOpen) {
 		return null;
 	}
 
+	const effectiveSelectedSubjectId = subjectOptions.some((subject) => subject.id === selectedSubjectId)
+		? selectedSubjectId
+		: subjectOptions[0]?.id ?? "";
+	const selectedSubject = subjectOptions.find((subject) => subject.id === effectiveSelectedSubjectId);
+
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
 			<div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-				<div className="px-5 py-4 text-white bg-[var(--color-primary)]">
+				<div className="bg-[var(--color-primary)] px-5 py-4 text-white">
 					<h2 className="text-xl font-semibold">Assign Subject to {selectedFacultyName}</h2>
-					<p className="mt-1 text-sm text-white/90">Filipino Department</p>
+					<p className="mt-1 text-sm text-white/90">{departmentName}</p>
 				</div>
 
 				<div className="flex-1 overflow-y-auto px-5 py-6">
+					{errorMessage ? (
+						<div className="mb-4 rounded-lg border border-[#fecdd3] bg-[#fff1f2] px-4 py-3 text-sm font-medium text-[#d92d20]">
+							{errorMessage}
+						</div>
+					) : null}
+
 					<h3 className="mb-4 text-lg font-semibold text-[var(--color-high-emphasis)]">
-						Available Subjects
+						Available Approved Subjects
 					</h3>
 
 					<div className="overflow-hidden rounded-2xl border border-[var(--color-default)]">
@@ -82,8 +74,12 @@ export default function SubjectAssignmentModal({ isOpen, onClose, selectedFacult
 						</div>
 
 						<div className="divide-y divide-[var(--color-default)] bg-white">
-							{subjectOptions.map((subject) => {
-								const isSelected = selectedSubjectId === subject.id;
+							{subjectOptions.length === 0 ? (
+								<div className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+									No approved subjects available for this department.
+								</div>
+							) : subjectOptions.map((subject) => {
+								const isSelected = effectiveSelectedSubjectId === subject.id;
 
 								return (
 									<label
@@ -114,13 +110,13 @@ export default function SubjectAssignmentModal({ isOpen, onClose, selectedFacult
 												/>
 											</span>
 										</div>
-											<div className="font-medium text-[var(--color-high-emphasis)]">
+										<div className="font-medium text-[var(--color-high-emphasis)]">
 											{subject.subjectTitle}
 										</div>
-											<div className="text-[var(--color-low-emphasis)]">{subject.yearLevel}</div>
-											<div className="text-[var(--color-low-emphasis)]">{subject.schedule}</div>
-											<div className="text-[var(--color-low-emphasis)]">{subject.room}</div>
-											<div className="text-[var(--color-low-emphasis)]">{subject.section}</div>
+										<div className="text-[var(--color-low-emphasis)]">{subject.yearLevel}</div>
+										<div className="text-[var(--color-low-emphasis)]">{subject.schedule}</div>
+										<div className="text-[var(--color-low-emphasis)]">{subject.room}</div>
+										<div className="text-[var(--color-low-emphasis)]">{subject.section}</div>
 									</label>
 								);
 							})}
@@ -138,8 +134,13 @@ export default function SubjectAssignmentModal({ isOpen, onClose, selectedFacult
 					</button>
 					<button
 						type="button"
-						onClick={onClose}
-						className="rounded-lg bg-[var(--color-primary)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+						disabled={!selectedSubject}
+						onClick={() => {
+							if (selectedSubject) {
+								onSubmit(selectedSubject);
+							}
+						}}
+						className="rounded-lg bg-[var(--color-primary)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Assign Subject
 					</button>
