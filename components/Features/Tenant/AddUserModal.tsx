@@ -28,6 +28,23 @@ export type AddUserPayload = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
+  teacherSetupDetails?: TeacherSetupDetails | null;
+};
+
+export type TeacherSetupDetails = {
+  gradeLevelAssignment?: string;
+  gradeYearLevel?: string;
+  section?: string;
+  teacherRole?: string;
+  subjectDomainTrack?: string;
+  teachingLoad?: string;
+  workload?: string;
+  adviserStatus?: string;
+  learningDomain?: string;
+  curricularTheme?: string;
+  track?: string;
+  strand?: string;
+  subjectType?: string;
 };
 
 export type CreatedUser = {
@@ -40,6 +57,7 @@ export type CreatedUser = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
+  teacherSetupDetails?: TeacherSetupDetails | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -76,6 +94,357 @@ type AddUserModalProps = {
   onClose: () => void;
   onCreate: (payload: AddUserPayload) => Promise<AddUserResult>;
 };
+
+const gradeLevelAssignments = [
+  "Kindergarten",
+  "Elementary",
+  "Junior High School",
+  "Senior High School",
+];
+
+const elementaryGrades = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
+const juniorHighGrades = ["Grade 7", "Grade 8", "Grade 9", "Grade 10"];
+const seniorHighGrades = ["Grade 11", "Grade 12"];
+const learningDomains = [
+  "Language, Literacy and Communication",
+  "Mathematics",
+  "Physical Health and Motor Development",
+  "Aesthetic / Creative Development",
+  "Socio-Emotional Development",
+  "Understanding the Physical and Natural Environment",
+];
+const curricularThemes = [
+  "Myself",
+  "My Family",
+  "My School",
+  "My Community",
+  "More Things Around Me",
+];
+const elementarySubjects = [
+  "English",
+  "Filipino",
+  "Mathematics",
+  "Science",
+  "Araling Panlipunan",
+  "MAPEH",
+  "Edukasyon sa Pagpapakatao",
+  "EPP",
+];
+const juniorHighSubjects = [
+  "English",
+  "Filipino",
+  "Mathematics",
+  "Science",
+  "Araling Panlipunan",
+  "MAPEH",
+  "TLE",
+  "Edukasyon sa Pagpapakatao",
+];
+const shsTracks = ["Academic", "Technical-Vocational-Livelihood", "Sports", "Arts and Design"];
+const shsStrands = ["STEM", "ABM", "HUMSS", "GAS", "TVL", "Sports", "Arts and Design"];
+const shsSubjectTypes = ["Core", "Applied", "Specialized", "Work Immersion"];
+const shsSubjects = [
+  "Oral Communication",
+  "Reading and Writing",
+  "General Mathematics",
+  "Statistics and Probability",
+  "Earth and Life Science",
+  "Practical Research",
+  "Empowerment Technologies",
+  "Work Immersion",
+];
+
+const emptyTeacherSetupDetails: TeacherSetupDetails = {
+  gradeLevelAssignment: "",
+  gradeYearLevel: "",
+  section: "",
+  teacherRole: "",
+  subjectDomainTrack: "",
+  teachingLoad: "",
+  workload: "",
+  adviserStatus: "No",
+  learningDomain: "",
+  curricularTheme: "",
+  track: "",
+  strand: "",
+  subjectType: "",
+};
+
+const compactTeacherSetupDetails = (details: TeacherSetupDetails) => {
+  const normalizedEntries = Object.entries(details)
+    .map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "",
+    ])
+    .filter(([, value]) => value);
+
+  return normalizedEntries.length > 0
+    ? (Object.fromEntries(normalizedEntries) as TeacherSetupDetails)
+    : null;
+};
+
+export const isTeacherRoleOption = (role?: Pick<RoleOption, "key" | "name"> | null) => {
+  const key = role?.key?.toLowerCase() ?? "";
+  const name = role?.name?.toLowerCase() ?? "";
+
+  return key === "teacher" || name.includes("teacher");
+};
+
+const textInputClass =
+  "h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[#8f8f8f] transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]";
+
+export function TeacherSetupDetailsSection({
+  value,
+  onChange,
+  employeeIdPreview,
+}: {
+  value: TeacherSetupDetails;
+  onChange: (nextValue: TeacherSetupDetails) => void;
+  employeeIdPreview?: string | null;
+}) {
+  const updateField = (key: keyof TeacherSetupDetails, nextValue: string) => {
+    const resetByAssignment =
+      key === "gradeLevelAssignment"
+        ? {
+            gradeYearLevel: "",
+            learningDomain: "",
+            curricularTheme: "",
+            subjectDomainTrack: "",
+            track: "",
+            strand: "",
+            subjectType: "",
+          }
+        : {};
+
+    onChange({
+      ...value,
+      ...resetByAssignment,
+      [key]: nextValue,
+    });
+  };
+
+  const assignment = value.gradeLevelAssignment ?? "";
+  const gradeOptions =
+    assignment === "Elementary"
+      ? elementaryGrades
+      : assignment === "Junior High School"
+      ? juniorHighGrades
+      : assignment === "Senior High School"
+      ? seniorHighGrades
+      : [];
+  const subjectOptions =
+    assignment === "Elementary"
+      ? elementarySubjects
+      : assignment === "Junior High School"
+      ? juniorHighSubjects
+      : assignment === "Senior High School"
+      ? shsSubjects
+      : [];
+
+  return (
+    <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
+      <div>
+        <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">
+          Teacher Setup Details
+        </h3>
+        <p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+          Fields adjust based on the selected grade level assignment.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Employee ID</label>
+          <input
+            value={employeeIdPreview || "Generated after account creation"}
+            readOnly
+            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[#475467] outline-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">
+            Grade Level Assignment
+          </label>
+          <StyledSelect
+            value={assignment}
+            onChange={(nextValue) => updateField("gradeLevelAssignment", nextValue)}
+            options={[
+              { value: "", label: "Select grade level assignment" },
+              ...gradeLevelAssignments.map((option) => ({ value: option, label: option })),
+            ]}
+          />
+        </div>
+      </div>
+
+      {assignment === "Kindergarten" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Learning Domain</label>
+            <StyledSelect
+              value={value.learningDomain ?? ""}
+              onChange={(nextValue) => updateField("learningDomain", nextValue)}
+              options={[
+                { value: "", label: "Select learning domain" },
+                ...learningDomains.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Curricular Theme</label>
+            <StyledSelect
+              value={value.curricularTheme ?? ""}
+              onChange={(nextValue) => updateField("curricularTheme", nextValue)}
+              options={[
+                { value: "", label: "Select curricular theme" },
+                ...curricularThemes.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {gradeOptions.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Grade / Year Level</label>
+            <StyledSelect
+              value={value.gradeYearLevel ?? ""}
+              onChange={(nextValue) => updateField("gradeYearLevel", nextValue)}
+              options={[
+                { value: "", label: "Select grade / year level" },
+                ...gradeOptions.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">
+              {assignment === "Senior High School" ? "SHS Subject" : "Subject"}
+            </label>
+            <StyledSelect
+              value={value.subjectDomainTrack ?? ""}
+              onChange={(nextValue) => updateField("subjectDomainTrack", nextValue)}
+              options={[
+                { value: "", label: "Select subject" },
+                ...subjectOptions.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {assignment === "Senior High School" ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Track</label>
+            <StyledSelect
+              value={value.track ?? ""}
+              onChange={(nextValue) => updateField("track", nextValue)}
+              options={[
+                { value: "", label: "Select track" },
+                ...shsTracks.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Strand</label>
+            <StyledSelect
+              value={value.strand ?? ""}
+              onChange={(nextValue) => updateField("strand", nextValue)}
+              options={[
+                { value: "", label: "Select strand" },
+                ...shsStrands.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[#344054]">Subject Type</label>
+            <StyledSelect
+              value={value.subjectType ?? ""}
+              onChange={(nextValue) => updateField("subjectType", nextValue)}
+              options={[
+                { value: "", label: "Select type" },
+                ...shsSubjectTypes.map((option) => ({ value: option, label: option })),
+              ]}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Section</label>
+          <input
+            value={value.section ?? ""}
+            onChange={(event) => updateField("section", event.target.value)}
+            placeholder="e.g., Sampaguita"
+            className={textInputClass}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Teacher Role</label>
+          <StyledSelect
+            value={value.teacherRole ?? ""}
+            onChange={(nextValue) => updateField("teacherRole", nextValue)}
+            options={[
+              { value: "", label: "Select teacher role" },
+              { value: "Subject Teacher", label: "Subject Teacher" },
+              { value: "Class Adviser", label: "Class Adviser" },
+              { value: "Coordinator", label: "Coordinator" },
+              { value: "Lead Teacher", label: "Lead Teacher" },
+            ]}
+          />
+        </div>
+      </div>
+
+      {assignment === "Kindergarten" ? (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">
+            Subject / Domain / Track
+          </label>
+          <input
+            value={value.subjectDomainTrack ?? ""}
+            onChange={(event) => updateField("subjectDomainTrack", event.target.value)}
+            placeholder="e.g., Language, Literacy and Communication"
+            className={textInputClass}
+          />
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Teaching Load</label>
+          <input
+            value={value.teachingLoad ?? ""}
+            onChange={(event) => updateField("teachingLoad", event.target.value)}
+            placeholder="e.g., 6 classes"
+            className={textInputClass}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Workload</label>
+          <input
+            value={value.workload ?? ""}
+            onChange={(event) => updateField("workload", event.target.value)}
+            placeholder="e.g., 30 hrs/week"
+            className={textInputClass}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Adviser Status</label>
+          <StyledSelect
+            value={value.adviserStatus ?? "No"}
+            onChange={(nextValue) => updateField("adviserStatus", nextValue)}
+            options={[
+              { value: "No", label: "No" },
+              { value: "Yes", label: "Yes" },
+            ]}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const normalizeNamePart = (value: string) =>
   value
@@ -144,8 +513,6 @@ export default function AddUserModal({
   assignmentLabel = "Department",
   assignmentPlaceholder = "e.g., Computer Engineering",
   assignmentHint,
-  assignmentOptions = [],
-  assignmentRequiredError,
   showTeacherProfileFields = false,
   subjectOptions = [],
   emailDomain,
@@ -163,6 +530,8 @@ export default function AddUserModal({
   const [teacherMajor, setTeacherMajor] = useState("");
   const [qualifiedSubjects, setQualifiedSubjects] = useState<string[]>([]);
   const [preferredSubject, setPreferredSubject] = useState("");
+  const [teacherSetupDetails, setTeacherSetupDetails] =
+    useState<TeacherSetupDetails>(emptyTeacherSetupDetails);
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -180,13 +549,12 @@ export default function AddUserModal({
   const selectedRoleRequiresDepartment = Boolean(
     selectedRole?.requiresDepartment ?? selectedRole?.requires_department,
   );
+  const showTeacherSetupDetails =
+    showTeacherProfileFields && !isCustomRole && isTeacherRoleOption(selectedRole);
   const departmentIsRequired = isCustomRole
     ? customRoleRequiresDepartment
     : selectedRoleRequiresDepartment;
   const hasManagedDepartments = departments.length > 0;
-  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
-  const requiredAssignmentMessage =
-    assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
   const assignableFeatures = useMemo(
     () =>
       features.filter(
@@ -202,6 +570,7 @@ export default function AddUserModal({
     () => getEmailPreview(fullName, emailDomain),
     [emailDomain, fullName],
   );
+  const teacherGradeLevelAssignment = teacherSetupDetails.gradeLevelAssignment?.trim() ?? "";
 
   const resetForm = useCallback(() => {
     setFullName("");
@@ -215,6 +584,7 @@ export default function AddUserModal({
     setTeacherMajor("");
     setQualifiedSubjects([]);
     setPreferredSubject("");
+    setTeacherSetupDetails(emptyTeacherSetupDetails);
     setIsRoleMenuOpen(false);
     setError("");
     setIsSubmitting(false);
@@ -254,7 +624,12 @@ export default function AddUserModal({
         ? customRoleName.trim() && customRoleFeatureKeys.length > 0
         : roleId) &&
       isValidEmail(recipientEmail) &&
-      (!departmentIsRequired || (hasManagedDepartments ? departmentId : department.trim())),
+      (!departmentIsRequired ||
+        (showTeacherSetupDetails
+          ? teacherGradeLevelAssignment
+          : hasManagedDepartments
+          ? departmentId
+          : department.trim())),
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -263,6 +638,8 @@ export default function AddUserModal({
       setError(
         !isValidEmail(recipientEmail)
           ? "Enter a valid recipient email."
+          : showTeacherSetupDetails && departmentIsRequired && !teacherGradeLevelAssignment
+          ? "Grade Level Assignment is required for teacher accounts."
           : departmentIsRequired && hasManagedDepartments && !departmentId
           ? "Department is required for this role."
           : departmentIsRequired && !department.trim()
@@ -289,18 +666,27 @@ export default function AddUserModal({
         customRoleRequiresDepartment: isCustomRole
           ? customRoleRequiresDepartment
           : undefined,
-        department: hasManagedDepartments
+        department: showTeacherSetupDetails
+          ? teacherGradeLevelAssignment
+          : hasManagedDepartments
           ? null
           : department.trim()
           ? department.trim().replace(/\s+/g, " ")
           : null,
-        departmentId: hasManagedDepartments ? departmentId || null : undefined,
-        teacherMajor: showTeacherProfileFields
+        departmentId: showTeacherSetupDetails
+          ? undefined
+          : hasManagedDepartments
+          ? departmentId || null
+          : undefined,
+        teacherMajor: showTeacherSetupDetails
           ? teacherMajor.trim().replace(/\s+/g, " ") || null
           : undefined,
-        qualifiedSubjects: showTeacherProfileFields ? qualifiedSubjects : undefined,
-        preferredSubject: showTeacherProfileFields
+        qualifiedSubjects: showTeacherSetupDetails ? qualifiedSubjects : undefined,
+        preferredSubject: showTeacherSetupDetails
           ? preferredSubject.trim().replace(/\s+/g, " ") || null
+          : undefined,
+        teacherSetupDetails: showTeacherSetupDetails
+          ? compactTeacherSetupDetails(teacherSetupDetails)
           : undefined,
       });
       setSuccess(result);
@@ -324,6 +710,11 @@ export default function AddUserModal({
       setCustomRoleName("");
       setCustomRoleFeatureKeys([]);
       setCustomRoleRequiresDepartment(false);
+    }
+
+    const nextRole = roleOptions.find((role) => role.id === nextRoleId) ?? null;
+    if (!isTeacherRoleOption(nextRole)) {
+      setTeacherSetupDetails(emptyTeacherSetupDetails);
     }
   };
 
@@ -665,6 +1056,7 @@ export default function AddUserModal({
               </>
             ) : null}
 
+            {!showTeacherSetupDetails ? (
             <div className="space-y-2">
               <label htmlFor="department" className="text-sm font-medium text-[#344054]">
                 {assignmentLabel}
@@ -704,8 +1096,16 @@ export default function AddUserModal({
                   : assignmentHint ?? `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
               </p>
             </div>
+            ) : null}
 
-            {showTeacherProfileFields ? (
+            {showTeacherSetupDetails ? (
+              <TeacherSetupDetailsSection
+                value={teacherSetupDetails}
+                onChange={setTeacherSetupDetails}
+              />
+            ) : null}
+
+            {showTeacherSetupDetails ? (
               <div className="space-y-4 rounded-lg border border-[var(--color-default)] bg-[#f8fafc] p-4">
                 <div>
                   <h3 className="text-sm font-bold text-[var(--color-high-emphasis)]">

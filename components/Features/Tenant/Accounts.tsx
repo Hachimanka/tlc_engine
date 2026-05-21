@@ -7,9 +7,11 @@ import AddUserModal, {
   type AddUserPayload,
   type CreatedUser,
   type RoleOption,
+  type TeacherSetupDetails,
+  TeacherSetupDetailsSection,
+  isTeacherRoleOption,
 } from "./AddUserModal";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import {
@@ -27,6 +29,10 @@ type AccountUser = {
   employeeId?: string | null;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: string[];
+  preferredSubject?: string | null;
+  teacherSetupDetails?: TeacherSetupDetails | null;
   roleId: string;
   roleKey: string;
   roleName: string;
@@ -52,6 +58,10 @@ type UserPayload = {
   employee_id?: string | null;
   department?: string | null;
   department_id?: string | null;
+  teacher_major?: string | null;
+  qualified_subjects?: unknown;
+  preferred_subject?: string | null;
+  teacher_setup_details?: unknown;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -64,7 +74,37 @@ type EditAccountPayload = {
   roleId: string;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: string[];
+  preferredSubject?: string | null;
+  teacherSetupDetails?: TeacherSetupDetails | null;
   status: "active" | "disabled";
+};
+
+const normalizeTeacherSetupDetails = (value: unknown): TeacherSetupDetails | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const result: TeacherSetupDetails = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === "string" && item.trim()) {
+      result[key as keyof TeacherSetupDetails] = item;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+};
+
+const compactTeacherSetupDetails = (details: TeacherSetupDetails) => {
+  const entries = Object.entries(details)
+    .map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "",
+    ])
+    .filter(([, value]) => value);
+
+  return entries.length > 0 ? (Object.fromEntries(entries) as TeacherSetupDetails) : null;
 };
 
 const normalizeJoinedRole = (role: unknown) => {
@@ -78,6 +118,9 @@ const normalizeJoinedRole = (role: unknown) => {
 const normalizeUser = (user: UserPayload): AccountUser => {
   const role = normalizeJoinedRole(user.roles ?? user.role);
   const status = user.status === "disabled" ? "disabled" : "active";
+  const qualifiedSubjects = Array.isArray(user.qualified_subjects)
+    ? user.qualified_subjects.filter((item): item is string => typeof item === "string")
+    : [];
 
   return {
     id: user.id,
@@ -86,6 +129,10 @@ const normalizeUser = (user: UserPayload): AccountUser => {
     employeeId: user.employee_id ?? null,
     department: user.department ?? null,
     departmentId: user.department_id ?? null,
+    teacherMajor: user.teacher_major ?? null,
+    qualifiedSubjects,
+    preferredSubject: user.preferred_subject ?? null,
+    teacherSetupDetails: normalizeTeacherSetupDetails(user.teacher_setup_details),
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -114,6 +161,14 @@ const formatDate = (value?: string | null) => {
 const roleRequiresDepartment = (role?: AccountRole | null) =>
   Boolean(role?.requiresDepartment ?? role?.requires_department) ||
   isDepartmentRequiredRole(role?.key);
+
+const getTeacherSubjectSummary = (details?: TeacherSetupDetails | null, user?: AccountUser) =>
+  details?.subjectDomainTrack ||
+  details?.learningDomain ||
+  details?.track ||
+  user?.preferredSubject ||
+  user?.teacherMajor ||
+  "-";
 
 function AccountsTableSkeleton() {
   const cellWidths = ["w-24", "w-36", "w-44", "w-40", "w-48", "w-16", "w-24", "w-28"];
@@ -195,7 +250,6 @@ function EditAccountForm({
   departments,
   assignmentLabel = "Department",
   assignmentPlaceholder = "e.g., Mathematics Department",
-  assignmentOptions = [],
   assignmentRequiredError,
   onCancel,
   onSave,
@@ -205,7 +259,6 @@ function EditAccountForm({
   departments: DepartmentOption[];
   assignmentLabel?: string;
   assignmentPlaceholder?: string;
-  assignmentOptions?: string[];
   assignmentRequiredError?: string;
   onSave: (payload: EditAccountPayload) => Promise<void>;
   onCancel: () => void;
@@ -214,6 +267,11 @@ function EditAccountForm({
   const [roleId, setRoleId] = useState(user.roleId);
   const [department, setDepartment] = useState(user.department ?? "");
   const [departmentId, setDepartmentId] = useState(user.departmentId ?? "");
+  const [teacherMajor, setTeacherMajor] = useState(user.teacherMajor ?? "");
+  const [preferredSubject, setPreferredSubject] = useState(user.preferredSubject ?? "");
+  const [teacherSetupDetails, setTeacherSetupDetails] = useState<TeacherSetupDetails>(
+    user.teacherSetupDetails ?? {},
+  );
   const [status, setStatus] = useState<"active" | "disabled">(user.status);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -228,8 +286,9 @@ function EditAccountForm({
     [roleId, roleOptions],
   );
   const requiresDepartment = roleRequiresDepartment(selectedRole);
+  const isTeacherRole = isTeacherRoleOption(selectedRole);
+  const teacherGradeLevelAssignment = teacherSetupDetails.gradeLevelAssignment?.trim() ?? "";
   const hasManagedDepartments = departments.length > 0;
-  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
   const requiredAssignmentMessage =
     assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
 
@@ -238,6 +297,9 @@ function EditAccountForm({
     setRoleId(user.roleId);
     setDepartment(user.department ?? "");
     setDepartmentId(user.departmentId ?? "");
+    setTeacherMajor(user.teacherMajor ?? "");
+    setPreferredSubject(user.preferredSubject ?? "");
+    setTeacherSetupDetails(user.teacherSetupDetails ?? {});
     setStatus(user.status);
     setError("");
     setIsSaving(false);
@@ -251,7 +313,11 @@ function EditAccountForm({
       !fullName.trim() ||
       !roleId ||
       (requiresDepartment &&
-        !(hasManagedDepartments ? departmentId || user.department : department.trim()))
+        !(isTeacherRole
+          ? teacherGradeLevelAssignment
+          : hasManagedDepartments
+          ? departmentId || user.department
+          : department.trim()))
     ) {
       setError(
         requiresDepartment
@@ -271,6 +337,10 @@ function EditAccountForm({
       };
 
       if (hasManagedDepartments) {
+        if (isTeacherRole) {
+          nextPayload.department = teacherGradeLevelAssignment || null;
+          nextPayload.departmentId = null;
+        } else
         if (departmentId) {
           nextPayload.departmentId = departmentId;
         } else if (user.departmentId) {
@@ -279,9 +349,17 @@ function EditAccountForm({
           nextPayload.department = user.department ?? null;
         }
       } else {
-        nextPayload.department = department.trim()
+        nextPayload.department = isTeacherRole
+          ? teacherGradeLevelAssignment || null
+          : department.trim()
           ? department.trim().replace(/\s+/g, " ")
           : null;
+      }
+
+      if (isTeacherRole) {
+        nextPayload.teacherMajor = teacherMajor.trim().replace(/\s+/g, " ") || null;
+        nextPayload.preferredSubject = preferredSubject.trim().replace(/\s+/g, " ") || null;
+        nextPayload.teacherSetupDetails = compactTeacherSetupDetails(teacherSetupDetails);
       }
 
       await onSave(nextPayload);
@@ -294,6 +372,12 @@ function EditAccountForm({
 
   const handleRoleChange = (nextRoleId: string) => {
     setRoleId(nextRoleId);
+    const nextRole = roleOptions.find((role) => role.id === nextRoleId) ?? null;
+    if (!isTeacherRoleOption(nextRole)) {
+      setTeacherMajor("");
+      setPreferredSubject("");
+      setTeacherSetupDetails({});
+    }
   };
 
   return (
@@ -374,6 +458,7 @@ function EditAccountForm({
           />
         </div>
 
+        {!isTeacherRole ? (
         <div className="space-y-2">
           <label htmlFor="edit-department" className="text-sm font-medium text-[#344054]">
             {assignmentLabel}
@@ -419,6 +504,44 @@ function EditAccountForm({
               : `Optional. Leave blank if this account is not assigned to a ${assignmentLabel.toLowerCase()}.`}
           </p>
         </div>
+        ) : null}
+
+        {isTeacherRole ? (
+          <>
+            <TeacherSetupDetailsSection
+              value={teacherSetupDetails}
+              onChange={setTeacherSetupDetails}
+              employeeIdPreview={user.employeeId}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="edit-teacher-major" className="text-sm font-medium text-[#344054]">
+                  Subject / Domain / Track
+                </label>
+                <input
+                  id="edit-teacher-major"
+                  value={teacherMajor}
+                  onChange={(event) => setTeacherMajor(event.target.value)}
+                  placeholder="e.g., Science"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-preferred-subject" className="text-sm font-medium text-[#344054]">
+                  Preferred Subject
+                </label>
+                <input
+                  id="edit-preferred-subject"
+                  value={preferredSubject}
+                  onChange={(event) => setPreferredSubject(event.target.value)}
+                  placeholder="e.g., Mathematics"
+                  className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                />
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
@@ -592,6 +715,12 @@ export default function Accounts() {
       employeeId: data.user.employee_id ?? null,
       department: data.user.department ?? null,
       departmentId: data.user.department_id ?? null,
+      teacherMajor: data.user.teacher_major ?? null,
+      qualifiedSubjects: Array.isArray(data.user.qualified_subjects)
+        ? data.user.qualified_subjects
+        : [],
+      preferredSubject: data.user.preferred_subject ?? null,
+      teacherSetupDetails: normalizeTeacherSetupDetails(data.user.teacher_setup_details),
       roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
@@ -628,6 +757,10 @@ export default function Accounts() {
         employeeId: createdUser.employeeId,
         department: createdUser.department ?? null,
         departmentId: data.user.department_id ?? null,
+        teacherMajor: createdUser.teacherMajor ?? null,
+        qualifiedSubjects: createdUser.qualifiedSubjects ?? [],
+        preferredSubject: createdUser.preferredSubject ?? null,
+        teacherSetupDetails: createdUser.teacherSetupDetails ?? null,
         roleId: createdUser.roleId,
         roleKey: createdUser.roleKey,
         roleName: createdUser.roleName,
@@ -752,6 +885,7 @@ export default function Accounts() {
         assignmentRequiredError={
           isDeped ? "Grade level assignment is required for this role." : undefined
         }
+        showTeacherProfileFields={isDeped}
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
         onCreate={handleCreateUser}
@@ -991,7 +1125,6 @@ export default function Accounts() {
                     departments={managedDepartments}
                     assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
                     assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
-                    assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
                     assignmentRequiredError={
                       isDeped ? "Grade level assignment is required for this role." : undefined
                     }
@@ -1010,7 +1143,47 @@ export default function Accounts() {
                     }
                   />
                   <FieldRow label="Employee ID" value={selectedUser.employeeId || "-"} />
-                  <FieldRow label={isDeped ? "Grade Level" : "Department"} value={selectedUser.department || "-"} />
+                  {isTeacherRoleOption({
+                    key: selectedUser.roleKey,
+                    name: selectedUser.roleName,
+                  }) ? (
+                    <>
+                      <FieldRow
+                        label="Grade Level Assignment"
+                        value={selectedUser.teacherSetupDetails?.gradeLevelAssignment || selectedUser.department || "-"}
+                      />
+                      <FieldRow
+                        label="Grade / Year Level"
+                        value={selectedUser.teacherSetupDetails?.gradeYearLevel || "-"}
+                      />
+                      <FieldRow
+                        label="Section"
+                        value={selectedUser.teacherSetupDetails?.section || "-"}
+                      />
+                      <FieldRow
+                        label="Teacher Role"
+                        value={selectedUser.teacherSetupDetails?.teacherRole || selectedUser.roleName}
+                      />
+                      <FieldRow
+                        label="Subject / Domain / Track"
+                        value={getTeacherSubjectSummary(selectedUser.teacherSetupDetails, selectedUser)}
+                      />
+                      <FieldRow
+                        label="Teaching Load"
+                        value={selectedUser.teacherSetupDetails?.teachingLoad || "-"}
+                      />
+                      <FieldRow
+                        label="Workload"
+                        value={selectedUser.teacherSetupDetails?.workload || "-"}
+                      />
+                      <FieldRow
+                        label="Adviser Status"
+                        value={selectedUser.teacherSetupDetails?.adviserStatus || "-"}
+                      />
+                    </>
+                  ) : (
+                    <FieldRow label={isDeped ? "Grade Level" : "Department"} value={selectedUser.department || "-"} />
+                  )}
                   <FieldRow label="Role" value={selectedUser.roleName} />
                   <FieldRow label="Status" value={<StatusBadge status={selectedUser.status} />} />
                   <FieldRow label="Created" value={formatDate(selectedUser.createdAt)} />

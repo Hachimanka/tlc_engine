@@ -1,25 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, UserPlus } from "lucide-react";
-import AddUserModal, {
-  type AddUserPayload,
-  type CreatedUser,
-  type RoleOption,
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Pencil, Search, X } from "lucide-react";
+import {
+  type TeacherSetupDetails,
+  TeacherSetupDetailsSection,
 } from "./AddUserModal";
 import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
-import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import {
   getDepedSelectedLevelSummary,
-  getDepedSubjectOptions,
-  getDepedTeacherAssignmentOptions,
 } from "@/lib/depedTeacherAssignments";
 import { supabase } from "@/lib/supabaseClient";
 
 type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
-
-type EmployeeRole = RoleOption;
 
 type EmployeeUser = {
   id: string;
@@ -30,20 +24,12 @@ type EmployeeUser = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
+  teacherSetupDetails?: TeacherSetupDetails | null;
   roleId: string;
   roleKey: string;
   roleName: string;
   status: "active" | "disabled";
   createdAt?: string | null;
-};
-
-type RolePayload = {
-  id: string;
-  key: string;
-  name: string;
-  description?: string | null;
-  requiresDepartment?: boolean;
-  requires_department?: boolean;
 };
 
 type UserPayload = {
@@ -55,6 +41,7 @@ type UserPayload = {
   teacher_major?: string | null;
   qualified_subjects?: unknown;
   preferred_subject?: string | null;
+  teacher_setup_details?: unknown;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -68,6 +55,21 @@ const normalizeJoinedRole = (role: unknown) => {
   }
 
   return role as { id?: string; key?: string; name?: string } | undefined;
+};
+
+const normalizeTeacherSetupDetails = (value: unknown): TeacherSetupDetails | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const result: TeacherSetupDetails = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === "string" && item.trim()) {
+      result[key as keyof TeacherSetupDetails] = item;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
 };
 
 const normalizeUser = (user: UserPayload): EmployeeUser => {
@@ -85,6 +87,7 @@ const normalizeUser = (user: UserPayload): EmployeeUser => {
     teacherMajor: user.teacher_major ?? null,
     qualifiedSubjects,
     preferredSubject: user.preferred_subject ?? null,
+    teacherSetupDetails: normalizeTeacherSetupDetails(user.teacher_setup_details),
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
     roleName: role?.name ?? "Unassigned",
@@ -92,6 +95,123 @@ const normalizeUser = (user: UserPayload): EmployeeUser => {
     createdAt: user.created_at ?? null,
   };
 };
+
+const compactTeacherSetupDetails = (details: TeacherSetupDetails) => {
+  const entries = Object.entries(details)
+    .map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "",
+    ])
+    .filter(([, value]) => value);
+
+  return entries.length > 0 ? (Object.fromEntries(entries) as TeacherSetupDetails) : null;
+};
+
+function FieldRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="border-b border-[var(--color-default)] py-3 last:border-0">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-low-emphasis)]">
+        {label}
+      </div>
+      <div className="mt-1 break-words text-sm font-medium text-[var(--color-high-emphasis)]">
+        {value || "-"}
+      </div>
+    </div>
+  );
+}
+
+const getTeacherSubjectSummary = (employee: EmployeeUser) =>
+  employee.teacherSetupDetails?.subjectDomainTrack ||
+  employee.teacherSetupDetails?.learningDomain ||
+  employee.teacherSetupDetails?.track ||
+  employee.preferredSubject ||
+  employee.teacherMajor ||
+  "-";
+
+function TeacherEditForm({
+  teacher,
+  error,
+  onCancel,
+  onSave,
+}: {
+  teacher: EmployeeUser;
+  error: string;
+  onCancel: () => void;
+  onSave: (payload: {
+    teacherMajor: string;
+    preferredSubject: string;
+    teacherSetupDetails: TeacherSetupDetails;
+  }) => Promise<void>;
+}) {
+  const [teacherMajor, setTeacherMajor] = useState(teacher.teacherMajor ?? "");
+  const [preferredSubject, setPreferredSubject] = useState(teacher.preferredSubject ?? "");
+  const [teacherSetupDetails, setTeacherSetupDetails] = useState<TeacherSetupDetails>(
+    teacher.teacherSetupDetails ?? {
+      gradeLevelAssignment: teacher.department ?? "",
+      adviserStatus: "No",
+    },
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSaving(true);
+    try {
+      await onSave({ teacherMajor, preferredSubject, teacherSetupDetails });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 py-4">
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
+      <TeacherSetupDetailsSection
+        value={teacherSetupDetails}
+        onChange={setTeacherSetupDetails}
+        employeeIdPreview={teacher.employeeId}
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Subject / Domain / Track</label>
+          <input
+            value={teacherMajor}
+            onChange={(event) => setTeacherMajor(event.target.value)}
+            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[#344054]">Preferred Subject</label>
+          <input
+            value={preferredSubject}
+            onChange={(event) => setPreferredSubject(event.target.value)}
+            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border border-[var(--color-default)] px-4 py-2 text-xs font-semibold text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isSaving ? "Saving..." : "Save Teacher"}
+        </button>
+      </div>
+    </form>
+  );
+}
 
 const getStaffGroup = (roleKey: string, roleName: string) => {
   const key = roleKey.toLowerCase();
@@ -144,17 +264,17 @@ const isTeacherAccount = (roleKey: string, roleName: string) => {
 
 export default function Employee() {
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
-  const [roles, setRoles] = useState<EmployeeRole[]>([]);
-  const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
   const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
-  const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("All Groups");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<EmployeeUser | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"view" | "edit">("view");
+  const [saveError, setSaveError] = useState("");
 
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
@@ -182,24 +302,13 @@ export default function Employee() {
       return;
     }
 
-    const nextRoles: EmployeeRole[] = ((payload.roles ?? []) as RolePayload[]).map((role) => ({
-      id: role.id,
-      key: role.key,
-      name: role.name,
-      description: role.description ?? null,
-      requiresDepartment: Boolean(role.requiresDepartment ?? role.requires_department),
-    }));
-
     const nextEmployees = ((payload.users ?? []) as UserPayload[])
       .map(normalizeUser)
       .filter((user) => user.roleKey !== "org_admin");
 
-    setRoles(nextRoles);
-    setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setEmployees(nextEmployees);
     setInstitutionType((payload.institutionType ?? null) as InstitutionType);
     setOnboardingConfig((payload.onboardingConfig ?? {}) as Record<string, unknown>);
-    setOrgEmailDomain(payload.org?.emailDomain ?? null);
     setIsLoading(false);
   }, []);
 
@@ -209,25 +318,9 @@ export default function Employee() {
   }, [loadEmployees]);
 
   const isDeped = institutionType === "deped";
-  const depedAssignmentOptions = useMemo(
-    () => getDepedTeacherAssignmentOptions(onboardingConfig),
-    [onboardingConfig],
-  );
   const depedSelectedLevels = useMemo(
     () => getDepedSelectedLevelSummary(onboardingConfig),
     [onboardingConfig],
-  );
-  const depedSubjectOptions = useMemo(
-    () => getDepedSubjectOptions(onboardingConfig),
-    [onboardingConfig],
-  );
-
-  const assignableRoles = useMemo(
-    () =>
-      roles.filter((role) =>
-        isDeped ? role.key === "teacher" : role.key !== "org_admin",
-      ),
-    [isDeped, roles],
   );
 
   const visibleEmployees = useMemo(
@@ -261,6 +354,11 @@ export default function Employee() {
         employee.fullName.toLowerCase().includes(normalizedSearch) ||
         employee.email.toLowerCase().includes(normalizedSearch) ||
         (employee.department ?? "").toLowerCase().includes(normalizedSearch) ||
+        (employee.teacherSetupDetails?.section ?? "").toLowerCase().includes(normalizedSearch) ||
+        getTeacherSubjectSummary(employee).toLowerCase().includes(normalizedSearch) ||
+        (employee.teacherSetupDetails?.teachingLoad ?? "").toLowerCase().includes(normalizedSearch) ||
+        (employee.teacherSetupDetails?.workload ?? "").toLowerCase().includes(normalizedSearch) ||
+        (employee.teacherSetupDetails?.adviserStatus ?? "").toLowerCase().includes(normalizedSearch) ||
         employee.roleName.toLowerCase().includes(normalizedSearch) ||
         staffGroup.toLowerCase().includes(normalizedSearch);
 
@@ -268,89 +366,70 @@ export default function Employee() {
     });
   }, [groupFilter, search, statusFilter, visibleEmployees]);
 
-  const handleCreateUser = async (payload: AddUserPayload) => {
+  const openTeacherPanel = (teacher: EmployeeUser, mode: "view" | "edit" = "view") => {
+    setSelectedTeacher(teacher);
+    setPanelMode(mode);
+    setPanelOpen(true);
+    setSaveError("");
+  };
+
+  const closeTeacherPanel = () => {
+    setPanelOpen(false);
+    setPanelMode("view");
+    setSaveError("");
+    window.setTimeout(() => setSelectedTeacher(null), 300);
+  };
+
+  const handleSaveTeacher = async (
+    teacher: EmployeeUser,
+    payload: {
+      teacherMajor: string;
+      preferredSubject: string;
+      teacherSetupDetails: TeacherSetupDetails;
+    },
+  ) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
     if (!token) {
-      throw new Error("Session expired. Please log in again.");
+      setSaveError("Session expired. Please log in again.");
+      return;
     }
 
-    const response = await fetch("/api/tenant/users", {
-      method: "POST",
+    const gradeLevelAssignment = payload.teacherSetupDetails.gradeLevelAssignment?.trim() || null;
+    const response = await fetch(`/api/tenant/users/${teacher.id}`, {
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        fullName: teacher.fullName,
+        roleId: teacher.roleId,
+        status: teacher.status,
+        department: gradeLevelAssignment ?? teacher.department ?? null,
+        departmentId: null,
+        teacherMajor: payload.teacherMajor.trim().replace(/\s+/g, " ") || null,
+        preferredSubject: payload.preferredSubject.trim().replace(/\s+/g, " ") || null,
+        teacherSetupDetails: compactTeacherSetupDetails(payload.teacherSetupDetails),
+      }),
     });
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data?.error || "Failed to create account.");
+      setSaveError(data?.error || "Failed to update teacher.");
+      return;
     }
 
-    const createdUser: CreatedUser = {
-      id: data.user.id,
-      fullName: data.user.full_name,
-      email: data.user.email,
-      employeeId: data.user.employee_id ?? null,
-      department: data.user.department ?? null,
-      teacherMajor: data.user.teacher_major ?? null,
-      qualifiedSubjects: Array.isArray(data.user.qualified_subjects)
-        ? data.user.qualified_subjects
-        : [],
-      preferredSubject: data.user.preferred_subject ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
-      roleKey: data.user.role?.key ?? "",
-      roleName: data.user.role?.name ?? "Unassigned",
-      description: data.user.role?.name
-        ? `${data.user.role.name} access`
-        : "Role assignment not set.",
-    };
-
-    if (
-      data.user.role?.id &&
-      !roles.some((role) => role.id === data.user.role.id)
-    ) {
-      setRoles((current) =>
-        [
-          ...current,
-          {
-            id: data.user.role.id,
-            key: data.user.role.key ?? "",
-            name: data.user.role.name ?? "Custom Role",
-            description: null,
-            requiresDepartment: Boolean(
-              data.user.role.requiresDepartment ?? data.user.role.requires_department,
-            ),
-          },
-        ].sort((left, right) => left.name.localeCompare(right.name)),
-      );
-    }
-
-    setEmployees((current) => [
-      {
-        id: createdUser.id,
-        fullName: createdUser.fullName,
-        email: createdUser.email,
-        employeeId: createdUser.employeeId,
-        department: createdUser.department ?? null,
-        roleId: createdUser.roleId,
-        roleKey: createdUser.roleKey,
-        roleName: createdUser.roleName,
-        status: "active",
-        createdAt: data.user.created_at ?? new Date().toISOString(),
-      },
-      ...current,
-    ]);
-
-    return {
-      tempPassword: data.tempPassword,
-      user: createdUser,
-      emailSentTo: data.emailSentTo,
-      loginUrl: data.loginUrl ?? null,
-    };
+    const updatedTeacher = normalizeUser(data.user as UserPayload);
+    setEmployees((current) =>
+      current.map((employee) =>
+        employee.id === updatedTeacher.id ? updatedTeacher : employee,
+      ),
+    );
+    setSelectedTeacher(updatedTeacher);
+    setPanelMode("view");
+    setSaveError("");
   };
 
   if (isLoading) {
@@ -373,28 +452,6 @@ export default function Employee() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <AddUserModal
-        isOpen={isAddUserOpen}
-        roles={assignableRoles}
-        features={features}
-        assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
-        assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
-        assignmentHint={
-          isDeped
-            ? "Assign the teacher to one of the enabled DepEd grade levels from onboarding."
-            : undefined
-        }
-        assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
-        assignmentRequiredError={
-          isDeped ? "Grade level assignment is required for teacher accounts." : undefined
-        }
-        showTeacherProfileFields={isDeped}
-        subjectOptions={isDeped ? depedSubjectOptions : undefined}
-        emailDomain={orgEmailDomain}
-        onClose={() => setIsAddUserOpen(false)}
-        onCreate={handleCreateUser}
-      />
-
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-bold leading-none text-[var(--color-high-emphasis)]">
@@ -404,15 +461,6 @@ export default function Employee() {
             {visibleEmployees.length} {isDeped ? "teacher" : "database-backed"} profile{visibleEmployees.length === 1 ? "" : "s"}
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setIsAddUserOpen(true)}
-          className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
-        >
-          <UserPlus className="h-4 w-4" aria-hidden="true" />
-          {isDeped ? "Add Teacher" : "Add Faculty / Staff"}
-        </button>
       </div>
 
       {isDeped ? (
@@ -423,7 +471,7 @@ export default function Employee() {
                 Teacher setup from onboarding
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-[var(--color-low-emphasis)]">
-                New teacher accounts are scoped to the DepEd grade levels enabled during onboarding. Use this page for teacher accounts; broader admin and load roles can still be managed in Accounts.
+                Teacher accounts are created from the Accounts tab by selecting the Teacher role. This page is a directory for reviewing and maintaining teacher assignments.
               </p>
             </div>
             <div className="rounded-lg bg-[#ecf8f6] px-3 py-2 text-sm font-semibold text-[var(--color-primary)]">
@@ -500,8 +548,11 @@ export default function Employee() {
                 </th>
                 {isDeped ? (
                   <>
-                    <th className="px-5 py-4 text-sm font-semibold">Major</th>
-                    <th className="px-5 py-4 text-sm font-semibold">Can Teach</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Section</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Subject / Domain / Track</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Teaching Load</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Workload</th>
+                    <th className="px-5 py-4 text-sm font-semibold">Adviser</th>
                   </>
                 ) : null}
                 <th className="px-5 py-4 text-sm font-semibold">Group</th>
@@ -512,7 +563,7 @@ export default function Employee() {
             <tbody className="divide-y divide-[var(--color-default)] bg-white">
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={isDeped ? 9 : 7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
+                  <td colSpan={isDeped ? 12 : 7} className="px-5 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
                     No faculty or staff profiles found.
                   </td>
                 </tr>
@@ -521,7 +572,11 @@ export default function Employee() {
                   const staffGroup = getStaffGroup(employee.roleKey, employee.roleName);
 
                   return (
-                    <tr key={employee.id} className="transition hover:bg-[#ecf8f6]">
+                    <tr
+                      key={employee.id}
+                      onClick={() => openTeacherPanel(employee)}
+                      className="cursor-pointer transition hover:bg-[#ecf8f6]"
+                    >
                       <td className="px-5 py-4 text-sm font-medium text-[var(--color-high-emphasis)]">
                         {employee.employeeId || "-"}
                       </td>
@@ -537,12 +592,19 @@ export default function Employee() {
                       {isDeped ? (
                         <>
                           <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
-                            {employee.teacherMajor || "-"}
+                            {employee.teacherSetupDetails?.section || "-"}
                           </td>
                           <td className="max-w-[260px] px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
-                            {employee.qualifiedSubjects && employee.qualifiedSubjects.length > 0
-                              ? employee.qualifiedSubjects.join(", ")
-                              : "-"}
+                            {getTeacherSubjectSummary(employee)}
+                          </td>
+                          <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                            {employee.teacherSetupDetails?.teachingLoad || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                            {employee.teacherSetupDetails?.workload || "-"}
+                          </td>
+                          <td className="px-5 py-4 text-sm text-[var(--color-high-emphasis)]">
+                            {employee.teacherSetupDetails?.adviserStatus || "-"}
                           </td>
                         </>
                       ) : null}
@@ -571,6 +633,111 @@ export default function Employee() {
           </table>
         </div>
       </div>
+
+      {panelOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]"
+          onClick={closeTeacherPanel}
+        />
+      ) : null}
+
+      <aside
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-[460px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+          panelOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        aria-label="Teacher details"
+      >
+        {selectedTeacher ? (
+          <>
+            <div className="border-b border-[var(--color-default)] px-6 pb-4 pt-6">
+              <div className="flex items-start justify-between gap-3">
+                <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                  {selectedTeacher.roleName}
+                </span>
+                <button
+                  type="button"
+                  onClick={closeTeacherPanel}
+                  className="rounded-lg p-1 text-[var(--color-low-emphasis)] transition hover:bg-[#f2f4f7] hover:text-[var(--color-high-emphasis)]"
+                  aria-label="Close teacher details"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+              <h2 className="mt-3 text-xl font-bold text-[var(--color-high-emphasis)]">
+                {selectedTeacher.fullName}
+              </h2>
+              <p className="mt-0.5 text-sm text-[var(--color-low-emphasis)]">
+                {selectedTeacher.employeeId || "No employee ID"}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-2">
+              {panelMode === "edit" ? (
+                <TeacherEditForm
+                  key={selectedTeacher.id}
+                  teacher={selectedTeacher}
+                  error={saveError}
+                  onCancel={() => setPanelMode("view")}
+                  onSave={(payload) => handleSaveTeacher(selectedTeacher, payload)}
+                />
+              ) : (
+                <>
+                  <FieldRow label="Email" value={selectedTeacher.email} />
+                  <FieldRow label="Employee ID" value={selectedTeacher.employeeId || "-"} />
+                  <FieldRow
+                    label="Assigned Grade Level"
+                    value={
+                      selectedTeacher.teacherSetupDetails?.gradeLevelAssignment ||
+                      selectedTeacher.department ||
+                      "-"
+                    }
+                  />
+                  <FieldRow
+                    label="Grade / Year Level"
+                    value={selectedTeacher.teacherSetupDetails?.gradeYearLevel || "-"}
+                  />
+                  <FieldRow label="Section" value={selectedTeacher.teacherSetupDetails?.section || "-"} />
+                  <FieldRow
+                    label="Subject / Domain / Track"
+                    value={getTeacherSubjectSummary(selectedTeacher)}
+                  />
+                  <FieldRow
+                    label="Teaching Load"
+                    value={selectedTeacher.teacherSetupDetails?.teachingLoad || "-"}
+                  />
+                  <FieldRow
+                    label="Workload"
+                    value={selectedTeacher.teacherSetupDetails?.workload || "-"}
+                  />
+                  <FieldRow
+                    label="Adviser Status"
+                    value={selectedTeacher.teacherSetupDetails?.adviserStatus || "-"}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="border-t border-[var(--color-default)] bg-[#f8fafc] px-6 py-4">
+              {panelMode === "view" ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPanelMode("edit")}
+                    className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)]"
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                    Edit Teacher
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-[var(--color-low-emphasis)]">
+                  Teacher accounts are added from Accounts by selecting the Teacher role.
+                </p>
+              )}
+            </div>
+          </>
+        ) : null}
+      </aside>
     </div>
   );
 }

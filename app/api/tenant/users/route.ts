@@ -41,6 +41,7 @@ type CreateUserRequest = {
   teacherMajor?: string | null;
   qualifiedSubjects?: unknown;
   preferredSubject?: string | null;
+  teacherSetupDetails?: unknown;
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -135,8 +136,23 @@ const normalizeStringArray = (value: unknown) => {
   );
 };
 
+const normalizeTeacherSetupDetails = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value)
+    .map(([key, item]) => [
+      key,
+      typeof item === "string" ? item.trim().replace(/\s+/g, " ") : "",
+    ])
+    .filter(([, item]) => item);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+};
+
 const teacherFieldColumns =
-  "teacher_major, qualified_subjects, preferred_subject";
+  "teacher_major, qualified_subjects, preferred_subject, teacher_setup_details";
 const userSelectColumns =
   `id, full_name, email, employee_id, department, department_id, ${teacherFieldColumns}, status, role_id, created_at, roles(id, key, name)`;
 const legacyUserSelectColumns =
@@ -149,7 +165,8 @@ const isMissingTeacherFieldError = (error?: { code?: string; message?: string } 
     error?.code === "42703" ||
     message.includes("teacher_major") ||
     message.includes("qualified_subjects") ||
-    message.includes("preferred_subject")
+    message.includes("preferred_subject") ||
+    message.includes("teacher_setup_details")
   );
 };
 
@@ -587,6 +604,7 @@ export async function POST(req: Request) {
   const teacherMajor = normalizeOptionalText(payload.teacherMajor);
   const qualifiedSubjects = normalizeStringArray(payload.qualifiedSubjects);
   const preferredSubject = normalizeOptionalText(payload.preferredSubject);
+  const teacherSetupDetails = normalizeTeacherSetupDetails(payload.teacherSetupDetails);
 
   if (roleRequiresDepartment && !department) {
     return NextResponse.json(
@@ -640,6 +658,7 @@ export async function POST(req: Request) {
       teacher_major: teacherMajor,
       qualified_subjects: qualifiedSubjects,
       preferred_subject: preferredSubject,
+      teacher_setup_details: teacherSetupDetails,
       full_name: fullName,
       first_login: false,
       onboarding_complete: true,
@@ -669,6 +688,7 @@ export async function POST(req: Request) {
     teacher_major: teacherMajor,
     qualified_subjects: qualifiedSubjects,
     preferred_subject: preferredSubject,
+    teacher_setup_details: teacherSetupDetails,
     status: "active",
     created_at: now,
     updated_at: now,
@@ -690,7 +710,7 @@ export async function POST(req: Request) {
   let orgUserResult = await supabaseAdmin
     .from("org_users")
     .insert([orgUserInsertPayload])
-    .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, teacher_setup_details, status, role_id, created_at")
     .single();
 
   if (isMissingTeacherFieldError(orgUserResult.error)) {
@@ -708,6 +728,8 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ error: orgUserResult.error?.message || "Failed to save user." }, { status: 500 });
   }
+
+  const orgUserRow = orgUserResult.data;
 
   const loginUrl = buildLoginUrl(req, orgInfo?.slug ?? context.org.slug ?? "institution");
 

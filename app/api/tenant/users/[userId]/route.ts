@@ -10,6 +10,10 @@ type UpdateUserRequest = {
   roleId?: string;
   department?: string | null;
   departmentId?: string | null;
+  teacherMajor?: string | null;
+  qualifiedSubjects?: unknown;
+  preferredSubject?: string | null;
+  teacherSetupDetails?: unknown;
   status?: "active" | "disabled";
 };
 
@@ -23,6 +27,10 @@ type OrgUserRow = {
   employee_id?: string | null;
   department?: string | null;
   department_id?: string | null;
+  teacher_major?: string | null;
+  qualified_subjects?: unknown;
+  preferred_subject?: string | null;
+  teacher_setup_details?: unknown;
   status?: string | null;
   created_at?: string | null;
 };
@@ -40,6 +48,56 @@ const normalizeDepartment = (value?: string | null) => {
   }
 
   return value.trim().replace(/\s+/g, " ");
+};
+
+const normalizeOptionalText = (value?: string | null) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim().replace(/\s+/g, " ") || null;
+};
+
+const normalizeStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().replace(/\s+/g, " "))
+        .filter(Boolean),
+    ),
+  );
+};
+
+const normalizeTeacherSetupDetails = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value)
+    .map(([key, item]) => [
+      key,
+      typeof item === "string" ? item.trim().replace(/\s+/g, " ") : "",
+    ])
+    .filter(([, item]) => item);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+};
+
+const isMissingTeacherFieldError = (error?: { code?: string; message?: string } | null) => {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (
+    error?.code === "42703" ||
+    message.includes("teacher_major") ||
+    message.includes("qualified_subjects") ||
+    message.includes("preferred_subject") ||
+    message.includes("teacher_setup_details")
+  );
 };
 
 type ManagedDepartmentRow = {
@@ -91,12 +149,23 @@ export async function PATCH(
 
   const { context } = result;
 
-  const { data: targetUser, error: targetError } = await supabaseAdmin
+  let targetResult = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
+    .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, teacher_setup_details, status, created_at")
     .eq("id", userId)
     .eq("org_id", context.org.id)
     .maybeSingle<OrgUserRow>();
+
+  if (isMissingTeacherFieldError(targetResult.error)) {
+    targetResult = await supabaseAdmin
+      .from("org_users")
+      .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
+      .eq("id", userId)
+      .eq("org_id", context.org.id)
+      .maybeSingle<OrgUserRow>();
+  }
+
+  const { data: targetUser, error: targetError } = targetResult;
 
   if (targetError || !targetUser?.id) {
     return NextResponse.json(
@@ -183,6 +252,24 @@ export async function PATCH(
   const nextDepartmentId = departmentIdWasProvided
     ? managedDepartment?.id ?? null
     : targetUser.department_id ?? null;
+  const nextTeacherMajor =
+    payload.teacherMajor === undefined
+      ? targetUser.teacher_major ?? null
+      : normalizeOptionalText(payload.teacherMajor);
+  const nextQualifiedSubjects =
+    payload.qualifiedSubjects === undefined
+      ? Array.isArray(targetUser.qualified_subjects)
+        ? targetUser.qualified_subjects
+        : []
+      : normalizeStringArray(payload.qualifiedSubjects);
+  const nextPreferredSubject =
+    payload.preferredSubject === undefined
+      ? targetUser.preferred_subject ?? null
+      : normalizeOptionalText(payload.preferredSubject);
+  const nextTeacherSetupDetails =
+    payload.teacherSetupDetails === undefined
+      ? targetUser.teacher_setup_details ?? null
+      : normalizeTeacherSetupDetails(payload.teacherSetupDetails);
 
   if (requiresDepartment && !nextDepartment) {
     return NextResponse.json(
@@ -193,20 +280,43 @@ export async function PATCH(
 
   const now = new Date().toISOString();
 
-  const { data: updatedUser, error: updateError } = await supabaseAdmin
+  let updateResult = await supabaseAdmin
     .from("org_users")
     .update({
       full_name: nextFullName,
       role_id: roleRow.id,
       department: nextDepartment,
       department_id: nextDepartmentId,
+      teacher_major: nextTeacherMajor,
+      qualified_subjects: nextQualifiedSubjects,
+      preferred_subject: nextPreferredSubject,
+      teacher_setup_details: nextTeacherSetupDetails,
       status: nextStatus,
       updated_at: now,
     })
     .eq("id", targetUser.id)
     .eq("org_id", context.org.id)
-    .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+    .select("id, full_name, email, employee_id, department, department_id, teacher_major, qualified_subjects, preferred_subject, teacher_setup_details, status, role_id, created_at")
     .single();
+
+  if (isMissingTeacherFieldError(updateResult.error)) {
+    updateResult = await supabaseAdmin
+      .from("org_users")
+      .update({
+        full_name: nextFullName,
+        role_id: roleRow.id,
+        department: nextDepartment,
+        department_id: nextDepartmentId,
+        status: nextStatus,
+        updated_at: now,
+      })
+      .eq("id", targetUser.id)
+      .eq("org_id", context.org.id)
+      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
+      .single();
+  }
+
+  const { data: updatedUser, error: updateError } = updateResult;
 
   if (updateError || !updatedUser) {
     return NextResponse.json(
@@ -228,6 +338,10 @@ export async function PATCH(
         account_status: nextStatus,
         department: nextDepartment,
         department_id: nextDepartmentId,
+        teacher_major: nextTeacherMajor,
+        qualified_subjects: nextQualifiedSubjects,
+        preferred_subject: nextPreferredSubject,
+        teacher_setup_details: nextTeacherSetupDetails,
         full_name: nextFullName,
       },
     },
