@@ -440,9 +440,12 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
       const palette = await deriveBrandingFromLogo(file);
       setDraft((current) => ({
         ...current,
-        ...palette,
+        primaryColor: palette.primaryColor,
+        lightPrimaryColor: palette.lightPrimaryColor,
+        secondaryColor: palette.secondaryColor,
+        accentColor: palette.accentColor,
       }));
-      setMessage("Brand colors were updated from the logo palette.");
+      setMessage("Primary brand colors were updated from the logo palette.");
     } catch {
       // Keep the logo preview even if palette extraction fails.
     }
