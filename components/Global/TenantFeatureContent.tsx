@@ -6,6 +6,12 @@ import DepedDepartmentFacultyTable from "@/components/Features/Deped/manage-load
 import DepedRoomsTable, {
   type RoomRow,
 } from "@/components/Features/Deped/manage-room/components/RoomsTable";
+import AssignSubjectModal, {
+  type AssignSubjectValues,
+} from "@/components/Features/Deped/manage-room/components/AssignSubjectModal";
+import RoomFormModal, {
+  type RoomFormValues,
+} from "@/components/Features/Deped/manage-room/components/RoomFormModal";
 import DepedScheduleTable, {
   type ScheduleRow,
 } from "@/components/Features/Deped/manage-room/components/ScheduleTable";
@@ -31,106 +37,6 @@ type TenantFeatureContentProps = {
   featureKey: string;
   children: ReactNode;
 };
-
-const depedRoomRows: RoomRow[] = [
-  {
-    roomNo: "Room 1",
-    section: "Amethyst",
-    building: "Senior High School Building",
-    type: "Classroom",
-    capacity: "40",
-    yearLevel: "Grade 8",
-    description: "Room No.",
-    subjectTitle: "Room No.",
-  },
-  {
-    roomNo: "Room 2",
-    section: "Daisy",
-    building: "Senior High School Building",
-    type: "Classroom",
-    capacity: "40",
-    yearLevel: "Grade 9",
-    description: "Room No.",
-    subjectTitle: "Room No.",
-  },
-  {
-    roomNo: "Room 3",
-    section: "Ruby",
-    building: "Senior High School Building",
-    type: "Classroom",
-    capacity: "40",
-    yearLevel: "Grade 9",
-    description: "Room No.",
-    subjectTitle: "Room No.",
-  },
-  {
-    roomNo: "Room 10",
-    section: "Science Laboratory",
-    building: "Senior High School Building",
-    type: "Laboratory",
-    capacity: "40",
-    yearLevel: "N/A",
-    description: "Room No.",
-    subjectTitle: "Room No.",
-  },
-];
-
-const depedScheduleTimeline = [
-  { kind: "class", time: "07:30 - 08:15 AM" },
-  { kind: "class", time: "08:15 - 09:00 AM" },
-  { kind: "class", time: "09:00 - 09:45 AM" },
-  { kind: "break", time: "09:45 - 10:00 AM", label: "Break" },
-  { kind: "class", time: "10:00 - 10:45 AM" },
-  { kind: "class", time: "10:45 - 11:30 AM" },
-  { kind: "class", time: "11:30 - 12:15 PM" },
-  { kind: "lunch", time: "12:15 - 01:00 PM", label: "Lunch Break" },
-  { kind: "class", time: "01:00 - 01:45 PM" },
-  { kind: "class", time: "01:45 - 02:30 PM" },
-  { kind: "class", time: "02:30 - 03:15 PM" },
-  { kind: "class", time: "03:15 - 04:00 PM" },
-  { kind: "class", time: "04:00 - 04:45 PM" },
-] as const;
-
-const depedScheduleSubjectMap: Record<string, string[]> = {
-  "Room 1": ["English", "Math", "Science", "TLE", "English", "English", "English", "English", "English", "English", "English"],
-  "Room 2": ["Filipino", "Math", "Science", "MAPEH", "Filipino", "Filipino", "Filipino", "Filipino", "Filipino", "Filipino", "Filipino"],
-  "Room 3": ["Science", "Science", "Science", "AP", "Science", "Science", "Science", "Science", "Science", "Science", "Science"],
-  "Room 10": ["English", "Math", "Science", "TLE", "English", "English", "English", "English", "English", "English", "English"],
-};
-
-function buildDepedScheduleRows(subjects: string[]) {
-  let subjectIndex = 0;
-
-  return depedScheduleTimeline.map((slot) => {
-    if (slot.kind === "class") {
-      const subject = subjects[subjectIndex] ?? "N/A";
-      subjectIndex += 1;
-
-      return {
-        kind: "class",
-        time: slot.time,
-        monday: subject,
-        tuesday: subject,
-        wednesday: subject,
-        thursday: subject,
-        friday: subject,
-        saturday: "N/A",
-        sunday: "N/A",
-      } satisfies ScheduleRow;
-    }
-
-    return slot.kind === "break"
-      ? ({ kind: "break", time: slot.time, label: slot.label } satisfies ScheduleRow)
-      : ({ kind: "lunch", time: slot.time, label: slot.label } satisfies ScheduleRow);
-  });
-}
-
-const depedScheduleRowsByRoom: Record<string, ScheduleRow[]> = Object.fromEntries(
-  Object.entries(depedScheduleSubjectMap).map(([roomNo, subjects]) => [
-    roomNo,
-    buildDepedScheduleRows(subjects),
-  ]),
-) as Record<string, ScheduleRow[]>;
 
 function PageShell({
   title,
@@ -200,29 +106,145 @@ function DepedSubjectContent() {
 }
 
 function DepedRoomContent() {
-  const [selectedRoomNo, setSelectedRoomNo] = useState(depedRoomRows[0].roomNo);
+  const [rooms, setRooms] = useState<RoomRow[]>([]);
+  const [scheduleRowsByRoom, setScheduleRowsByRoom] = useState<Record<string, ScheduleRow[]>>({});
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [roomModal, setRoomModal] = useState<
+    { mode: "create"; room: null } | { mode: "edit"; room: RoomRow } | null
+  >(null);
+  const [isAssignSubjectOpen, setIsAssignSubjectOpen] = useState(false);
+  const [assignSubjectError, setAssignSubjectError] = useState("");
 
   const selectedRoom = useMemo(
-    () => depedRoomRows.find((room) => room.roomNo === selectedRoomNo) ?? depedRoomRows[0],
-    [selectedRoomNo],
+    () => rooms.find((room) => room.id === selectedRoomId) ?? null,
+    [rooms, selectedRoomId],
   );
 
-  const selectedScheduleRows =
-    depedScheduleRowsByRoom[selectedRoom.roomNo] ??
-    depedScheduleRowsByRoom[depedRoomRows[0].roomNo];
+  const handleSubmitRoom = (values: RoomFormValues) => {
+    if (roomModal?.mode === "edit") {
+      setRooms((currentRooms) =>
+        currentRooms.map((room) =>
+          room.id === roomModal.room.id ? { ...room, ...values } : room,
+        ),
+      );
+      setSelectedRoomId(roomModal.room.id);
+    } else {
+      const newRoom: RoomRow = {
+        id: `room-${Date.now()}`,
+        ...values,
+      };
+      setRooms((currentRooms) => [...currentRooms, newRoom]);
+      setSelectedRoomId(newRoom.id);
+    }
+
+    setRoomModal(null);
+  };
+
+  const selectedScheduleRows = selectedRoom
+    ? (scheduleRowsByRoom[selectedRoom.id] ?? [])
+    : [];
+
+  const handleAssignSubject = (values: AssignSubjectValues) => {
+    if (!selectedRoom) {
+      return;
+    }
+
+    const currentRows = scheduleRowsByRoom[selectedRoom.id] ?? [];
+    if (hasDepedScheduleConflict(currentRows, values)) {
+      setAssignSubjectError("This room already has a subject scheduled during that time.");
+      return;
+    }
+
+    setScheduleRowsByRoom((currentRows) => ({
+      ...currentRows,
+      [selectedRoom.id]: [
+        ...(currentRows[selectedRoom.id] ?? []),
+        buildDepedScheduleRow(values),
+      ],
+    }));
+    setAssignSubjectError("");
+    setIsAssignSubjectOpen(false);
+  };
 
   return (
-    <PageShell title="Room Management">
-      <DepedRoomsTable
-        rooms={depedRoomRows}
-        selectedRoomNo={selectedRoomNo}
-        onRoomSelect={(room) => setSelectedRoomNo(room.roomNo)}
-        onAddRoomClick={() => {}}
+    <>
+      <AssignSubjectModal
+        isOpen={isAssignSubjectOpen}
+        errorMessage={assignSubjectError}
+        onClose={() => {
+          setAssignSubjectError("");
+          setIsAssignSubjectOpen(false);
+        }}
+        onSubmit={handleAssignSubject}
       />
-      <DepedScheduleTable roomName={selectedRoom.roomNo} scheduleRows={selectedScheduleRows} />
-    </PageShell>
+
+      <RoomFormModal
+        key={
+          roomModal?.mode === "edit"
+            ? `edit-${roomModal.room.id}`
+            : roomModal?.mode ?? "closed"
+        }
+        isOpen={roomModal !== null}
+        mode={roomModal?.mode ?? "create"}
+        initialValues={roomModal?.mode === "edit" ? roomModal.room : null}
+        onClose={() => setRoomModal(null)}
+        onSubmit={handleSubmitRoom}
+      />
+
+      <PageShell title="Room Management">
+        <DepedRoomsTable
+          rooms={rooms}
+          selectedRoomNo={selectedRoom?.roomNo ?? ""}
+          onRoomSelect={(room) => setSelectedRoomId(room.id)}
+          onAddRoomClick={() => setRoomModal({ mode: "create", room: null })}
+          onEditRoomClick={(room) => setRoomModal({ mode: "edit", room })}
+        />
+        {selectedRoom ? (
+          <DepedScheduleTable
+            roomName={selectedRoom.roomNo}
+            scheduleRows={selectedScheduleRows}
+            onAssignSubjectClick={() => {
+              setAssignSubjectError("");
+              setIsAssignSubjectOpen(true);
+            }}
+          />
+        ) : null}
+      </PageShell>
+    </>
   );
 }
+
+const buildDepedScheduleRow = (values: AssignSubjectValues): ScheduleRow => ({
+  id: `schedule-${Date.now()}`,
+  subject: values.subject,
+  department: values.department,
+  day: values.day,
+  timeStart: values.timeStart,
+  timeEnd: values.timeEnd,
+});
+
+const depedTimeToMinutes = (time: string) => {
+  const [hour = "0", minute = "0"] = time.split(":");
+  return Number(hour) * 60 + Number(minute);
+};
+
+const hasDepedScheduleConflict = (
+  currentRows: ScheduleRow[],
+  values: AssignSubjectValues,
+) => {
+  const newStart = depedTimeToMinutes(values.timeStart);
+  const newEnd = depedTimeToMinutes(values.timeEnd);
+
+  return currentRows.some((row) => {
+    if (row.day !== values.day) {
+      return false;
+    }
+
+    const existingStart = depedTimeToMinutes(row.timeStart);
+    const existingEnd = depedTimeToMinutes(row.timeEnd);
+    return newStart < existingEnd && newEnd > existingStart;
+  });
+};
 
 function DepedTeachingLoadContent() {
   const [isExportOpen, setIsExportOpen] = useState(false);

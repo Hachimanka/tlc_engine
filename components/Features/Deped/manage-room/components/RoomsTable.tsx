@@ -3,14 +3,14 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
 
 export type RoomRow = {
+	id: string;
 	roomNo: string;
 	section: string;
 	building: string;
 	type: string;
 	capacity: string;
+	status: "Available" | "Not Available";
 	yearLevel: string;
-	description: string;
-	subjectTitle: string;
 };
 
 type RoomsTableProps = {
@@ -18,6 +18,7 @@ type RoomsTableProps = {
 	selectedRoomNo: string;
 	onRoomSelect: (room: RoomRow) => void;
 	onAddRoomClick: () => void;
+	onEditRoomClick: (room: RoomRow) => void;
 };
 
 function handleRowKeyDown(
@@ -30,11 +31,17 @@ function handleRowKeyDown(
 	}
 }
 
+const getRoomSortValue = (roomNo: string) => {
+	const match = roomNo.match(/\d+/);
+	return match ? Number(match[0]) : Number.NEGATIVE_INFINITY;
+};
+
 export default function RoomsTable({
 	rooms,
 	selectedRoomNo,
 	onRoomSelect,
 	onAddRoomClick,
+	onEditRoomClick,
 }: RoomsTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [buildingFilter, setBuildingFilter] = useState("All Buildings");
@@ -44,20 +51,26 @@ export default function RoomsTable({
 	const filteredRooms = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase();
 
-		return rooms.filter((room) => {
-			const matchesSearch =
-				normalizedSearch.length === 0 ||
-				room.roomNo.toLowerCase().includes(normalizedSearch) ||
-				room.section.toLowerCase().includes(normalizedSearch) ||
-				room.building.toLowerCase().includes(normalizedSearch) ||
-				room.type.toLowerCase().includes(normalizedSearch) ||
-				room.description.toLowerCase().includes(normalizedSearch) ||
-				room.subjectTitle.toLowerCase().includes(normalizedSearch);
+		return rooms
+			.filter((room) => {
+				const matchesSearch =
+					normalizedSearch.length === 0 ||
+					room.roomNo.toLowerCase().includes(normalizedSearch) ||
+					room.section.toLowerCase().includes(normalizedSearch) ||
+					room.building.toLowerCase().includes(normalizedSearch) ||
+					room.type.toLowerCase().includes(normalizedSearch) ||
+					room.capacity.toLowerCase().includes(normalizedSearch) ||
+					room.status.toLowerCase().includes(normalizedSearch) ||
+					room.yearLevel.toLowerCase().includes(normalizedSearch);
 
-			const matchesBuilding = buildingFilter === "All Buildings" || room.building === buildingFilter;
+				const matchesBuilding = buildingFilter === "All Buildings" || room.building === buildingFilter;
 
-			return matchesSearch && matchesBuilding;
-		});
+				return matchesSearch && matchesBuilding;
+			})
+			.toSorted((a, b) => {
+				const roomNumberDiff = getRoomSortValue(b.roomNo) - getRoomSortValue(a.roomNo);
+				return roomNumberDiff || b.roomNo.localeCompare(a.roomNo);
+			});
 	}, [buildingFilter, rooms, searchTerm]);
 
 	return (
@@ -118,7 +131,9 @@ export default function RoomsTable({
 
 			<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-white shadow-level-1">
 				<div className="flex items-center justify-between gap-3 border-b border-[var(--color-default)] px-3 py-2.5 sm:px-4">
-					<p className="text-[13px] font-semibold text-[var(--color-high-emphasis)]">Rooms (3)</p>
+					<p className="text-[13px] font-semibold text-[var(--color-high-emphasis)]">
+						Rooms ({filteredRooms.length})
+					</p>
 					<button
 						type="button"
 						onClick={onAddRoomClick}
@@ -148,17 +163,34 @@ export default function RoomsTable({
 									Capacity
 								</th>
 								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
+									Status
+								</th>
+								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
 									Year Level
+								</th>
+								<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold tracking-wide text-white sm:px-4">
+									Action
 								</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-[color:var(--color-default)] bg-white">
-							{filteredRooms.map((room) => {
+							{filteredRooms.length === 0 ? (
+								<tr>
+									<td colSpan={8} className="px-6 py-12 text-center">
+										<p className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+											No rooms yet
+										</p>
+										<p className="mt-1 text-xs text-[var(--color-low-emphasis)]">
+											Add a room to manage its details and schedule.
+										</p>
+									</td>
+								</tr>
+							) : filteredRooms.map((room) => {
 								const isSelected = selectedRoomNo === room.roomNo;
 
 								return (
 									<tr
-										key={room.roomNo}
+										key={room.id}
 										onClick={() => onRoomSelect(room)}
 										onKeyDown={(event) => handleRowKeyDown(event, () => onRoomSelect(room))}
 										tabIndex={0}
@@ -182,8 +214,29 @@ export default function RoomsTable({
 										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
 											{room.capacity}
 										</td>
+										<td className="px-3 py-3 text-[12px] sm:px-4">
+											<span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${
+												room.status === "Available"
+													? "bg-[#ecfdf5] text-[var(--color-primary)] ring-[#b7e4d3]"
+													: "bg-[#fff1f2] text-[#d92d20] ring-[#fecdd3]"
+											}`}>
+												{room.status}
+											</span>
+										</td>
 										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
 											{room.yearLevel}
+										</td>
+										<td className="px-3 py-3 text-[12px] sm:px-4">
+											<button
+												type="button"
+												onClick={(event) => {
+													event.stopPropagation();
+													onEditRoomClick(room);
+												}}
+												className="rounded-md border border-[var(--color-default)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+											>
+												Edit
+											</button>
 										</td>
 									</tr>
 								);
