@@ -620,7 +620,12 @@ export default function Accounts() {
       ...current,
     ]);
 
-    return { tempPassword: data.tempPassword, user: createdUser };
+    return {
+      tempPassword: data.tempPassword,
+      user: createdUser,
+      emailSentTo: data.emailSentTo,
+      loginUrl: data.loginUrl ?? null,
+    };
   };
 
   const openAccountPanel = (user: AccountUser, mode: "view" | "edit" = "view") => {

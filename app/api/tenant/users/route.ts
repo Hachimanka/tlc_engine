@@ -12,6 +12,10 @@ import {
   reconcileInstitutionSystemRoles,
   replaceRoleFeaturePermissions,
 } from "@/lib/tenantAccess";
+import {
+  getCustomerConversionEmailConfigError,
+  sendTenantAccountCreatedEmail,
+} from "@/lib/customerConversionEmail";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateTempPassword } from "@/lib/tempPassword";
 
@@ -19,6 +23,7 @@ export const runtime = "nodejs";
 
 type CreateUserRequest = {
   fullName?: string;
+  recipientEmail?: string;
   roleId?: string;
   customRoleName?: string;
   customRoleFeatureKeys?: string[];
@@ -26,6 +31,30 @@ type CreateUserRequest = {
   department?: string | null;
   departmentId?: string | null;
 };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const getRequestOrigin = (req: Request) => {
+  const explicitOrigin = req.headers.get("origin")?.trim();
+
+  if (explicitOrigin) {
+    return explicitOrigin.replace(/\/+$/, "");
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
+  const host = forwardedHost || req.headers.get("host")?.trim();
+
+  if (host) {
+    const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
+    const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https");
+    return `${protocol}://${host}`.replace(/\/+$/, "");
+  }
+
+  return new URL(req.url).origin.replace(/\/+$/, "");
+};
+
+const buildLoginUrl = (req: Request, slug: string) =>
+  `${getRequestOrigin(req)}/login?slug=${encodeURIComponent(slug)}`;
 
 const normalizeIdentifierPart = (value: string) =>
   value
@@ -384,6 +413,7 @@ export async function POST(req: Request) {
 
   const { context } = result;
   const fullName = payload.fullName?.trim();
+  const recipientEmail = payload.recipientEmail?.trim().toLowerCase() ?? "";
   const roleId = payload.roleId?.trim();
   const customRoleName = payload.customRoleName?.trim().replace(/\s+/g, " ");
   const customRoleRequiresDepartment = payload.customRoleRequiresDepartment === true;
@@ -396,6 +426,19 @@ export async function POST(req: Request) {
 
   if (!fullName || (!roleId && !customRoleName)) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+  }
+
+  if (!EMAIL_PATTERN.test(recipientEmail)) {
+    return NextResponse.json(
+      { error: "Enter a valid recipient email." },
+      { status: 400 },
+    );
+  }
+
+  const emailConfigError = getCustomerConversionEmailConfigError();
+
+  if (emailConfigError) {
+    return NextResponse.json({ error: emailConfigError }, { status: 500 });
   }
 
   let roleRow: TenantRoleRow | null = null;
@@ -562,16 +605,51 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: orgUserError?.message || "Failed to save user." }, { status: 500 });
   }
 
-  return NextResponse.json({
-    tempPassword,
-    user: {
-      ...orgUserRow,
-      role: {
-        id: roleRow.id,
-        key: roleRow.key,
-        name: roleRow.name,
-        requiresDepartment: roleRequiresDepartment,
+  const loginUrl = buildLoginUrl(req, orgInfo?.slug ?? context.org.slug ?? "institution");
+
+  try {
+    const emailResult = await sendTenantAccountCreatedEmail({
+      to: recipientEmail,
+      fullName,
+      orgName: orgInfo?.name ?? "Your institution",
+      loginEmail: email,
+      tempPassword,
+      loginUrl,
+      roleName: roleRow.name,
+      department,
+    });
+
+    return NextResponse.json({
+      tempPassword,
+      emailSentTo: emailResult.sentTo,
+      emailDeliveryId: emailResult.id,
+      loginUrl,
+      user: {
+        ...orgUserRow,
+        role: {
+          id: roleRow.id,
+          key: roleRow.key,
+          name: roleRow.name,
+          requiresDepartment: roleRequiresDepartment,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    await supabaseAdmin.from("org_users").delete().eq("id", orgUserRow.id);
+    await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    if (customRoleName) {
+      await deleteCustomRole(roleRow.id);
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error && error.message
+            ? `Account was not created because the email could not be sent. ${error.message}`
+            : "Account was not created because the email could not be sent.",
+      },
+      { status: 502 },
+    );
+  }
+
 }
