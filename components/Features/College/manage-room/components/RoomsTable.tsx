@@ -1101,7 +1101,7 @@ export default function RoomsTable() {
             <button
               type="button"
               onClick={openAssignForm}
-              disabled={!selectedRoom || subjects.length === 0}
+              disabled={!selectedRoom}
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
