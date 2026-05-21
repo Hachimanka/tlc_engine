@@ -64,8 +64,7 @@ export const canUseHigherEdRooms = (context: TenantContext) =>
 
 export const canManageRooms = (context: TenantContext) =>
   context.isOrgAdmin ||
-  roomManagerRoles.has(normalizeRoleKey(context.role.key)) ||
-  roomManagerRoles.has(normalizeRoleKey(context.role.name));
+  roomManagerRoles.has(normalizeRoleKey(context.role.key));
 
 export const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
