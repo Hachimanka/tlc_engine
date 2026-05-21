@@ -459,7 +459,7 @@ export default function AddUserModal({
 
             <div className="space-y-2">
               <label htmlFor="role-label" className="text-sm font-medium text-[#344054]">
-                Role / Position Tag <span className="text-[var(--color-primary)]">*</span>
+                Role Name <span className="text-[var(--color-primary)]">*</span>
               </label>
               <input
                 id="role-label"
@@ -477,7 +477,7 @@ export default function AddUserModal({
                 </datalist>
               ) : null}
               <p className="text-xs text-[var(--color-low-emphasis)]">
-                This is a label for grouping accounts. Feature access below controls what the account can open.
+                This is the account's role label. Feature access below controls what the account can open.
               </p>
             </div>
 

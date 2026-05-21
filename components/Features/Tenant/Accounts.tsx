@@ -10,7 +10,6 @@ import AddUserModal, {
 } from "./AddUserModal";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
-import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import {
   getDepedTeacherAssignmentOptions,
@@ -53,6 +52,7 @@ type UserPayload = {
   employee_id?: string | null;
   department?: string | null;
   department_id?: string | null;
+  role_label?: string | null;
   role_id: string;
   status?: string | null;
   created_at?: string | null;
@@ -62,7 +62,7 @@ type UserPayload = {
 
 type EditAccountPayload = {
   fullName: string;
-  roleId: string;
+  roleLabel: string;
   department?: string | null;
   departmentId?: string | null;
   status: "active" | "disabled";
@@ -89,7 +89,7 @@ const normalizeUser = (user: UserPayload): AccountUser => {
     departmentId: user.department_id ?? null,
     roleId: user.role_id || role?.id || "",
     roleKey: role?.key ?? "",
-    roleName: role?.name ?? "Unassigned",
+    roleName: user.role_label ?? role?.name ?? "Unassigned",
     status,
     createdAt: user.created_at ?? null,
   };
@@ -111,10 +111,6 @@ const formatDate = (value?: string | null) => {
     year: "numeric",
   }).format(date);
 };
-
-const roleRequiresDepartment = (role?: AccountRole | null) =>
-  Boolean(role?.requiresDepartment ?? role?.requires_department) ||
-  isDepartmentRequiredRole(role?.key);
 
 function AccountsTableSkeleton() {
   const cellWidths = ["w-24", "w-36", "w-44", "w-40", "w-48", "w-16", "w-24", "w-28"];
@@ -192,7 +188,6 @@ function StatusBadge({ status }: { status: "active" | "disabled" }) {
 
 function EditAccountForm({
   user,
-  roles,
   departments,
   assignmentLabel = "Department",
   assignmentPlaceholder = "e.g., Mathematics Department",
@@ -202,7 +197,6 @@ function EditAccountForm({
   onSave,
 }: {
   user: AccountUser;
-  roles: AccountRole[];
   departments: DepartmentOption[];
   assignmentLabel?: string;
   assignmentPlaceholder?: string;
@@ -212,7 +206,7 @@ function EditAccountForm({
   onCancel: () => void;
 }) {
   const [fullName, setFullName] = useState(user.fullName);
-  const [roleId, setRoleId] = useState(user.roleId);
+  const [roleLabel, setRoleLabel] = useState(user.roleName);
   const [department, setDepartment] = useState(user.department ?? "");
   const [departmentId, setDepartmentId] = useState(user.departmentId ?? "");
   const [status, setStatus] = useState<"active" | "disabled">(user.status);
@@ -220,23 +214,15 @@ function EditAccountForm({
   const [isSaving, setIsSaving] = useState(false);
 
   const isProtectedAdmin = user.roleKey === "org_admin";
-  const roleOptions = useMemo(
-    () => roles.filter((role) => role.key !== "org_admin" || role.id === user.roleId),
-    [roles, user.roleId],
-  );
-  const selectedRole = useMemo(
-    () => roleOptions.find((role) => role.id === roleId) ?? null,
-    [roleId, roleOptions],
-  );
-  const requiresDepartment = roleRequiresDepartment(selectedRole);
+  const requiresDepartment = Boolean(assignmentRequiredError);
   const hasManagedDepartments = departments.length > 0;
   const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
   const requiredAssignmentMessage =
-    assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
+    assignmentRequiredError ?? `${assignmentLabel} is required for this account.`;
 
   useEffect(() => {
     setFullName(user.fullName);
-    setRoleId(user.roleId);
+    setRoleLabel(user.roleName);
     setDepartment(user.department ?? "");
     setDepartmentId(user.departmentId ?? "");
     setStatus(user.status);
@@ -250,7 +236,7 @@ function EditAccountForm({
 
     if (
       !fullName.trim() ||
-      !roleId ||
+      !roleLabel.trim() ||
       (requiresDepartment &&
         !(hasManagedDepartments ? departmentId || user.department : department.trim()))
     ) {
@@ -267,7 +253,7 @@ function EditAccountForm({
     try {
       const nextPayload: EditAccountPayload = {
         fullName: fullName.trim(),
-        roleId,
+        roleLabel: roleLabel.trim().replace(/\s+/g, " "),
         status,
       };
 
@@ -291,10 +277,6 @@ function EditAccountForm({
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleRoleChange = (nextRoleId: string) => {
-    setRoleId(nextRoleId);
   };
 
   return (
@@ -365,14 +347,19 @@ function EditAccountForm({
 
         <div className="space-y-2">
           <label htmlFor="edit-role" className="text-sm font-medium text-[#344054]">
-            Role
+            Role Name
           </label>
-          <StyledSelect
-            value={roleId}
+          <input
+            id="edit-role"
+            value={roleLabel}
             disabled={isProtectedAdmin}
-            onChange={handleRoleChange}
-            options={roleOptions.map((role) => ({ value: role.id, label: role.name }))}
+            onChange={(event) => setRoleLabel(event.target.value)}
+            placeholder="e.g., Room Manager"
+            className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#475467]"
           />
+          <p className="text-xs text-[var(--color-low-emphasis)]">
+            This is the account's role label. Feature access is managed separately.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -587,6 +574,7 @@ export default function Accounts() {
       throw new Error(data?.error || "Failed to create user.");
     }
 
+    const createdRoleName = data.user.role_label ?? data.user.role?.name ?? "Unassigned";
     const createdUser: CreatedUser = {
       id: data.user.id,
       fullName: data.user.full_name,
@@ -596,9 +584,9 @@ export default function Accounts() {
       departmentId: data.user.department_id ?? null,
       roleId: data.user.role?.id ?? data.user.role_id ?? "",
       roleKey: data.user.role?.key ?? "",
-      roleName: data.user.role?.name ?? "Unassigned",
-      description: data.user.role?.name
-        ? `${data.user.role.name} access`
+      roleName: createdRoleName,
+      description: createdRoleName
+        ? `${createdRoleName} access`
         : "Role assignment not set.",
     };
 
@@ -989,7 +977,6 @@ export default function Accounts() {
                   <EditAccountForm
                     key={selectedUser.id}
                     user={selectedUser}
-                    roles={roles}
                     departments={managedDepartments}
                     assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
                     assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
