@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 type SubjectAssignment = {
@@ -65,6 +65,10 @@ type ScheduleSegment = {
   day: string;
   startMinutes: number;
   endMinutes: number;
+};
+
+type LoadFacultyOptions = {
+  showSkeleton?: boolean;
 };
 
 type ScheduleConflict = {
@@ -188,6 +192,68 @@ function formatConflictMessage(subject: AvailableSubject, conflict: ScheduleConf
   )} to ${formatTime(conflict.endMinutes)}.`;
 }
 
+function TableSkeleton({ columns, rows }: { columns: number; rows: number }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-[var(--color-default)] bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse text-left">
+          <thead className="bg-[var(--color-primary)] text-white">
+            <tr>
+              {Array.from({ length: columns }).map((_, column) => (
+                <th key={column} className="px-3 py-3">
+                  <BrandedSkeletonBlock className="h-3 w-20 bg-white/30" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-default)] bg-white">
+            {Array.from({ length: rows }).map((_, row) => (
+              <tr key={row}>
+                {Array.from({ length: columns }).map((__, column) => (
+                  <td key={column} className="px-3 py-4">
+                    <BrandedSkeletonBlock
+                      className={column === 0 ? "h-3 w-28" : "h-3 w-20"}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FacultyLoadSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <BrandedSkeletonBlock className="h-7 w-72" strong />
+        <BrandedSkeletonBlock className="h-4 w-96" />
+      </div>
+
+      <section>
+        <div className="mb-1">
+          <BrandedSkeletonBlock className="h-5 w-72" />
+        </div>
+        <TableSkeleton columns={4} rows={3} />
+      </section>
+
+      <section className="pt-1">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <BrandedSkeletonBlock className="h-5 w-28" strong />
+          <BrandedSkeletonBlock className="h-8 w-32 rounded-md" strong />
+        </div>
+        <TableSkeleton columns={6} rows={3} />
+        <div className="mt-2 flex justify-end">
+          <BrandedSkeletonBlock className="h-8 w-28 rounded-md" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function DepartmentFacultyTable() {
   const [department, setDepartment] = useState("");
   const [facultyRows, setFacultyRows] = useState<FacultyLoad[]>([]);
@@ -203,8 +269,11 @@ export default function DepartmentFacultyTable() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [removingSubjectId, setRemovingSubjectId] = useState("");
 
-  const loadFaculty = useCallback(async () => {
-    setIsLoading(true);
+  const loadFaculty = useCallback(async ({ showSkeleton = true }: LoadFacultyOptions = {}) => {
+    if (showSkeleton) {
+      setIsLoading(true);
+    }
+
     setLoadError("");
     setEmptyMessage("");
 
@@ -351,7 +420,7 @@ export default function DepartmentFacultyTable() {
       return;
     }
 
-    await loadFaculty();
+    await loadFaculty({ showSkeleton: false });
     setIsAssigning(false);
     closeAssignModal();
   };
@@ -400,18 +469,12 @@ export default function DepartmentFacultyTable() {
       return;
     }
 
-    await loadFaculty();
+    await loadFaculty({ showSkeleton: false });
     setRemovingSubjectId("");
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-level-1"
-        label="Loading department faculty"
-        useStoredBranding
-      />
-    );
+    return <FacultyLoadSkeleton />;
   }
 
   return (

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import TeachingScheduleGrid from "@/components/Features/TeachingScheduleGrid";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data-college";
 
@@ -26,6 +26,50 @@ type TeachingLoadPayload = {
   rows?: TeacherLoadRow[];
   error?: string;
 };
+
+function TeachingLoadSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
+        <div className="grid grid-cols-6 bg-[var(--color-primary)]">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="px-4 py-3">
+              <BrandedSkeletonBlock className="h-3 w-24 bg-white/30" />
+            </div>
+          ))}
+        </div>
+        <div className="divide-y divide-[color:var(--color-default)] bg-white">
+          {Array.from({ length: 3 }).map((_, row) => (
+            <div key={row} className="grid grid-cols-6 gap-4 px-4 py-4">
+              {Array.from({ length: 6 }).map((__, column) => (
+                <BrandedSkeletonBlock key={column} className="h-3" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[var(--color-primary)] bg-white">
+        <div className="grid grid-cols-8 bg-[var(--color-primary)]">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="border-r border-white/20 px-3 py-4 last:border-r-0">
+              <BrandedSkeletonBlock className="mx-auto h-3 w-16 bg-white/30" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-8">
+          {Array.from({ length: 40 }).map((_, index) => (
+            <div key={index} className="h-16 border-b border-r border-[var(--color-default)] p-2">
+              {index === 9 || index === 27 ? (
+                <BrandedSkeletonBlock className="h-10 rounded-md" strong />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTableProps) {
   const [rows, setRows] = useState<TeacherLoadRow[]>(providedRows ?? teacherLoadRows);
@@ -72,18 +116,11 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
   }, [providedRows]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTeachingLoad();
   }, [loadTeachingLoad]);
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[280px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-level-1"
-        label="Loading teaching load"
-        useStoredBranding
-      />
-    );
+    return <TeachingLoadSkeleton />;
   }
 
   return (
