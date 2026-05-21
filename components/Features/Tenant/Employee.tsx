@@ -303,7 +303,7 @@ export default function Employee() {
         ? data.user.qualified_subjects
         : [],
       preferredSubject: data.user.preferred_subject ?? null,
-      roleId: data.user.role?.id ?? data.user.role_id ?? payload.roleId ?? "",
+      roleId: data.user.role?.id ?? data.user.role_id ?? "",
       roleKey: data.user.role?.key ?? "",
       roleName: data.user.role?.name ?? "Unassigned",
       description: data.user.role?.name

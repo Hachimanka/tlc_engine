@@ -29,7 +29,7 @@ export type CreatedUser = {
   teacherMajor?: string | null;
   qualifiedSubjects?: string[];
   preferredSubject?: string | null;
-  roleId?: string;
+  roleId: string;
   roleKey: string;
   roleName: string;
   description: string;
