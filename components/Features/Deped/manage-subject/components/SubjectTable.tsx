@@ -10,7 +10,7 @@ export type SubjectRow = {
 	yearLevel: string;
 	classDuration: string;
 	dateCreated: string;
-	status: "Pending" | "Approved" | "Rejected";
+	status: "Pending" | "Approved" | "Returned" | "Rejected";
 	description: string;
 };
 
@@ -48,6 +48,8 @@ function getStatusClass(status: SubjectRow["status"]) {
 			return "bg-[#ecfdf5] text-[var(--color-primary)] ring-[#b7e4d3]";
 		case "Rejected":
 			return "bg-[#fff1f2] text-[#d92d20] ring-[#fecdd3]";
+		case "Returned":
+			return "bg-[#fff7ed] text-[#c2410c] ring-[#fed7aa]";
 		case "Pending":
 		default:
 			return "bg-[#fffbeb] text-[#b54708] ring-[#fedf89]";

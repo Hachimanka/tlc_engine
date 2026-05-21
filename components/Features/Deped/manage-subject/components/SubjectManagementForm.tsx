@@ -16,6 +16,8 @@ type SubjectManagementFormProps = {
 	isOpen: boolean;
 	onClose: () => void;
 	onSubmit: (values: SubjectFormValues) => void;
+	submitError?: string;
+	isSubmitting?: boolean;
 };
 
 type FormErrors = Partial<Record<keyof SubjectFormValues, string>>;
@@ -54,21 +56,12 @@ const yearLevelOptions = [
 	{ value: "Grade 12", label: "Grade 12" },
 ];
 
-const formatDisplayDate = (dateValue: string) => {
-	if (!dateValue) {
-		return "";
-	}
-
-	const date = new Date(`${dateValue}T00:00:00`);
-	return Number.isNaN(date.getTime())
-		? dateValue
-		: date.toLocaleDateString("en-US");
-};
-
 export default function SubjectManagementForm({
 	isOpen,
 	onClose,
 	onSubmit,
+	submitError = "",
+	isSubmitting = false,
 }: SubjectManagementFormProps) {
 	const [formValues, setFormValues] = useState<SubjectFormValues>(createInitialFormValues);
 	const [errors, setErrors] = useState<FormErrors>({});
@@ -156,7 +149,7 @@ export default function SubjectManagementForm({
 			department: formValues.department,
 			yearLevel: formValues.yearLevel,
 			classDuration: `${Number(formValues.classDuration)} minutes`,
-			dateCreated: formatDisplayDate(formValues.dateCreated),
+			dateCreated: formValues.dateCreated,
 			description: formValues.description.trim(),
 		});
 
@@ -202,6 +195,12 @@ export default function SubjectManagementForm({
 
 				<form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
 					<div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+						{submitError ? (
+							<div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+								{submitError}
+							</div>
+						) : null}
+
 						<div className="grid gap-5 md:grid-cols-2">
 							<div className="space-y-2">
 								<label
@@ -323,15 +322,17 @@ export default function SubjectManagementForm({
 						<button
 							type="button"
 							onClick={handleCancel}
+							disabled={isSubmitting}
 							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
-							className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[220px]"
+							disabled={isSubmitting}
+							className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-light-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[220px]"
 						>
-							Create Subject
+							{isSubmitting ? "Creating..." : "Create Subject"}
 						</button>
 					</div>
 				</form>

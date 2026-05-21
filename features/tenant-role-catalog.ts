@@ -30,6 +30,7 @@ const depedSystemRoles: SystemRoleDefinition[] = [
       "deped-teacher-load-assignment",
       "deped-department-load",
       "deped-subject-management",
+      "deped-subject-approvals",
       "deped-room-management",
       "deped-teaching-load-view",
     ],
