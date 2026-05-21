@@ -709,6 +709,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: orgUserResult.error?.message || "Failed to save user." }, { status: 500 });
   }
 
+  const orgUserRow = orgUserResult.data;
   const loginUrl = buildLoginUrl(req, orgInfo?.slug ?? context.org.slug ?? "institution");
 
   try {
