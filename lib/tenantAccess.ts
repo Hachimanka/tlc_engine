@@ -43,6 +43,20 @@ type OrgUserRow = {
   status?: string | null;
 };
 
+type DatabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+const isMissingRoleLabelError = (error?: DatabaseErrorLike | null) =>
+  error?.code === "42703" ||
+  error?.message?.toLowerCase().includes("org_users.role_label") ||
+  error?.message?.toLowerCase().includes("role_label");
+
+const isMissingOrgUserFeaturePermissionsError = (error?: DatabaseErrorLike | null) =>
+  error?.code === "42P01" ||
+  error?.message?.toLowerCase().includes("org_user_feature_permissions");
+
 export type TenantContext = {
   authUser: {
     id: string;
@@ -98,11 +112,22 @@ export async function loadTenantContext(
     };
   }
 
-  const { data: orgUserRow, error: orgUserError } = await supabaseAdmin
+  let { data: orgUserRow, error: orgUserError } = await supabaseAdmin
     .from("org_users")
     .select("id, org_id, role_id, role_label, full_name, email, department, status")
     .eq("auth_user_id", authUser.id)
     .maybeSingle<OrgUserRow>();
+
+  if (isMissingRoleLabelError(orgUserError)) {
+    const fallbackResult = await supabaseAdmin
+      .from("org_users")
+      .select("id, org_id, role_id, full_name, email, department, status")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle<OrgUserRow>();
+
+    orgUserRow = fallbackResult.data;
+    orgUserError = fallbackResult.error;
+  }
 
   if (orgUserError || !orgUserRow?.org_id) {
     const message = orgUserError?.message
@@ -224,7 +249,7 @@ export async function getEnabledFeatureKeysForRole(
 
 export async function getEnabledFeatureKeysForOrgUser(
   orgUser: Pick<OrgUserRow, "id">,
-  role: Pick<TenantRole, "key">,
+  role: Pick<TenantRole, "id" | "key">,
   institutionType: InstitutionType,
 ) {
   if (role.key === "org_admin") {
@@ -236,6 +261,10 @@ export async function getEnabledFeatureKeysForOrgUser(
     .select("feature_key")
     .eq("org_user_id", orgUser.id)
     .eq("enabled", true);
+
+  if (isMissingOrgUserFeaturePermissionsError(error)) {
+    return getEnabledFeatureKeysForRole(role, institutionType);
+  }
 
   if (error) {
     throw new Error(error.message || "Failed to load account feature permissions.");
