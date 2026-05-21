@@ -27,6 +27,7 @@ type UserPayload = {
   email: string;
   employee_id?: string | null;
   department?: string | null;
+  role_label?: string | null;
   status?: string;
   featureKeys?: string[];
   roles?: unknown;
@@ -84,6 +85,7 @@ export default function TenantRolePermissionsPanel() {
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [roleNameDraft, setRoleNameDraft] = useState("");
   const [featureDraft, setFeatureDraft] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
@@ -124,6 +126,19 @@ export default function TenantRolePermissionsPanel() {
 
     return !sameStringSet(featureDraft, selectedUser.featureKeys);
   }, [featureDraft, selectedUser]);
+  const hasRoleNameChanges = useMemo(() => {
+    if (!selectedUser) {
+      return false;
+    }
+
+    return roleNameDraft.trim() !== selectedUser.roleName;
+  }, [roleNameDraft, selectedUser]);
+  const canSaveAccountAccess = Boolean(
+    selectedUser &&
+      selectedUser.roleKey !== "org_admin" &&
+      roleNameDraft.trim() &&
+      (hasFeatureChanges || hasRoleNameChanges),
+  );
 
   const loadAccessData = useCallback(async () => {
     setIsLoading(true);
@@ -162,7 +177,7 @@ export default function TenantRolePermissionsPanel() {
         employeeId: user.employee_id ?? null,
         department: user.department ?? null,
         roleKey: role?.key ?? "",
-        roleName: role?.name ?? "Account",
+        roleName: user.role_label ?? role?.name ?? "Account",
         status: user.status ?? "active",
         featureKeys: user.featureKeys ?? [],
       };
@@ -176,6 +191,7 @@ export default function TenantRolePermissionsPanel() {
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setUsers(nextUsers);
     setSelectedUserId(nextSelectedUser?.id ?? "");
+    setRoleNameDraft(nextSelectedUser?.roleName ?? "");
     setFeatureDraft(nextSelectedUser?.featureKeys ?? []);
     setIsLoading(false);
   }, [selectedUserId]);
@@ -186,6 +202,7 @@ export default function TenantRolePermissionsPanel() {
 
   const handleSelectUser = (user: TenantUser) => {
     setSelectedUserId(user.id);
+    setRoleNameDraft(user.roleName);
     setFeatureDraft(user.featureKeys);
     setFeatureError("");
   };
@@ -200,8 +217,14 @@ export default function TenantRolePermissionsPanel() {
     });
   };
 
-  const handleSaveFeatures = async () => {
+  const handleSaveAccountAccess = async () => {
     if (!selectedUser || selectedUser.roleKey === "org_admin") {
+      return;
+    }
+
+    const nextRoleName = roleNameDraft.trim();
+    if (!nextRoleName) {
+      setFeatureError("Role name is required.");
       return;
     }
 
@@ -224,6 +247,7 @@ export default function TenantRolePermissionsPanel() {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
+        roleLabel: nextRoleName,
         featureKeys: featureDraft,
       }),
     });
@@ -236,16 +260,19 @@ export default function TenantRolePermissionsPanel() {
     }
 
     const nextFeatureKeys = payload.user?.featureKeys ?? featureDraft;
+    const nextRoleLabel = payload.user?.role_label ?? nextRoleName;
     setUsers((current) =>
       current.map((user) =>
         user.id === selectedUser.id
           ? {
               ...user,
+              roleName: nextRoleLabel,
               featureKeys: nextFeatureKeys,
             }
           : user,
       ),
     );
+    setRoleNameDraft(nextRoleLabel);
     setFeatureDraft(nextFeatureKeys);
   };
 
@@ -317,8 +344,7 @@ export default function TenantRolePermissionsPanel() {
                     <th className="px-4 py-3 text-xs font-semibold">Name</th>
                     <th className="px-4 py-3 text-xs font-semibold">Email</th>
                     <th className="px-4 py-3 text-xs font-semibold">Department</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Features</th>
-                    <th className="px-4 py-3 text-xs font-semibold">Status</th>
+                    <th className="px-4 py-3 text-xs font-semibold">Role</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-default)] bg-white">
@@ -353,10 +379,7 @@ export default function TenantRolePermissionsPanel() {
                         {user.department || "-"}
                       </td>
                       <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
-                        {user.roleKey === "org_admin" ? "Full" : user.featureKeys.length}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-semibold text-[var(--color-primary)]">
-                        {user.status}
+                        {user.roleName}
                       </td>
                     </tr>
                   ))}
@@ -389,6 +412,18 @@ export default function TenantRolePermissionsPanel() {
                       {featureError}
                     </div>
                   ) : null}
+
+                  <div className="mb-5 space-y-2">
+                    <label htmlFor="account-role-name" className="text-sm font-medium text-[#344054]">
+                      Role Name
+                    </label>
+                    <input
+                      id="account-role-name"
+                      value={roleNameDraft}
+                      onChange={(event) => setRoleNameDraft(event.target.value)}
+                      className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+                    />
+                  </div>
 
                   <div className="space-y-4">
                     {Object.entries(groupedFeatures).map(([group, groupItems]) => (
@@ -447,11 +482,11 @@ export default function TenantRolePermissionsPanel() {
 
                   <button
                     type="button"
-                    onClick={handleSaveFeatures}
-                    disabled={!hasFeatureChanges || isSavingFeatures}
+                    onClick={handleSaveAccountAccess}
+                    disabled={!canSaveAccountAccess || isSavingFeatures}
                     className="mt-4 w-full rounded-md bg-[var(--color-primary)] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isSavingFeatures ? "Saving..." : "Save Account Features"}
+                    {isSavingFeatures ? "Saving..." : "Save Account Access"}
                   </button>
                 </>
               )}
