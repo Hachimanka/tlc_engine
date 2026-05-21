@@ -28,6 +28,7 @@ type ScheduleBlock = {
 
 type TeachingScheduleGridProps = {
   rows: TeachingScheduleRow[];
+  timeSlots?: string[];
 };
 
 const weekDays = [
@@ -110,6 +111,42 @@ const parseTimeToMinutes = (value: string) => {
   return hour * 60 + minute;
 };
 
+const buildDisplaySlots = (timeSlots?: string[]) => {
+  if (!timeSlots?.length) {
+    return scheduleSlots.map((slot) => ({
+      start: slot,
+      end: slot + 60,
+      label: `${formatMinutes(slot)} - ${formatMinutes(slot + 60)}`,
+    }));
+  }
+
+  const parsedSlots = timeSlots
+    .map((slot) => {
+      const [startValue, endValue] = slot.split("-").map((part) => part.trim());
+      const start = parseTimeToMinutes(startValue ?? "");
+      const end = parseTimeToMinutes(endValue ?? "");
+
+      if (start === null || end === null || start >= end) {
+        return null;
+      }
+
+      return {
+        start,
+        end,
+        label: `${formatMinutes(start)} - ${formatMinutes(end)}`,
+      };
+    })
+    .filter((slot): slot is { start: number; end: number; label: string } => Boolean(slot));
+
+  return parsedSlots.length > 0
+    ? parsedSlots
+    : scheduleSlots.map((slot) => ({
+        start: slot,
+        end: slot + 60,
+        label: `${formatMinutes(slot)} - ${formatMinutes(slot + 60)}`,
+      }));
+};
+
 const parseScheduleAssignments = (row: TeachingScheduleRow): ScheduleAssignment[] => {
   const assignments: ScheduleAssignment[] = [];
 
@@ -165,8 +202,12 @@ const buildScheduleBlocks = (rows: TeachingScheduleRow[]) => {
 
 export default function TeachingScheduleGrid({
   rows,
+  timeSlots,
 }: TeachingScheduleGridProps) {
-  const bodyHeight = scheduleSlots.length * scheduleRowHeight;
+  const displaySlots = buildDisplaySlots(timeSlots);
+  const activeScheduleStart = displaySlots[0]?.start ?? scheduleStart;
+  const activeScheduleEnd = displaySlots[displaySlots.length - 1]?.end ?? scheduleEnd;
+  const bodyHeight = displaySlots.length * scheduleRowHeight;
   const scheduleBlocks = buildScheduleBlocks(rows);
 
   return (
@@ -197,13 +238,13 @@ export default function TeachingScheduleGrid({
           }}
         >
           <div className="sticky left-0 z-10 bg-white shadow-[2px_0_0_var(--color-default)]">
-            {scheduleSlots.map((slot) => (
+            {displaySlots.map((slot) => (
               <div
-                key={slot}
+                key={`${slot.start}-${slot.end}`}
                 className="flex items-center justify-center border-b border-[var(--color-default)] bg-[#f8fafc] px-2 text-center text-[11px] font-semibold text-[var(--color-high-emphasis)] last:border-b-0"
                 style={{ height: scheduleRowHeight }}
               >
-                {formatMinutes(slot)} - {formatMinutes(slot + 60)}
+                {slot.label}
               </div>
             ))}
           </div>
@@ -217,18 +258,18 @@ export default function TeachingScheduleGrid({
                 className="relative border-r border-[var(--color-default)] last:border-r-0"
                 style={{ height: bodyHeight }}
               >
-                {scheduleSlots.map((slot) => (
+                {displaySlots.map((slot) => (
                   <div
-                    key={slot}
+                    key={`${slot.start}-${slot.end}`}
                     className="border-b border-[var(--color-default)] last:border-b-0"
                     style={{ height: scheduleRowHeight }}
                   />
                 ))}
 
                 {dayBlocks.map((block) => {
-                  const clampedStart = Math.max(scheduleStart, block.startMinutes);
-                  const clampedEnd = Math.min(scheduleEnd, Math.max(block.endMinutes, clampedStart + 15));
-                  const top = ((clampedStart - scheduleStart) / 60) * scheduleRowHeight;
+                  const clampedStart = Math.max(activeScheduleStart, block.startMinutes);
+                  const clampedEnd = Math.min(activeScheduleEnd, Math.max(block.endMinutes, clampedStart + 15));
+                  const top = ((clampedStart - activeScheduleStart) / 60) * scheduleRowHeight;
                   const height = ((clampedEnd - clampedStart) / 60) * scheduleRowHeight;
 
                   return (
