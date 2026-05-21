@@ -377,7 +377,7 @@ export default function Employee() {
     <div className="flex h-full min-h-0 flex-col">
       <AddUserModal
         isOpen={isAddUserOpen}
-        roles={assignableRoles}
+        roleSuggestions={assignableRoles.map((role) => role.name)}
         features={features}
         assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
         assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}

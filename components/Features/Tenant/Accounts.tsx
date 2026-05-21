@@ -740,7 +740,7 @@ export default function Accounts() {
     <div className="space-y-5">
       <AddUserModal
         isOpen={isAddUserOpen}
-        roles={assignableRoles}
+        roleSuggestions={assignableRoles.map((role) => role.name)}
         features={features}
         departments={managedDepartments}
         assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
