@@ -15,11 +15,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-<<<<<<< DEPED--
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
-=======
->>>>>>> master
 import { supabase } from "@/lib/supabaseClient";
 
 type CollegePayload = {
