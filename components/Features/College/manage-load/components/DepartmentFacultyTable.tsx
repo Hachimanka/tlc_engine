@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -61,6 +61,133 @@ type FacultyLoadsPayload = {
 const emptySubjects: SubjectAssignment[] = [];
 const emptyHistory: VersionHistoryItem[] = [];
 
+type ScheduleSegment = {
+  day: string;
+  startMinutes: number;
+  endMinutes: number;
+};
+
+type ScheduleConflict = {
+  subjectCode: string;
+  day: string;
+  startMinutes: number;
+  endMinutes: number;
+};
+
+const scheduleSegmentPattern =
+  /\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/gi;
+
+const dayLabels: Record<string, string> = {
+  mon: "Monday",
+  monday: "Monday",
+  tue: "Tuesday",
+  tues: "Tuesday",
+  tuesday: "Tuesday",
+  wed: "Wednesday",
+  wednesday: "Wednesday",
+  thu: "Thursday",
+  thur: "Thursday",
+  thurs: "Thursday",
+  thursday: "Thursday",
+  fri: "Friday",
+  friday: "Friday",
+  sat: "Saturday",
+  saturday: "Saturday",
+  sun: "Sunday",
+  sunday: "Sunday",
+};
+
+function parseTimeToMinutes(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const period = match[3]?.toUpperCase();
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  if (period === "PM" && hours !== 12) {
+    hours += 12;
+  }
+
+  if (period === "AM" && hours === 12) {
+    hours = 0;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function formatTime(minutes: number) {
+  const hour24 = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+}
+
+function parseScheduleSegments(schedule: string): ScheduleSegment[] {
+  const segments: ScheduleSegment[] = [];
+
+  for (const match of schedule.matchAll(scheduleSegmentPattern)) {
+    const day = dayLabels[match[1].toLowerCase()];
+    const startMinutes = parseTimeToMinutes(match[2]);
+    const endMinutes = parseTimeToMinutes(match[3]);
+
+    if (!day || startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      continue;
+    }
+
+    segments.push({ day, startMinutes, endMinutes });
+  }
+
+  return segments;
+}
+
+function rangesOverlap(first: ScheduleSegment, second: ScheduleSegment) {
+  return first.day === second.day && first.startMinutes < second.endMinutes && first.endMinutes > second.startMinutes;
+}
+
+function getScheduleConflict(
+  candidate: AvailableSubject,
+  assignedSubjects: SubjectAssignment[],
+): ScheduleConflict | null {
+  const candidateSegments = parseScheduleSegments(candidate.schedule);
+
+  for (const assignedSubject of assignedSubjects) {
+    const assignedSegments = parseScheduleSegments(assignedSubject.schedule);
+
+    for (const candidateSegment of candidateSegments) {
+      const conflictingSegment = assignedSegments.find((segment) =>
+        rangesOverlap(candidateSegment, segment),
+      );
+
+      if (conflictingSegment) {
+        return {
+          subjectCode: assignedSubject.subjectCode,
+          day: candidateSegment.day,
+          startMinutes: Math.max(candidateSegment.startMinutes, conflictingSegment.startMinutes),
+          endMinutes: Math.min(candidateSegment.endMinutes, conflictingSegment.endMinutes),
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function formatConflictMessage(subject: AvailableSubject, conflict: ScheduleConflict) {
+  return `${subject.subjectCode} conflicts with ${conflict.subjectCode} on ${conflict.day} from ${formatTime(
+    conflict.startMinutes,
+  )} to ${formatTime(conflict.endMinutes)}.`;
+}
+
 export default function DepartmentFacultyTable() {
   const [department, setDepartment] = useState("");
   const [facultyRows, setFacultyRows] = useState<FacultyLoad[]>([]);
@@ -74,6 +201,7 @@ export default function DepartmentFacultyTable() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedAvailableSubjectId, setSelectedAvailableSubjectId] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
+  const [removingSubjectId, setRemovingSubjectId] = useState("");
 
   const loadFaculty = useCallback(async () => {
     setIsLoading(true);
@@ -139,10 +267,28 @@ export default function DepartmentFacultyTable() {
   );
   const selectedSubjects = selectedFaculty?.subjects ?? emptySubjects;
   const selectedHistory = selectedFaculty?.history ?? emptyHistory;
+  const subjectConflictById = useMemo(() => {
+    const conflicts = new Map<string, string>();
+
+    availableSubjects.forEach((subject) => {
+      const conflict = getScheduleConflict(subject, selectedSubjects);
+
+      if (conflict) {
+        conflicts.set(subject.id, formatConflictMessage(subject, conflict));
+      }
+    });
+
+    return conflicts;
+  }, [availableSubjects, selectedSubjects]);
+  const selectedSubjectConflict = selectedAvailableSubjectId
+    ? subjectConflictById.get(selectedAvailableSubjectId) ?? ""
+    : "";
 
   const openAssignModal = () => {
     setAssignError("");
-    setSelectedAvailableSubjectId(availableSubjects[0]?.id ?? "");
+    setSelectedAvailableSubjectId(
+      availableSubjects.find((subject) => !subjectConflictById.has(subject.id))?.id ?? "",
+    );
     setIsAssignOpen(true);
   };
 
@@ -165,6 +311,13 @@ export default function DepartmentFacultyTable() {
 
     if (!selectedSubject) {
       setAssignError("Select one available subject.");
+      return;
+    }
+
+    const conflictMessage = subjectConflictById.get(selectedSubject.id);
+
+    if (conflictMessage) {
+      setAssignError(conflictMessage);
       return;
     }
 
@@ -201,6 +354,54 @@ export default function DepartmentFacultyTable() {
     await loadFaculty();
     setIsAssigning(false);
     closeAssignModal();
+  };
+
+  const handleDeleteSubject = async (subject: SubjectAssignment) => {
+    if (!selectedFaculty) {
+      setLoadError("Select a teacher before removing a subject.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${subject.subjectCode} from ${selectedFaculty.name}'s teaching load?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setLoadError("Your session expired. Please log in again.");
+      return;
+    }
+
+    setRemovingSubjectId(subject.id);
+    setLoadError("");
+
+    const response = await fetch("/api/tenant/faculty-loads", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        facultyId: selectedFaculty.id,
+        assignmentId: subject.id,
+      }),
+    });
+    const payload: { error?: string } = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setLoadError(payload.error || "Unable to remove assigned subject.");
+      setRemovingSubjectId("");
+      return;
+    }
+
+    await loadFaculty();
+    setRemovingSubjectId("");
   };
 
   if (isLoading) {
@@ -349,9 +550,12 @@ export default function DepartmentFacultyTable() {
                         <td className="px-3 py-3">
                           <button
                             type="button"
-                            className="text-[11px] font-medium text-red-600 transition hover:text-red-700"
+                            onClick={() => handleDeleteSubject(subject)}
+                            disabled={removingSubjectId === subject.id}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Delete
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            {removingSubjectId === subject.id ? "Deleting..." : "Delete"}
                           </button>
                         </td>
                       </tr>
@@ -405,6 +609,12 @@ export default function DepartmentFacultyTable() {
                 </div>
               ) : null}
 
+              {subjectConflictById.size > 0 ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Conflicting schedules are disabled for this teacher.
+                </div>
+              ) : null}
+
               <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--color-default)] bg-white">
                 <div className="overflow-auto">
                   <table className="min-w-full border-collapse text-left">
@@ -431,35 +641,64 @@ export default function DepartmentFacultyTable() {
                       ) : (
                         availableSubjects.map((subject) => {
                           const isSelected = selectedAvailableSubjectId === subject.id;
+                          const conflictMessage = subjectConflictById.get(subject.id);
+                          const isDisabled = Boolean(conflictMessage);
 
                           return (
                             <tr
                               key={subject.id}
-                              onClick={() => setSelectedAvailableSubjectId(subject.id)}
+                              onClick={() => {
+                                if (!isDisabled) {
+                                  setSelectedAvailableSubjectId(subject.id);
+                                }
+                              }}
                               aria-selected={isSelected}
-                              className={`cursor-pointer transition hover:bg-[var(--color-primary)]/10 ${
-                                isSelected ? "bg-[var(--color-primary)]/10" : "bg-white"
+                              aria-disabled={isDisabled}
+                              className={`transition ${
+                                isDisabled
+                                  ? "cursor-not-allowed bg-slate-50 text-slate-400 opacity-70"
+                                  : "cursor-pointer hover:bg-[var(--color-primary)]/10"
+                              } ${
+                                isSelected && !isDisabled
+                                  ? "bg-[var(--color-primary)]/10"
+                                  : isDisabled
+                                    ? ""
+                                    : "bg-white"
                               }`}
                             >
                               <td className="px-4 py-4 text-center">
-                                <label className="inline-flex h-6 w-6 cursor-pointer items-center justify-center">
+                                <label
+                                  className={`inline-flex h-6 w-6 items-center justify-center ${
+                                    isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                                  }`}
+                                >
                                   <input
                                     type="radio"
                                     name="available-subject"
-                                    checked={isSelected}
-                                    onChange={() => setSelectedAvailableSubjectId(subject.id)}
+                                    checked={isSelected && !isDisabled}
+                                    disabled={isDisabled}
+                                    onChange={() => {
+                                      if (!isDisabled) {
+                                        setSelectedAvailableSubjectId(subject.id);
+                                      }
+                                    }}
                                     className="sr-only"
-                                    aria-label={`Select ${subject.subjectTitle}`}
+                                    aria-label={
+                                      conflictMessage ??
+                                      `Select ${subject.subjectTitle}`
+                                    }
                                   />
                                   <span
                                     aria-hidden="true"
                                     className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition ${
-                                      isSelected
+                                      isDisabled
+                                        ? "border-slate-300 bg-slate-100"
+                                        : isSelected
                                         ? "border-[var(--color-primary)]"
                                         : "border-[var(--color-primary)] bg-white"
                                     }`}
                                   >
-                                    {isSelected ? (
+                                    {isSelected && !isDisabled ? (
                                       <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" />
                                     ) : null}
                                   </span>
@@ -472,7 +711,12 @@ export default function DepartmentFacultyTable() {
                                 {subject.yearLevel || "-"}
                               </td>
                               <td className="px-4 py-4 text-[13px] text-[var(--color-high-emphasis)]">
-                                {subject.schedule}
+                                <div>{subject.schedule}</div>
+                                {conflictMessage ? (
+                                  <div className="mt-1 text-[11px] font-medium text-red-600">
+                                    {conflictMessage}
+                                  </div>
+                                ) : null}
                               </td>
                               <td className="px-4 py-4 text-[13px] text-[var(--color-high-emphasis)]">
                                 {subject.room || "-"}
@@ -500,7 +744,7 @@ export default function DepartmentFacultyTable() {
                 <button
                   type="button"
                   onClick={handleAssignSubject}
-                  disabled={!selectedAvailableSubjectId || isAssigning}
+                  disabled={!selectedAvailableSubjectId || Boolean(selectedSubjectConflict) || isAssigning}
                   className="h-10 rounded-md bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isAssigning ? "Assigning..." : "Assign Subject"}

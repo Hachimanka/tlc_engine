@@ -17,6 +17,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 
 type AssignmentRequest = {
+  id?: string;
   roomId?: string;
   subjectId?: string;
   section?: string;
@@ -42,6 +43,7 @@ const assignmentSelect = `
     subject_code,
     department,
     year_level,
+    meetings_per_week,
     units
   ),
   room:academic_rooms!academic_room_assignments_room_id_fkey(
@@ -119,7 +121,7 @@ export async function POST(req: Request) {
       .maybeSingle(),
     supabaseAdmin
       .from("academic_subjects")
-      .select("id")
+      .select("id, subject_code, meetings_per_week")
       .eq("id", values.subjectId)
       .eq("org_id", context.org.id)
       .maybeSingle(),
@@ -139,6 +141,39 @@ export async function POST(req: Request) {
 
   if (!subjectResult.data) {
     return jsonError("Only approved subjects can be assigned to rooms.", 400);
+  }
+
+  const meetingsPerWeek = Number(
+    (subjectResult.data as { meetings_per_week?: number | string | null }).meetings_per_week ?? 2,
+  );
+
+  if (!Number.isFinite(meetingsPerWeek) || meetingsPerWeek <= 0) {
+    return jsonError("Subject meetings per week must be greater than zero.", 400);
+  }
+
+  const { count: subjectMeetingCount, error: subjectMeetingCountError } = await supabaseAdmin
+    .from("academic_room_assignments")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", context.org.id)
+    .eq("subject_id", values.subjectId);
+
+  if (subjectMeetingCountError) {
+    return jsonError(
+      subjectMeetingCountError.message || "Failed to check subject meeting limit.",
+      500,
+    );
+  }
+
+  if ((subjectMeetingCount ?? 0) >= meetingsPerWeek) {
+    const subjectCode =
+      (subjectResult.data as { subject_code?: string | null }).subject_code ?? "This subject";
+
+    return jsonError(
+      `${subjectCode} already reached its ${meetingsPerWeek} meeting${
+        meetingsPerWeek === 1 ? "" : "s"
+      } per week limit.`,
+      409,
+    );
   }
 
   const { data: existingAssignments, error: conflictError } = await supabaseAdmin
@@ -203,4 +238,46 @@ export async function POST(req: Request) {
     { assignment: mapRoomAssignment(data as AcademicRoomAssignmentRow) },
     { status: 201 },
   );
+}
+
+export async function DELETE(req: Request) {
+  const result = await loadTenantContext(req);
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (!canUseHigherEdRooms(context)) {
+    return jsonError("Room schedules are available for Higher Ed institutions only.", 400);
+  }
+
+  if (!canManageRooms(context)) {
+    return jsonError("Only room managers or org admins can remove room assignments.", 403);
+  }
+
+  const url = new URL(req.url);
+  const assignmentId = normalizeText(url.searchParams.get("id"));
+
+  if (!assignmentId) {
+    return jsonError("Assignment id is required.", 400);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("academic_room_assignments")
+    .delete()
+    .eq("id", assignmentId)
+    .eq("org_id", context.org.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return jsonError(error.message || "Failed to remove room assignment.", 500);
+  }
+
+  if (!data?.id) {
+    return jsonError("Room assignment not found.", 404);
+  }
+
+  return NextResponse.json({ ok: true, id: data.id });
 }

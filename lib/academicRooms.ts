@@ -1,6 +1,7 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
+import { normalizeRoleKey } from "@/features/tenant-role-catalog";
 import type { TenantContext } from "@/lib/tenantAccess";
 
 export type RoomStatus = "available" | "occupied" | "under_maintenance";
@@ -22,6 +23,7 @@ export type AcademicSubjectOptionRow = {
   subject_code: string;
   department: string | null;
   year_level: string | null;
+  meetings_per_week?: number | string | null;
   units: number | string | null;
 };
 
@@ -40,7 +42,12 @@ export type AcademicRoomAssignmentRow = {
     | null;
 };
 
-const roomManagerRoles = new Set(["room_manager", "subject_room_manager"]);
+const roomManagerRoles = new Set([
+  "room_manager",
+  "manage_rooms",
+  "room_management",
+  "subject_room_manager",
+]);
 
 export const validRoomScheduleDays = new Set([
   "Monday",
@@ -56,7 +63,8 @@ export const canUseHigherEdRooms = (context: TenantContext) =>
   context.institutionType === "higher_ed";
 
 export const canManageRooms = (context: TenantContext) =>
-  context.isOrgAdmin || roomManagerRoles.has(context.role.key);
+  context.isOrgAdmin ||
+  roomManagerRoles.has(normalizeRoleKey(context.role.key));
 
 export const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
@@ -136,6 +144,7 @@ export const mapSubjectOption = (row: AcademicSubjectOptionRow) => ({
   code: row.subject_code,
   department: row.department ?? "",
   yearLevel: row.year_level ?? "",
+  meetingsPerWeek: Number(row.meetings_per_week ?? 2),
   units: Number(row.units ?? 0),
 });
 
@@ -161,6 +170,7 @@ export const mapRoomAssignment = (row: AcademicRoomAssignmentRow) => {
           code: subject.subject_code,
           department: subject.department ?? "",
           yearLevel: subject.year_level ?? "",
+          meetingsPerWeek: Number(subject.meetings_per_week ?? 2),
           units: Number(subject.units ?? 0),
         }
       : null,

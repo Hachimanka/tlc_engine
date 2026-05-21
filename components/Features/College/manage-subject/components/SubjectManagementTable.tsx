@@ -22,6 +22,7 @@ type Subject = {
   department: string;
   lecHours: number;
   labHours: number;
+  meetingsPerWeek: number;
   units: number;
   dateCreated: string;
   status: SubjectStatus;
@@ -39,6 +40,7 @@ type FormData = {
   units: string;
   lecHours: string;
   labHours: string;
+  meetingsPerWeek: string;
   description: string;
   level: string;
 };
@@ -50,6 +52,7 @@ const emptyForm: FormData = {
   units: "",
   lecHours: "",
   labHours: "",
+  meetingsPerWeek: "2",
   description: "",
   level: "Second Year",
 };
@@ -185,13 +188,18 @@ export default function SubjectManagementTable() {
       return;
     }
 
-    if (!form.title || !form.code || !form.department || !form.units) {
-      setSubmitError("Subject title, code, department, and units are required.");
+    if (!form.title || !form.code || !form.department || !form.units || !form.meetingsPerWeek) {
+      setSubmitError("Subject title, code, department, units, and meetings per week are required.");
       return;
     }
 
     if (Number(form.units) <= 0) {
       setSubmitError("Units must be greater than zero.");
+      return;
+    }
+
+    if (Number(form.meetingsPerWeek) <= 0) {
+      setSubmitError("Meetings per week must be greater than zero.");
       return;
     }
 
@@ -231,6 +239,7 @@ export default function SubjectManagementTable() {
           units: Number(form.units),
           lectureHours: Number(form.lecHours || 0),
           labHours: Number(form.labHours || 0),
+          meetingsPerWeek: Number(form.meetingsPerWeek || 2),
           description: form.description,
           yearLevel: form.level,
         }),
@@ -391,7 +400,26 @@ export default function SubjectManagementTable() {
                   />
                 </label>
 
-                <label className="space-y-1 lg:col-span-2">
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
+                    Meetings/Week <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    value={form.meetingsPerWeek}
+                    type="number"
+                    min="1"
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        meetingsPerWeek: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g., 2"
+                    className="h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                  />
+                </label>
+
+                <label className="space-y-1">
                   <span className="text-sm font-medium text-[var(--color-high-emphasis)]">
                     Description
                   </span>
@@ -481,7 +509,7 @@ export default function SubjectManagementTable() {
               <table className="min-w-full border-collapse text-left">
                 <thead className="bg-[var(--color-primary)] text-white">
                   <tr>
-                    {["Subject Title", "Subject Code", "Department", "Lec Hours", "Lab Hours", "Units", "Date Created", "Status", "Description", "Year Level"].map((col) => (
+                    {["Subject Title", "Subject Code", "Department", "Lec Hours", "Lab Hours", "Meetings/Wk", "Units", "Date Created", "Status", "Description", "Year Level"].map((col) => (
                       <th key={col} className="whitespace-nowrap px-4 py-3 text-xs font-semibold">{col}</th>
                     ))}
                   </tr>
@@ -491,7 +519,7 @@ export default function SubjectManagementTable() {
                     <>
                       {[0, 1, 2, 3, 4].map((row) => (
                         <tr key={row} className="animate-pulse">
-                          {Array.from({ length: 10 }).map((_, column) => (
+                          {Array.from({ length: 11 }).map((_, column) => (
                             <td key={column} className="px-4 py-3">
                               <BrandedSkeletonBlock className="h-3 w-full min-w-16" />
                             </td>
@@ -501,7 +529,7 @@ export default function SubjectManagementTable() {
                     </>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">No subjects found.</td>
+                      <td colSpan={11} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">No subjects found.</td>
                     </tr>
                   ) : (
                     filtered.map((subject) => (
@@ -511,6 +539,7 @@ export default function SubjectManagementTable() {
                         <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.department}</td>
                         <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.lecHours}</td>
                         <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.labHours}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.meetingsPerWeek}</td>
                         <td className="px-4 py-3 text-xs text-[var(--color-high-emphasis)]">{subject.units}</td>
                         <td className="px-4 py-3 text-xs text-[var(--color-low-emphasis)]">{formatDate(subject.dateCreated)}</td>
                         <td className={`px-4 py-3 text-xs font-medium ${statusColor[subject.status]}`}>

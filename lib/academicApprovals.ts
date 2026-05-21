@@ -24,6 +24,7 @@ export type SubjectPayload = {
   yearLevel: string;
   lectureHours: number;
   labHours: number;
+  meetingsPerWeek: number;
   units: number;
   description: string;
 };
@@ -126,6 +127,7 @@ export const getSubjectPayload = (value: unknown): SubjectPayload => {
     yearLevel: toText(payload.yearLevel, "Second Year"),
     lectureHours: toNumber(payload.lectureHours),
     labHours: toNumber(payload.labHours),
+    meetingsPerWeek: toNumber(payload.meetingsPerWeek, 2),
     units: toNumber(payload.units),
     description: toText(payload.description),
   };

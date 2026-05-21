@@ -47,6 +47,7 @@ const createApprovedSubject = async (
       year_level: payload.yearLevel || null,
       lecture_hours: payload.lectureHours,
       lab_hours: payload.labHours,
+      meetings_per_week: payload.meetingsPerWeek,
       units: payload.units,
       description: payload.description || null,
       created_by_org_user_id: request.submitted_by_org_user_id,

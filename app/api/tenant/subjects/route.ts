@@ -25,6 +25,7 @@ type AcademicSubjectRow = {
   year_level: string | null;
   lecture_hours: number | string | null;
   lab_hours: number | string | null;
+  meetings_per_week: number | string | null;
   units: number | string | null;
   description: string | null;
   approved_at: string | null;
@@ -32,9 +33,9 @@ type AcademicSubjectRow = {
   updated_at: string;
 };
 
-const toNumber = (value: number | string | null | undefined) => {
+const toNumber = (value: number | string | null | undefined, fallback = 0) => {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
 const mapApprovedSubject = (row: AcademicSubjectRow) => ({
@@ -46,6 +47,7 @@ const mapApprovedSubject = (row: AcademicSubjectRow) => ({
   department: row.department,
   lecHours: toNumber(row.lecture_hours),
   labHours: toNumber(row.lab_hours),
+  meetingsPerWeek: toNumber(row.meetings_per_week, 2),
   units: toNumber(row.units),
   dateCreated: row.approved_at ?? row.created_at,
   status: "approved" as const,
@@ -68,6 +70,7 @@ const mapSubjectRequest = (row: AcademicApprovalRow) => {
     department: payload.department,
     lecHours: payload.lectureHours,
     labHours: payload.labHours,
+    meetingsPerWeek: payload.meetingsPerWeek,
     units: payload.units,
     dateCreated: row.submitted_at,
     status: row.status,
@@ -95,7 +98,7 @@ export async function GET(req: Request) {
   const { data: approvedSubjects, error: approvedError } = await supabaseAdmin
     .from("academic_subjects")
     .select(
-      "id, subject_title, subject_code, department, year_level, lecture_hours, lab_hours, units, description, approved_at, created_at, updated_at",
+      "id, subject_title, subject_code, department, year_level, lecture_hours, lab_hours, meetings_per_week, units, description, approved_at, created_at, updated_at",
     )
     .eq("org_id", context.org.id)
     .order("created_at", { ascending: false });
@@ -162,6 +165,10 @@ export async function POST(req: Request) {
 
   if (subjectPayload.units <= 0) {
     return jsonError("Units must be greater than zero.", 400);
+  }
+
+  if (subjectPayload.meetingsPerWeek <= 0) {
+    return jsonError("Meetings per week must be greater than zero.", 400);
   }
 
   const { data: existingSubject, error: existingSubjectError } = await supabaseAdmin

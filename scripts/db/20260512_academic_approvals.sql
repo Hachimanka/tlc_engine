@@ -11,6 +11,7 @@ create table if not exists public.academic_subjects (
   year_level text,
   lecture_hours numeric not null default 0,
   lab_hours numeric not null default 0,
+  meetings_per_week integer not null default 2 check (meetings_per_week > 0),
   units numeric not null default 0,
   description text,
   created_by_org_user_id uuid references public.org_users(id) on delete set null,
