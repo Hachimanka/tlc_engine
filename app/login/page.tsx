@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import {
@@ -60,22 +61,22 @@ function LoginSkeletonCard({
         <span className="sr-only">{label}</span>
         <div className="flex animate-pulse flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
-            <div className="h-12 w-12 rounded-md bg-[var(--color-default)]" />
-            <div className="mt-2 h-7 w-48 rounded bg-[var(--color-default)]" />
-            <div className="h-3 w-64 max-w-full rounded bg-[var(--color-default)]" />
+            <BrandedSkeletonBlock className="h-12 w-12 rounded-md" />
+            <BrandedSkeletonBlock className="mt-2 h-7 w-48" />
+            <BrandedSkeletonBlock className="h-3 w-64 max-w-full" />
           </div>
 
           <div>
-            <div className="mb-2 h-4 w-16 rounded bg-[var(--color-default)]" />
+            <BrandedSkeletonBlock className="mb-2 h-4 w-16" />
             <div className="h-10 w-full rounded border border-[var(--color-default)] bg-white" />
           </div>
 
           <div>
-            <div className="mb-2 h-4 w-20 rounded bg-[var(--color-default)]" />
+            <BrandedSkeletonBlock className="mb-2 h-4 w-20" />
             <div className="h-10 w-full rounded border border-[var(--color-default)] bg-white" />
           </div>
 
-          <div className="h-10 w-full rounded bg-[var(--color-primary)]/60" />
+          <BrandedSkeletonBlock className="h-10 w-full" strong />
         </div>
       </div>
     </TenantBrandScope>

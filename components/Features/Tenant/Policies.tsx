@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import {
   AlertTriangle,
@@ -79,28 +80,26 @@ type PolicyState = {
 };
 
 function PoliciesSkeleton() {
-  const block = "rounded bg-[#c8e5e1]";
-
   return (
     <div className="space-y-5" role="status" aria-label="Loading academic policies">
       <span className="sr-only">Loading academic policies</span>
       <div className="flex animate-pulse flex-wrap items-start justify-between gap-4">
         <div className="space-y-3">
-          <div className={`h-7 w-40 rounded-full bg-[#c8e5e1]`} />
-          <div className={`h-8 w-72 ${block}`} />
-          <div className={`h-4 w-[520px] max-w-full ${block}`} />
+          <BrandedSkeletonBlock className="h-7 w-40 rounded-full" />
+          <BrandedSkeletonBlock className="h-8 w-72" />
+          <BrandedSkeletonBlock className="h-4 w-[520px] max-w-full" />
         </div>
         <div className="flex gap-2">
-          <div className={`h-10 w-24 ${block}`} />
-          <div className={`h-10 w-32 ${block}`} />
+          <BrandedSkeletonBlock className="h-10 w-24" />
+          <BrandedSkeletonBlock className="h-10 w-32" strong />
         </div>
       </div>
 
       <div className="grid animate-pulse gap-3 md:grid-cols-4">
         {[0, 1, 2, 3].map((index) => (
           <div key={index} className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-            <div className={`h-3 w-24 ${block}`} />
-            <div className={`mt-3 h-6 w-20 ${block}`} />
+            <BrandedSkeletonBlock className="h-3 w-24" />
+            <BrandedSkeletonBlock className="mt-3 h-6 w-20" />
           </div>
         ))}
       </div>
@@ -108,17 +107,17 @@ function PoliciesSkeleton() {
       <div className="animate-pulse rounded-lg bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
         <div className="flex gap-2">
           {[0, 1, 2, 3, 4].map((index) => (
-            <div key={index} className={`h-10 w-32 ${block}`} />
+            <BrandedSkeletonBlock key={index} className="h-10 w-32" />
           ))}
         </div>
       </div>
 
       <div className="animate-pulse rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        <div className={`h-6 w-56 ${block}`} />
-        <div className={`mt-3 h-4 w-[560px] max-w-full ${block}`} />
+        <BrandedSkeletonBlock className="h-6 w-56" />
+        <BrandedSkeletonBlock className="mt-3 h-4 w-[560px] max-w-full" />
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((index) => (
-            <div key={index} className={`h-20 ${block}`} />
+            <BrandedSkeletonBlock key={index} className="h-20" />
           ))}
         </div>
       </div>

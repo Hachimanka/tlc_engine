@@ -8,8 +8,8 @@ import AddUserModal, {
   type CreatedUser,
   type RoleOption,
 } from "./AddUserModal";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import { supabase } from "@/lib/supabaseClient";
@@ -135,8 +135,8 @@ function AccountsTableSkeleton() {
             <tr key={rowIndex} className="animate-pulse">
               {cellWidths.map((width, cellIndex) => (
                 <td key={`${rowIndex}-${cellIndex}`} className="px-4 py-4">
-                  <div
-                    className={`h-4 rounded bg-[#c8e5e1] ${
+                  <BrandedSkeletonBlock
+                    className={`h-4 ${
                       cellIndex === cellWidths.length - 1 ? "ml-auto" : ""
                     } ${width}`}
                   />
