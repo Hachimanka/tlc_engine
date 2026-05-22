@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
-import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
+import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
 import Departments from "@/components/Features/Tenant/Departments";
@@ -20,7 +20,10 @@ import {
 } from "@/config";
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
-import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  readStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import {
   buildTenantLoginUrl,
   buildTenantMeUrl,
@@ -30,57 +33,75 @@ import {
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
-function TenantAdminSectionSkeleton() {
-  return (
-    <div className="space-y-5" role="status" aria-label="Loading section">
-      <span className="sr-only">Loading section</span>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <BrandedSkeletonBlock className="h-8 w-64" strong />
-          <BrandedSkeletonBlock className="h-4 w-80" />
-        </div>
-        <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
-      </div>
+const TENANT_ADMIN_SHELL_SESSION_KEY = "tlc:tenant-admin-shell";
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <BrandedSkeletonBlock className="h-24 rounded-lg" />
-        <BrandedSkeletonBlock className="h-24 rounded-lg" />
-        <BrandedSkeletonBlock className="h-24 rounded-lg" />
-      </div>
+type TenantAdminShellSnapshot = {
+  institutionType: InstitutionType;
+  orgName: string;
+  orgSlug: string;
+  roleName: string;
+  profile: {
+    displayName: string;
+    email: string;
+    avatarUrl: string;
+  };
+  branding: TenantBranding | null;
+};
 
-      <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
-        <div className="grid grid-cols-5 gap-4 bg-[var(--color-primary)] px-4 py-4">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <BrandedSkeletonBlock key={index} className="h-3 bg-white/30" />
-          ))}
-        </div>
-        <div className="divide-y divide-[var(--color-default)]">
-          {Array.from({ length: 5 }).map((_, row) => (
-            <div key={row} className="grid grid-cols-5 gap-4 px-4 py-4">
-              {Array.from({ length: 5 }).map((__, column) => (
-                <BrandedSkeletonBlock key={column} className="h-3" />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+const readStoredTenantShell = (): TenantAdminShellSnapshot | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const value = window.sessionStorage.getItem(TENANT_ADMIN_SHELL_SESSION_KEY);
+
+    if (!value) {
+      return null;
+    }
+
+    const snapshot = JSON.parse(value) as TenantAdminShellSnapshot;
+    const expectedSlug = getExpectedTenantSlug();
+
+    if (expectedSlug && snapshot.orgSlug && snapshot.orgSlug !== expectedSlug) {
+      return null;
+    }
+
+    return snapshot;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredTenantShell = (snapshot: TenantAdminShellSnapshot) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    TENANT_ADMIN_SHELL_SESSION_KEY,
+    JSON.stringify(snapshot),
   );
-}
+};
 
 export default function TenantPage() {
   const router = useRouter();
-  const [activeView, setActiveView] = useState<TenantAdminView>(() => getDefaultTenantAdminView());
+  const [activeView, setActiveView] = useState<TenantAdminView>(() =>
+    getDefaultTenantAdminView(),
+  );
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [roleName, setRoleName] = useState("Org Admin");
-  const [profile, setProfile] = useState({
-    displayName: "User",
-    email: "",
-    avatarUrl: "",
-  });
+  const [profile, setProfile] = useState(
+    {
+      displayName: "User",
+      email: "",
+      avatarUrl: "",
+    },
+  );
   const [branding, setBranding] = useState<TenantBranding | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -101,16 +122,44 @@ export default function TenantPage() {
     }));
   }, [activeView, institutionType]);
 
+  const handleBrandingUpdated = (nextBranding: TenantBranding | null) => {
+    setBranding(nextBranding);
+    saveStoredTenantBranding(nextBranding);
+    saveStoredTenantShell({
+      institutionType,
+      orgName,
+      orgSlug,
+      roleName,
+      profile,
+      branding: nextBranding,
+    });
+  };
+
   const content = {
     accounts: <Accounts />,
     policies: <Policies />,
     "manage-users": <TenantRolePermissionsPanel />,
     departments: <Departments />,
     employees: <Employee />,
-    branding: <Branding onBrandingUpdated={setBranding} />,
+    branding: <Branding onBrandingUpdated={handleBrandingUpdated} />,
   }[activeView];
 
   useEffect(() => {
+    const storedShell = readStoredTenantShell();
+
+    if (storedShell) {
+      setInstitutionType(storedShell.institutionType);
+      setOrgName(storedShell.orgName);
+      setOrgSlug(storedShell.orgSlug);
+      setRoleName(storedShell.roleName);
+      setProfile(storedShell.profile);
+      setBranding(storedShell.branding);
+      setActiveView(getDefaultTenantAdminView(storedShell.institutionType));
+      setIsBootstrapping(false);
+    } else {
+      setBranding(readStoredTenantBranding());
+    }
+
     const checkAuth = async () => {
       setAuthError("");
       const expectedSlug = getExpectedTenantSlug();
@@ -184,21 +233,37 @@ export default function TenantPage() {
         }
 
         const detectedType = payload.org?.institutionType ?? metadata?.institution_type ?? null;
-        setInstitutionType(detectedType);
-        setOrgName(payload.org?.name || "");
-        setOrgSlug(payload.org?.slug || "");
-        setRoleName(payload.role?.name || "Org Admin");
-        setProfile({
+        const nextOrgName = payload.org?.name || "";
+        const nextOrgSlug = payload.org?.slug || "";
+        const nextRoleName = payload.role?.name || "Org Admin";
+        const nextProfile = {
           displayName: payload.user?.fullName || user.email || "User",
           email: payload.user?.email || user.email || "",
           avatarUrl: payload.user?.avatarUrl || "",
+        };
+        const nextBranding = payload.branding ?? null;
+
+        setInstitutionType(detectedType);
+        setOrgName(nextOrgName);
+        setOrgSlug(nextOrgSlug);
+        setRoleName(nextRoleName);
+        setProfile(nextProfile);
+        setBranding(nextBranding);
+        saveStoredTenantBranding(nextBranding);
+        saveStoredTenantShell({
+          institutionType: detectedType,
+          orgName: nextOrgName,
+          orgSlug: nextOrgSlug,
+          roleName: nextRoleName,
+          profile: nextProfile,
+          branding: nextBranding,
         });
-        setBranding(payload.branding ?? null);
-        saveStoredTenantBranding(payload.branding ?? null);
         setActiveView(getDefaultTenantAdminView(detectedType));
+        setIsBootstrapping(false);
 
       } catch {
         setAuthError("Unable to reach Supabase Auth. Please check your internet connection and Supabase env values.");
+        setIsBootstrapping(false);
       }
     };
 
@@ -237,14 +302,29 @@ export default function TenantPage() {
 
   if (authError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
-          <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
-            Authentication unavailable
-          </h1>
-          <p className="mt-2 text-sm text-red-600">{authError}</p>
+      <TenantBrandScope
+        branding={branding}
+        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
+            <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+              Authentication unavailable
+            </h1>
+            <p className="mt-2 text-sm text-red-600">{authError}</p>
+          </div>
         </div>
-      </div>
+      </TenantBrandScope>
+    );
+  }
+
+  if (isBootstrapping) {
+    return (
+      <TenantLoadingScreen
+        branding={branding}
+        label="Loading workspace"
+        useStoredBranding
+      />
     );
   }
 
@@ -285,7 +365,11 @@ export default function TenantPage() {
           activeView !== "departments" &&
           activeView !== "policies" &&
           activeView !== "branding" ? (
-            <TenantAdminSectionSkeleton />
+            <TenantLoadingScreen
+              branding={branding}
+              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+              label="Loading section"
+            />
           ) : (
             content
           )}

@@ -145,6 +145,7 @@ export default function AddUserModal({
   assignmentLabel = "Department",
   assignmentPlaceholder = "e.g., Computer Engineering",
   assignmentHint,
+  assignmentOptions = [],
   forceDepartmentDropdown = false,
   showTeacherProfileFields = false,
   subjectOptions = [],
@@ -166,6 +167,7 @@ export default function AddUserModal({
   const [success, setSuccess] = useState<AddUserResult | null>(null);
 
   const hasManagedDepartments = departments.length > 0 || forceDepartmentDropdown;
+  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
   const datalistId = "role-position-tag-suggestions";
   const assignableFeatures = useMemo(
     () =>
@@ -458,7 +460,7 @@ export default function AddUserModal({
 
             <div className="space-y-2">
               <label htmlFor="role-label" className="text-sm font-medium text-[#344054]">
-                Role / Position Tag <span className="text-[var(--color-primary)]">*</span>
+                Role Name <span className="text-[var(--color-primary)]">*</span>
               </label>
               <input
                 id="role-label"
@@ -476,7 +478,7 @@ export default function AddUserModal({
                 </datalist>
               ) : null}
               <p className="text-xs text-[var(--color-low-emphasis)]">
-                This is a label for grouping accounts. Feature access below controls what the account can open.
+                This is the account's role label. Feature access below controls what the account can open.
               </p>
             </div>
 
@@ -568,6 +570,21 @@ export default function AddUserModal({
                       label: departmentOption.code
                         ? `${departmentOption.code} - ${departmentOption.name}`
                         : departmentOption.name,
+                    })),
+                  ]}
+                />
+              ) : hasAssignmentOptions ? (
+                <StyledSelect
+                  value={department}
+                  onChange={setDepartment}
+                  options={[
+                    {
+                      value: "",
+                      label: `No ${assignmentLabel.toLowerCase()}`,
+                    },
+                    ...assignmentOptions.map((option) => ({
+                      value: option,
+                      label: option,
                     })),
                   ]}
                 />

@@ -18,7 +18,12 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
-type TabKey = "calendar" | "teachingLoad" | "workload" | "curriculum" | "grading";
+type AcademicApprovalWorkflow =
+  | "dean_vpaa"
+  | "chairman_only"
+  | "chairman_dean"
+  | "chairman_dean_vpaa";
+type TabKey = "calendar" | "teachingLoad" | "workload" | "curriculum" | "grading" | "approvals";
 
 type CalendarTerm = {
   id: string;
@@ -76,6 +81,9 @@ type PolicyState = {
     scale: string;
     assessmentType: string;
     components: GradingComponent[];
+  };
+  approvals: {
+    workflow: AcademicApprovalWorkflow;
   };
 };
 
@@ -168,6 +176,42 @@ const tabConfig: {
     description: "Assessment rules and components",
     icon: ClipboardList,
   },
+  {
+    key: "approvals",
+    label: "Approvals",
+    description: "Academic request routing workflow",
+    icon: CheckCircle2,
+  },
+];
+
+const visibleTabsForInstitution = (institutionType: InstitutionType) =>
+  tabConfig.filter((tab) => institutionType === "higher_ed" || tab.key !== "approvals");
+
+const approvalWorkflowOptions: {
+  value: AcademicApprovalWorkflow;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "dean_vpaa",
+    label: "Dean -> VPAA",
+    description: "Current default workflow for existing tenants.",
+  },
+  {
+    value: "chairman_only",
+    label: "Chairman only",
+    description: "The assigned department chairman gives the final approval.",
+  },
+  {
+    value: "chairman_dean",
+    label: "Chairman -> Dean",
+    description: "Department chairman reviews first, then the assigned college dean gives final approval.",
+  },
+  {
+    value: "chairman_dean_vpaa",
+    label: "Chairman -> Dean -> VPAA",
+    description: "Department chairman, college dean, then VPAA approval are all required.",
+  },
 ];
 
 const institutionLabels: Record<Exclude<InstitutionType, null>, string> = {
@@ -228,6 +272,19 @@ const normalizeInstitutionType = (value: unknown): InstitutionType => {
   }
 
   return null;
+};
+
+const normalizeApprovalWorkflow = (value: unknown): AcademicApprovalWorkflow => {
+  if (
+    value === "dean_vpaa" ||
+    value === "chairman_only" ||
+    value === "chairman_dean" ||
+    value === "chairman_dean_vpaa"
+  ) {
+    return value;
+  }
+
+  return "dean_vpaa";
 };
 
 const normalizeStructure = (value: unknown, institutionType: InstitutionType) => {
@@ -509,6 +566,7 @@ const buildPolicyState = (
   const storedWorkload = asRecord(storedPolicies.workload);
   const storedCurriculum = asRecord(storedPolicies.curriculum);
   const storedGrading = asRecord(storedPolicies.grading);
+  const storedApprovals = asRecord(storedPolicies.approvals);
   const defaultCalendar = {
     label: toText(academic.label),
     type:
@@ -585,6 +643,9 @@ const buildPolicyState = (
               weight: toText(component.weight, "0"),
             }))
           : defaultGrading.components,
+    },
+    approvals: {
+      workflow: normalizeApprovalWorkflow(storedApprovals.workflow),
     },
   };
 };
@@ -682,6 +743,10 @@ export default function Policies() {
   const policyTitle = institutionType ? policyTitles[institutionType] : "Policies";
   const institutionLabel = institutionType ? institutionLabels[institutionType] : "Institution not set";
   const setupItemCount = useMemo(() => countConfiguredValues(onboardingConfig), [onboardingConfig]);
+  const visibleTabs = useMemo(
+    () => visibleTabsForInstitution(institutionType),
+    [institutionType],
+  );
 
   const loadPolicies = useCallback(async () => {
     setIsLoading(true);
@@ -762,6 +827,13 @@ export default function Policies() {
   const updateGrading = (updates: Partial<PolicyState["grading"]>) => {
     setPolicies((current) =>
       current ? { ...current, grading: { ...current.grading, ...updates } } : current,
+    );
+    setSaveMessage("");
+  };
+
+  const updateApprovals = (updates: Partial<PolicyState["approvals"]>) => {
+    setPolicies((current) =>
+      current ? { ...current, approvals: { ...current.approvals, ...updates } } : current,
     );
     setSaveMessage("");
   };
@@ -913,7 +985,8 @@ export default function Policies() {
     return null;
   }
 
-  const ActiveIcon = tabConfig.find((tab) => tab.key === activeTab)?.icon ?? ClipboardList;
+  const activeTabConfig = visibleTabs.find((tab) => tab.key === activeTab) ?? visibleTabs[0] ?? tabConfig[0];
+  const ActiveIcon = activeTabConfig.icon ?? ClipboardList;
 
   return (
     <div className="space-y-5">
@@ -1017,7 +1090,7 @@ export default function Policies() {
 
       <div className="overflow-x-auto rounded-lg bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
         <div className="flex min-w-max gap-1">
-          {tabConfig.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.key;
             const Icon = tab.icon;
 
@@ -1045,14 +1118,65 @@ export default function Policies() {
           <ActiveIcon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
           <div>
             <h2 className="text-sm font-bold text-[var(--color-high-emphasis)]">
-              {tabConfig.find((tab) => tab.key === activeTab)?.label}
+              {activeTabConfig.label}
             </h2>
             <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
-              {tabConfig.find((tab) => tab.key === activeTab)?.description}
+              {activeTabConfig.description}
             </p>
           </div>
         </div>
       </div>
+
+      {activeTab === "approvals" && institutionType === "higher_ed" ? (
+        <Section
+          title="Academic Approval Workflow"
+          description="Choose how submitted academic requests move through the institution before final approval."
+        >
+          <div className="grid gap-3 lg:grid-cols-2">
+            {approvalWorkflowOptions.map((option) => {
+              const isSelected = policies.approvals.workflow === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => updateApprovals({ workflow: option.value })}
+                  className={
+                    isSelected
+                      ? "rounded-lg border border-[var(--color-primary)] bg-[#ecf8f6] p-4 text-left shadow-level-1"
+                      : "rounded-lg border border-[#d0d5dd] bg-white p-4 text-left transition hover:border-[var(--color-primary)] hover:bg-[#f8fafc]"
+                  }
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={
+                        isSelected
+                          ? "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-white"
+                          : "mt-0.5 h-5 w-5 rounded-full border border-[#cbd5e1] bg-white"
+                      }
+                      aria-hidden="true"
+                    >
+                      {isSelected ? <CheckCircle2 className="h-4 w-4" /> : null}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-bold text-[var(--color-high-emphasis)]">
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block text-sm text-[var(--color-low-emphasis)]">
+                        {option.description}
+                      </span>
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-4 py-3 text-sm text-[var(--color-low-emphasis)]">
+            Assigned department chairmen and college deans review their workflow steps. VPAA reviewers need Academic Approvals feature access.
+          </div>
+        </Section>
+      ) : null}
 
       {activeTab === "calendar" ? (
         <Section

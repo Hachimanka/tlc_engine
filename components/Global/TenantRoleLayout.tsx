@@ -20,7 +20,10 @@ import type {
 } from "@/features/tenant-feature-catalog";
 import { ICON_SVGS } from "@/public/icons";
 import type { TenantBranding } from "@/lib/tenantBranding";
-import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  readStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import {
   buildTenantLoginUrl,
   buildTenantMeUrl,
@@ -60,7 +63,13 @@ type TenantAccess = {
   enabledFeatureKeys: string[];
 };
 
-function TenantRoleLayoutSkeleton({ contentClassName }: { contentClassName?: string }) {
+function TenantRoleLayoutSkeleton({
+  branding,
+  contentClassName,
+}: {
+  branding?: TenantBranding | null;
+  contentClassName?: string;
+}) {
   const sectionClassName = [
     "min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)]",
     contentClassName,
@@ -69,7 +78,10 @@ function TenantRoleLayoutSkeleton({ contentClassName }: { contentClassName?: str
     .join(" ");
 
   return (
-    <TenantBrandScope className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+    <TenantBrandScope
+      branding={branding}
+      className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+    >
       <header className="flex h-20 shrink-0 items-center justify-between bg-[var(--color-primary)] px-8">
         <div className="flex items-center gap-4">
           <BrandedSkeletonBlock className="h-12 w-12 rounded-lg bg-white/30" />
@@ -165,6 +177,7 @@ export default function TenantRoleLayout({
   const pathname = usePathname();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [access, setAccess] = useState<TenantAccess | null>(null);
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
   const [accessError, setAccessError] = useState("");
   const [contentLoading, setContentLoading] = useState(false);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
@@ -207,6 +220,8 @@ export default function TenantRoleLayout({
     .join(" ");
 
   useEffect(() => {
+    setStoredBranding(readStoredTenantBranding());
+
     const checkAuth = async () => {
       setCheckingAuth(true);
       setAccessError("");
@@ -283,6 +298,7 @@ export default function TenantRoleLayout({
         if (requiredFeatureKey && !enabledFeatureKeys.includes(requiredFeatureKey)) {
           setAccess(payload);
           saveStoredTenantBranding(payload.branding ?? null);
+          setStoredBranding(payload.branding ?? null);
           setIsUnauthorized(true);
           setCheckingAuth(false);
           return;
@@ -290,6 +306,7 @@ export default function TenantRoleLayout({
 
         setAccess(payload);
         saveStoredTenantBranding(payload.branding ?? null);
+        setStoredBranding(payload.branding ?? null);
         setCheckingAuth(false);
       } catch {
         setAccessError("Unable to reach the authentication service. Please check your Supabase connection and try again.");
@@ -313,12 +330,21 @@ export default function TenantRoleLayout({
   }, [activeKey, contentLoading]);
 
   if (checkingAuth) {
-    return <TenantRoleLayoutSkeleton contentClassName={contentClassName} />;
+    return (
+      <TenantRoleLayoutSkeleton
+        branding={storedBranding}
+        contentClassName={contentClassName}
+      />
+    );
   }
 
   if (accessError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <TenantBrandScope
+        branding={access?.branding ?? storedBranding}
+        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+      <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
           <h1 className="text-lg font-bold text-[var(--color-high-emphasis)]">
             Access unavailable
@@ -326,17 +352,18 @@ export default function TenantRoleLayout({
           <p className="mt-2 text-sm text-red-600">{accessError}</p>
         </div>
       </div>
+      </TenantBrandScope>
     );
   }
 
   if (isUnauthorized) {
     return (
       <TenantBrandScope
-        branding={access?.branding}
+        branding={access?.branding ?? storedBranding}
         className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
       >
         <Navbar
-          branding={access?.branding}
+          branding={access?.branding ?? storedBranding}
           organizationName={access?.org.name}
           organizationSlug={access?.org.slug}
           profile={{
@@ -366,11 +393,11 @@ export default function TenantRoleLayout({
 
   return (
     <TenantBrandScope
-      branding={access?.branding}
+      branding={access?.branding ?? storedBranding}
       className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
     >
       <Navbar
-        branding={access?.branding}
+        branding={access?.branding ?? storedBranding}
         organizationName={access?.org.name}
         organizationSlug={access?.org.slug}
         profile={{

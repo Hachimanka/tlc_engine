@@ -8,6 +8,7 @@ import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import {
   clearStoredTenantBranding,
+  readStoredTenantBranding,
   saveStoredTenantBranding,
 } from "@/lib/tenantBrandingSession";
 import {
@@ -43,13 +44,27 @@ const MISSING_ORG_LOGIN_LINK_MESSAGE = "Please use your organization login link.
 function LoginSkeletonCard({
   branding,
   label = "Loading login",
+  useStoredBranding = false,
 }: {
   branding?: TenantBranding | null;
   label?: string;
+  useStoredBranding?: boolean;
 }) {
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
+
+  useEffect(() => {
+    if (!useStoredBranding || branding) {
+      return;
+    }
+
+    setStoredBranding(readStoredTenantBranding());
+  }, [branding, useStoredBranding]);
+
+  const activeBranding = branding ?? storedBranding;
+
   return (
     <TenantBrandScope
-      branding={branding}
+      branding={activeBranding}
       className="min-h-screen flex items-center justify-center bg-[var(--color-background)] px-4"
     >
       <div
@@ -173,6 +188,8 @@ function LoginContent() {
   };
 
   useEffect(() => {
+    setBranding(readStoredTenantBranding());
+
     const loadPublicBranding = async (slug: string) => {
       try {
         const response = await fetch(`/api/tenant/branding/public?slug=${encodeURIComponent(slug)}`);
@@ -183,8 +200,8 @@ function LoginContent() {
           saveStoredTenantBranding(payload.branding);
         }
       } catch {
-        setBranding(null);
-        clearStoredTenantBranding();
+        // Keep the last known tenant brand to avoid flashing the default login
+        // while the public branding endpoint is temporarily unavailable.
       }
     };
 
@@ -362,7 +379,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense
-      fallback={<LoginSkeletonCard label="Loading login" />}
+      fallback={<LoginSkeletonCard label="Loading login" useStoredBranding />}
     >
       <LoginContent />
     </Suspense>

@@ -192,7 +192,7 @@ const higherEducationFeatures: FeatureDefinition[] = [
   {
     key: "higher-subject-management",
     label: "Subject Management",
-    description: "Create subjects and submit them for Dean and VPAA approval.",
+    description: "Create subjects and submit them for academic approval.",
     group: "Academic Operations",
     institutionType: "higher_ed",
     status: "active",
@@ -233,8 +233,8 @@ const higherEducationFeatures: FeatureDefinition[] = [
   },
   {
     key: "higher-dean-vpaa-approvals",
-    label: "Dean / VPAA Approvals",
-    description: "Review and approve academic loads, subjects, and room assignments.",
+    label: "Academic Approvals",
+    description: "Review and approve academic requests assigned by workflow.",
     group: "Approvals",
     institutionType: "higher_ed",
     status: "active",

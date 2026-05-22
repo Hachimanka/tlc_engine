@@ -61,6 +61,9 @@ const normalizeRoleLabel = (value?: string | null) => {
   return value.trim().replace(/\s+/g, " ") || null;
 };
 
+const ROLE_LABEL_MIGRATION_ERROR =
+  "Account role names require the org_users.role_label column. Run scripts/db/20260521_org_user_feature_permissions.sql in Supabase, then try again.";
+
 type ManagedDepartmentRow = {
   id: string;
   name: string;
@@ -138,15 +141,7 @@ export async function PATCH(
     .maybeSingle<OrgUserRow>();
 
   if (isMissingRoleLabelError(targetError)) {
-    const fallbackTargetResult = await supabaseAdmin
-      .from("org_users")
-      .select("id, org_id, auth_user_id, role_id, full_name, email, employee_id, department, department_id, status, created_at")
-      .eq("id", userId)
-      .eq("org_id", context.org.id)
-      .maybeSingle<OrgUserRow>();
-
-    targetUser = fallbackTargetResult.data;
-    targetError = fallbackTargetResult.error;
+    return NextResponse.json({ error: ROLE_LABEL_MIGRATION_ERROR }, { status: 500 });
   }
 
   if (targetError || !targetUser?.id) {
@@ -246,22 +241,7 @@ export async function PATCH(
     .single();
 
   if (isMissingRoleLabelError(updateError)) {
-    const fallbackUpdateResult = await supabaseAdmin
-      .from("org_users")
-      .update({
-        full_name: nextFullName,
-        department: nextDepartment,
-        department_id: nextDepartmentId,
-        status: nextStatus,
-        updated_at: now,
-      })
-      .eq("id", targetUser.id)
-      .eq("org_id", context.org.id)
-      .select("id, full_name, email, employee_id, department, department_id, status, role_id, created_at")
-      .single();
-
-    updatedUser = fallbackUpdateResult.data as typeof updatedUser;
-    updateError = fallbackUpdateResult.error;
+    return NextResponse.json({ error: ROLE_LABEL_MIGRATION_ERROR }, { status: 500 });
   }
 
   if (updateError || !updatedUser) {
@@ -349,6 +329,98 @@ export async function PATCH(
         name: nextRoleLabel,
         requiresDepartment: false,
       },
+    },
+  });
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ userId: string }> },
+) {
+  const result = await loadTenantContext(req, { requireOrgAdmin: true });
+  if (result.error) {
+    return result.error;
+  }
+
+  const { userId } = await params;
+  if (!userId) {
+    return NextResponse.json({ error: "Missing user id." }, { status: 400 });
+  }
+
+  const { context } = result;
+
+  const { data: targetUser, error: targetError } = await supabaseAdmin
+    .from("org_users")
+    .select("id, org_id, auth_user_id, role_id, full_name")
+    .eq("id", userId)
+    .eq("org_id", context.org.id)
+    .maybeSingle<Pick<OrgUserRow, "id" | "org_id" | "auth_user_id" | "role_id" | "full_name">>();
+
+  if (targetError || !targetUser?.id) {
+    return NextResponse.json(
+      { error: targetError?.message || "Account not found in this organization." },
+      { status: 404 },
+    );
+  }
+
+  const { data: roleRow, error: roleError } = await supabaseAdmin
+    .from("roles")
+    .select("id, key, name")
+    .eq("id", targetUser.role_id)
+    .eq("org_id", context.org.id)
+    .maybeSingle<RoleRow>();
+
+  if (roleError || !roleRow?.id) {
+    return NextResponse.json({ error: "Role not found in this organization." }, { status: 404 });
+  }
+
+  if (roleRow.key === "org_admin") {
+    return NextResponse.json(
+      { error: "The protected admin account cannot be deleted." },
+      { status: 400 },
+    );
+  }
+
+  if (targetUser.auth_user_id === context.authUser.id) {
+    return NextResponse.json(
+      { error: "You cannot delete your own account." },
+      { status: 400 },
+    );
+  }
+
+  const { error: deleteOrgUserError } = await supabaseAdmin
+    .from("org_users")
+    .delete()
+    .eq("id", targetUser.id)
+    .eq("org_id", context.org.id);
+
+  if (deleteOrgUserError) {
+    return NextResponse.json(
+      { error: deleteOrgUserError.message || "Failed to delete account." },
+      { status: 500 },
+    );
+  }
+
+  const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
+    targetUser.auth_user_id,
+  );
+
+  if (deleteAuthError) {
+    return NextResponse.json(
+      {
+        error:
+          deleteAuthError.message ||
+          "Account was removed from the organization, but the auth user could not be deleted.",
+      },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({
+    deleted: true,
+    user: {
+      id: targetUser.id,
+      fullName: targetUser.full_name,
     },
   });
 }

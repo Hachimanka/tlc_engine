@@ -6,7 +6,10 @@ import Image from "next/image";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import type { TenantBranding } from "@/lib/tenantBranding";
-import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  readStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import {
   buildTenantLoginUrl,
   buildTenantMeUrl,
@@ -35,6 +38,8 @@ function TenantPasswordSetupContent() {
   const logoAlt = branding?.logoAlt || "TLC Logo";
 
   useEffect(() => {
+    setBranding(readStoredTenantBranding());
+
     const checkSession = async () => {
       const expectedSlug = getExpectedTenantSlug();
       const loginUrl = buildTenantLoginUrl(expectedSlug);
@@ -89,7 +94,6 @@ function TenantPasswordSetupContent() {
             saveStoredTenantBranding(payload.branding);
           }
         } catch {
-          setBranding(null);
           setError("Unable to verify organization access. Please try again.");
           setCheckingSession(false);
           return;
