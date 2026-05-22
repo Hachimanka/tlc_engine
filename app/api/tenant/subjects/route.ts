@@ -4,6 +4,8 @@ import {
   SUBJECT_APPROVAL_TYPE,
   canSubmitSubject,
   canUseHigherEdApprovals,
+  getAcademicApprovalWorkflow,
+  getInitialApprovalStatus,
   getSubjectPayload,
   jsonError,
   normalizeSubjectCode,
@@ -54,6 +56,7 @@ const mapApprovedSubject = (row: AcademicSubjectRow) => ({
   description: row.description ?? "",
   level: row.year_level ?? "",
   updatedAt: row.updated_at,
+  chairmanRemarks: null,
   deanRemarks: null,
   vpaaRemarks: null,
 });
@@ -77,6 +80,7 @@ const mapSubjectRequest = (row: AcademicApprovalRow) => {
     description: payload.description,
     level: payload.yearLevel,
     updatedAt: row.updated_at,
+    chairmanRemarks: row.chairman_remarks,
     deanRemarks: row.dean_remarks,
     vpaaRemarks: row.vpaa_remarks,
   };
@@ -213,6 +217,8 @@ export async function POST(req: Request) {
     ...subjectPayload,
     subjectCode,
   };
+  const workflow = getAcademicApprovalWorkflow(context.org.onboarding_config);
+  const initialStatus = getInitialApprovalStatus(workflow);
 
   const { data: createdRequest, error: createError } = await supabaseAdmin
     .from("academic_approval_requests")
@@ -220,7 +226,7 @@ export async function POST(req: Request) {
       {
         org_id: context.org.id,
         request_type: SUBJECT_APPROVAL_TYPE,
-        status: "pending_dean",
+        status: initialStatus,
         title: requestPayload.subjectTitle,
         target_label: requestPayload.subjectCode,
         payload: requestPayload,
@@ -228,7 +234,8 @@ export async function POST(req: Request) {
         decision_history: [
           {
             action: "submitted",
-            status: "pending_dean",
+            status: initialStatus,
+            workflow,
             actor_org_user_id: context.orgUser.id,
             actor_name: context.orgUser.full_name,
             actor_role: context.role.key,

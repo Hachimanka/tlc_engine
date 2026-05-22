@@ -1329,7 +1329,7 @@ export default function RoomsTable() {
 
         {canManage && selectedRoom && subjects.length === 0 ? (
           <p className="text-sm text-[var(--color-low-emphasis)]">
-            Approved subjects will appear here after Dean and VPAA approval.
+            Approved subjects will appear here after academic approval.
           </p>
         ) : null}
       </section>

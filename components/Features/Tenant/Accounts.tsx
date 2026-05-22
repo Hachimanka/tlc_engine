@@ -1108,33 +1108,37 @@ export default function Accounts() {
                       </div>
                     </div>
                   ) : null}
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {selectedUser.roleKey !== "org_admin" ? (
                       <button
                         type="button"
                         onClick={() => openDeleteConfirm(selectedUser)}
-                        className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        Delete Account
+                        <span className="truncate">Delete Account</span>
                       </button>
-                    ) : null}
+                    ) : (
+                      <span aria-hidden="true" />
+                    )}
                     <button
                       type="button"
                       onClick={() => handleResetPassword(selectedUser)}
                       disabled={resettingUserId === selectedUser.id || selectedUser.status !== "active"}
-                      className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border border-[var(--color-default)] px-3 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                      {resettingUserId === selectedUser.id ? "Resetting..." : "Reset Password"}
+                      <span className="truncate">
+                        {resettingUserId === selectedUser.id ? "Resetting..." : "Reset Password"}
+                      </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setPanelMode("edit")}
-                      className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)]"
+                      className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md bg-[var(--color-primary)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--color-light-primary)]"
                     >
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                      Edit Account
+                      <span className="truncate">Edit Account</span>
                     </button>
                   </div>
                 </div>

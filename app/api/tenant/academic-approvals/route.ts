@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import {
+  canReviewApprovalRequest,
   canUseHigherEdApprovals,
-  canViewApprovals,
+  canViewAcademicApprovals,
   jsonError,
   mapApprovalRequest,
   type AcademicApprovalRow,
@@ -30,8 +31,8 @@ export async function GET(req: Request) {
     return jsonError("Academic approvals are available for Higher Ed institutions only.", 400);
   }
 
-  if (!canViewApprovals(context)) {
-    return jsonError("Only Deans, VPAA, or org admins can view academic approvals.", 403);
+  if (!(await canViewAcademicApprovals(context))) {
+    return jsonError("Only assigned Chairmen, Deans, VPAA, or org admins can view academic approvals.", 403);
   }
 
   const url = new URL(req.url);
@@ -79,14 +80,15 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    requests: (requests ?? []).map((row) => {
+    requests: await Promise.all((requests ?? []).map(async (row) => {
       const request = row as AcademicApprovalRow;
       const submitter = request.submitted_by_org_user_id
         ? submittersById.get(request.submitted_by_org_user_id)
         : undefined;
+      const canAct = await canReviewApprovalRequest(context, request);
 
       return {
-        ...mapApprovalRequest(request, context),
+        ...mapApprovalRequest(request, canAct),
         submittedBy: submitter
           ? {
               id: submitter.id,
@@ -95,6 +97,6 @@ export async function GET(req: Request) {
             }
           : null,
       };
-    }),
+    })),
   });
 }

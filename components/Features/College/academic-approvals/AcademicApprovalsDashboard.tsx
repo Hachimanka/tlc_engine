@@ -20,6 +20,7 @@ type ApprovalRequestType =
   | "adjustment_request";
 
 type ApprovalStatus =
+  | "pending_chairman"
   | "pending_dean"
   | "pending_vpaa"
   | "approved"
@@ -34,6 +35,7 @@ type ApprovalRequest = {
   targetLabel: string | null;
   payload: unknown;
   submittedBy: { id: string; name: string; email: string } | null;
+  chairmanRemarks: string | null;
   deanRemarks: string | null;
   vpaaRemarks: string | null;
   decisionHistory: unknown[];
@@ -80,6 +82,7 @@ const categories: { key: ApprovalRequestType | "history"; label: string; empty: 
 const closedStatuses = new Set<ApprovalStatus>(["approved", "returned", "rejected"]);
 
 const statusLabel: Record<ApprovalStatus, string> = {
+  pending_chairman: "Pending Chairman",
   pending_dean: "Pending Dean",
   pending_vpaa: "Pending VPAA",
   approved: "Approved",
@@ -88,6 +91,7 @@ const statusLabel: Record<ApprovalStatus, string> = {
 };
 
 const statusClass: Record<ApprovalStatus, string> = {
+  pending_chairman: "bg-purple-50 text-purple-700 border border-purple-200",
   pending_dean: "bg-amber-50 text-amber-700 border border-amber-200",
   pending_vpaa: "bg-blue-50 text-blue-700 border border-blue-200",
   approved: "bg-green-50 text-green-700 border border-green-200",
@@ -232,6 +236,7 @@ export default function AcademicApprovalsDashboard() {
 
   const stats = useMemo(
     () => ({
+      chairman: requests.filter((request) => request.status === "pending_chairman").length,
       dean: requests.filter((request) => request.status === "pending_dean").length,
       vpaa: requests.filter((request) => request.status === "pending_vpaa").length,
       approved: requests.filter((request) => request.status === "approved").length,
@@ -319,7 +324,8 @@ export default function AcademicApprovalsDashboard() {
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
+        <StatCard label="Pending Chairman" value={stats.chairman} icon={<Clock className="h-5 w-5" />} />
         <StatCard label="Pending Dean" value={stats.dean} icon={<Clock className="h-5 w-5" />} />
         <StatCard label="Pending VPAA" value={stats.vpaa} icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="Approved" value={stats.approved} icon={<CheckCircle className="h-5 w-5" />} />
@@ -407,6 +413,7 @@ export default function AcademicApprovalsDashboard() {
                       <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
                         <span>Submitted: {formatDate(request.submittedAt)}</span>
                         <span>By: {request.submittedBy?.name || "Unknown submitter"}</span>
+                        {request.chairmanRemarks ? <span>Chairman remarks: {request.chairmanRemarks}</span> : null}
                         {request.deanRemarks ? <span>Dean remarks: {request.deanRemarks}</span> : null}
                         {request.vpaaRemarks ? <span>VPAA remarks: {request.vpaaRemarks}</span> : null}
                       </div>

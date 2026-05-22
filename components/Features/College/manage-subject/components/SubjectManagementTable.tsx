@@ -7,6 +7,7 @@ import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 type SubjectStatus =
+  | "pending_chairman"
   | "pending_dean"
   | "pending_vpaa"
   | "approved"
@@ -30,6 +31,7 @@ type Subject = {
   level: string;
   updatedAt: string;
   deanRemarks: string | null;
+  chairmanRemarks?: string | null;
   vpaaRemarks: string | null;
 };
 
@@ -63,6 +65,7 @@ const departmentSelectOptions = departmentOptions.filter((option) => option !== 
 const levelSelectOptions = levelOptions.filter((option) => option !== "All Levels");
 
 const statusLabel: Record<SubjectStatus, string> = {
+  pending_chairman: "Pending Chairman",
   pending_dean: "Pending Dean",
   pending_vpaa: "Pending VPAA",
   approved: "Approved",
@@ -71,6 +74,7 @@ const statusLabel: Record<SubjectStatus, string> = {
 };
 
 const statusColor: Record<SubjectStatus, string> = {
+  pending_chairman: "text-purple-600",
   pending_dean: "text-amber-600",
   pending_vpaa: "text-blue-600",
   approved: "text-[var(--color-primary)]",
@@ -269,7 +273,7 @@ export default function SubjectManagementTable() {
           Subject Management
         </h1>
         <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
-          Create subjects and track Dean/VPAA approval status.
+          Create subjects and track the configured academic approval workflow.
         </p>
       </div>
 
@@ -573,7 +577,7 @@ export default function SubjectManagementTable() {
 
             <div className="px-5 py-5">
               <p className="mb-3 text-sm font-medium text-[var(--color-high-emphasis)]">
-                You are about to submit the following subject for Dean approval:
+                You are about to submit the following subject for academic approval:
               </p>
 
               <div className="mb-4 space-y-1 rounded-lg bg-[var(--color-background)] p-4">
@@ -583,7 +587,7 @@ export default function SubjectManagementTable() {
 
               <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm text-amber-700">
-                  <span className="font-semibold">Note:</span> After Dean approval, this subject will move to VPAA for final approval.
+                  <span className="font-semibold">Note:</span> This request will follow the approval workflow configured in Academic Policies.
                 </p>
               </div>
 

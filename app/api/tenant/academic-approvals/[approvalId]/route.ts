@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import {
   SUBJECT_APPROVAL_TYPE,
   buildDecisionHistory,
-  canReviewStatus,
+  canReviewApprovalRequest,
+  canViewAcademicApprovals,
   canUseHigherEdApprovals,
-  canViewApprovals,
   finalStatuses,
+  getAcademicApprovalWorkflow,
+  getNextApprovalStatus,
   getSubjectPayload,
   jsonError,
   type AcademicApprovalRow,
@@ -83,8 +85,8 @@ export async function PATCH(
     return jsonError("Academic approvals are available for Higher Ed institutions only.", 400);
   }
 
-  if (!canViewApprovals(context)) {
-    return jsonError("Only Deans, VPAA, or org admins can review academic approvals.", 403);
+  if (!(await canViewAcademicApprovals(context))) {
+    return jsonError("Only assigned Chairmen, Deans, VPAA, or org admins can review academic approvals.", 403);
   }
 
   const { approvalId } = await params;
@@ -127,23 +129,25 @@ export async function PATCH(
     return jsonError("This approval request is already closed.", 400);
   }
 
-  if (!canReviewStatus(context, request.status)) {
+  if (!(await canReviewApprovalRequest(context, request))) {
     return jsonError("Your role cannot review this approval step.", 403);
   }
 
   const now = new Date().toISOString();
+  const reviewerIsChairmanStep = request.status === "pending_chairman";
   const reviewerIsDeanStep = request.status === "pending_dean";
+  const workflow = getAcademicApprovalWorkflow(context.org.onboarding_config);
   let nextStatus: ApprovalStatus;
 
   if (decision === "approve") {
-    nextStatus = reviewerIsDeanStep ? "pending_vpaa" : "approved";
+    nextStatus = getNextApprovalStatus(workflow, request.status);
   } else {
     nextStatus = decision === "return" ? "returned" : "rejected";
   }
 
   if (
     decision === "approve" &&
-    request.status === "pending_vpaa" &&
+    nextStatus === "approved" &&
     request.request_type === SUBJECT_APPROVAL_TYPE
   ) {
     try {
@@ -173,6 +177,15 @@ export async function PATCH(
         reviewed_by_dean_org_user_id: context.orgUser.id,
         dean_remarks: remarks || null,
         dean_reviewed_at: now,
+        decision_history: history,
+        updated_at: now,
+      }
+    : reviewerIsChairmanStep
+    ? {
+        status: nextStatus,
+        reviewed_by_chairman_org_user_id: context.orgUser.id,
+        chairman_remarks: remarks || null,
+        chairman_reviewed_at: now,
         decision_history: history,
         updated_at: now,
       }
