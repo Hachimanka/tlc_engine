@@ -25,34 +25,27 @@ type RoomRequest = {
   type?: string;
   capacity?: number | string;
   status?: string;
+  section?: string;
+  yearLevel?: string;
+};
+
+type RawRoomAssignmentRow = {
+  id: string;
+  subject_id: string;
+  room_id: string;
+  section: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+  updated_at: string;
 };
 
 const roomSelect = "id, room_name, building, room_type, capacity, status, created_at, updated_at";
 const subjectSelect = "id, subject_title, subject_code, department, year_level, meetings_per_week, units";
-const assignmentSelect = `
-  id,
-  section,
-  day_of_week,
-  start_time,
-  end_time,
-  created_at,
-  updated_at,
-  subject:academic_subjects!academic_room_assignments_subject_id_fkey(
-    id,
-    subject_title,
-    subject_code,
-    department,
-    year_level,
-    meetings_per_week,
-    units
-  ),
-  room:academic_rooms!academic_room_assignments_room_id_fkey(
-    id,
-    room_name,
-    building,
-    room_type
-  )
-`;
+const rawAssignmentSelect =
+  "id, subject_id, room_id, section, day_of_week, start_time, end_time, created_at, updated_at";
+const roomAssignmentTables = ["academic_room_assignment", "academic_room_assignments"];
 
 const getRoomValues = (payload: RoomRequest) => ({
   name: normalizeText(payload.name),
@@ -61,6 +54,71 @@ const getRoomValues = (payload: RoomRequest) => ({
   capacity: parsePositiveInteger(payload.capacity),
   status: normalizeRoomStatus(payload.status),
 });
+
+const isMissingTableError = (error: { code?: string; message?: string } | null | undefined) =>
+  error?.code === "42P01" ||
+  error?.message?.toLowerCase().includes("schema cache") ||
+  error?.message?.toLowerCase().includes("does not exist");
+
+async function loadRoomAssignments(orgId: string) {
+  let lastError: { code?: string; message?: string } | null = null;
+
+  for (const tableName of roomAssignmentTables) {
+    const result = await supabaseAdmin
+      .from(tableName)
+      .select(rawAssignmentSelect)
+      .eq("org_id", orgId)
+      .order("day_of_week", { ascending: true })
+      .order("start_time", { ascending: true });
+
+    if (!result.error) {
+      return {
+        data: (result.data ?? []) as RawRoomAssignmentRow[],
+        error: null,
+      };
+    }
+
+    lastError = result.error;
+
+    if (!isMissingTableError(result.error)) {
+      break;
+    }
+  }
+
+  return { data: [] as RawRoomAssignmentRow[], error: lastError };
+}
+
+const hydrateAssignments = (
+  assignments: RawRoomAssignmentRow[],
+  subjects: AcademicSubjectOptionRow[],
+  rooms: AcademicRoomRow[],
+): AcademicRoomAssignmentRow[] => {
+  const subjectsById = new Map(subjects.map((subject) => [subject.id, subject]));
+  const roomsById = new Map(rooms.map((room) => [room.id, room]));
+
+  return assignments.map((assignment) => {
+    const room = roomsById.get(assignment.room_id);
+
+    return {
+      id: assignment.id,
+      section: assignment.section,
+      day_of_week: assignment.day_of_week,
+      start_time: assignment.start_time,
+      end_time: assignment.end_time,
+      created_at: assignment.created_at,
+      updated_at: assignment.updated_at,
+      subject: subjectsById.get(assignment.subject_id) ?? null,
+      room: room
+        ? {
+            id: room.id,
+            room_name: room.room_name,
+            building: room.building,
+            room_type: room.room_type,
+          }
+        : null,
+    };
+  });
+};
 
 async function hasDuplicateRoom(
   orgId: string,
@@ -97,10 +155,10 @@ export async function GET(req: Request) {
   const { context } = result;
 
   if (!canUseHigherEdRooms(context)) {
-    return jsonError("Room management is available for Higher Ed institutions only.", 400);
+    return jsonError("Room management is available for this institution type.", 400);
   }
 
-  const [roomsResult, subjectsResult, assignmentsResult] = await Promise.all([
+  const [roomsResult, subjectsResult] = await Promise.all([
     supabaseAdmin
       .from("academic_rooms")
       .select(roomSelect)
@@ -111,12 +169,6 @@ export async function GET(req: Request) {
       .select(subjectSelect)
       .eq("org_id", context.org.id)
       .order("subject_code", { ascending: true }),
-    supabaseAdmin
-      .from("academic_room_assignments")
-      .select(assignmentSelect)
-      .eq("org_id", context.org.id)
-      .order("day_of_week", { ascending: true })
-      .order("start_time", { ascending: true }),
   ]);
 
   if (roomsResult.error) {
@@ -127,16 +179,20 @@ export async function GET(req: Request) {
     return jsonError(subjectsResult.error.message || "Failed to load approved subjects.", 500);
   }
 
+  const assignmentsResult = await loadRoomAssignments(context.org.id);
+
   if (assignmentsResult.error) {
     return jsonError(assignmentsResult.error.message || "Failed to load room schedules.", 500);
   }
 
+  const rooms = (roomsResult.data ?? []) as AcademicRoomRow[];
+  const subjects = (subjectsResult.data ?? []) as AcademicSubjectOptionRow[];
+  const assignments = hydrateAssignments(assignmentsResult.data, subjects, rooms);
+
   return NextResponse.json({
-    rooms: ((roomsResult.data ?? []) as AcademicRoomRow[]).map(mapRoom),
-    subjects: ((subjectsResult.data ?? []) as AcademicSubjectOptionRow[]).map(mapSubjectOption),
-    assignments: ((assignmentsResult.data ?? []) as AcademicRoomAssignmentRow[]).map(
-      mapRoomAssignment,
-    ),
+    rooms: rooms.map(mapRoom),
+    subjects: subjects.map(mapSubjectOption),
+    assignments: assignments.map(mapRoomAssignment),
     canManage: canManageRooms(context),
   });
 }
@@ -150,7 +206,7 @@ export async function POST(req: Request) {
   const { context } = result;
 
   if (!canUseHigherEdRooms(context)) {
-    return jsonError("Room management is available for Higher Ed institutions only.", 400);
+    return jsonError("Room management is available for this institution type.", 400);
   }
 
   if (!canManageRooms(context)) {
@@ -216,7 +272,7 @@ export async function PATCH(req: Request) {
   const { context } = result;
 
   if (!canUseHigherEdRooms(context)) {
-    return jsonError("Room management is available for Higher Ed institutions only.", 400);
+    return jsonError("Room management is available for this institution type.", 400);
   }
 
   if (!canManageRooms(context)) {

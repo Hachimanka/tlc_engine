@@ -13,6 +13,8 @@ export type AcademicRoomRow = {
   room_type: string;
   capacity: number | string | null;
   status: RoomStatus | string | null;
+  section?: string | null;
+  year_level?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -60,7 +62,7 @@ export const validRoomScheduleDays = new Set([
 ]);
 
 export const canUseHigherEdRooms = (context: TenantContext) =>
-  context.institutionType === "higher_ed";
+  context.institutionType === "higher_ed" || context.institutionType === "deped";
 
 export const canManageRooms = (context: TenantContext) =>
   context.isOrgAdmin ||
@@ -134,6 +136,8 @@ export const mapRoom = (row: AcademicRoomRow) => ({
   type: row.room_type,
   capacity: parsePositiveInteger(row.capacity, 1),
   status: normalizeRoomStatus(row.status),
+  section: row.section ?? "",
+  yearLevel: row.year_level ?? "",
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
