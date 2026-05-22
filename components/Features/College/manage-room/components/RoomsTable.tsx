@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import { supabase } from "@/lib/supabaseClient";
 
 type RoomStatus = "available" | "occupied" | "under_maintenance";
@@ -286,6 +286,78 @@ function RoomScheduleGrid({
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoomsTableSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <BrandedSkeletonBlock className="h-8 w-64" strong />
+          <BrandedSkeletonBlock className="h-4 w-44" />
+        </div>
+        <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
+      </div>
+
+      <section className="rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <BrandedSkeletonBlock className="h-10 min-w-0 flex-1 rounded-lg" />
+          <BrandedSkeletonBlock className="h-10 w-full rounded-lg lg:w-[180px]" />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+        <div className="min-w-full">
+          <div className="grid grid-cols-6 gap-4 bg-[var(--color-primary)] px-4 py-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <BrandedSkeletonBlock key={index} className="h-3 bg-white/30" />
+            ))}
+          </div>
+          <div className="divide-y divide-[var(--color-default)]">
+            {Array.from({ length: 4 }).map((_, row) => (
+              <div key={row} className="grid grid-cols-6 gap-4 px-4 py-4">
+                {Array.from({ length: 6 }).map((__, column) => (
+                  <BrandedSkeletonBlock key={column} className="h-3" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <BrandedSkeletonBlock className="h-10 w-10 rounded-lg" strong />
+            <div className="space-y-2">
+              <BrandedSkeletonBlock className="h-6 w-40" strong />
+              <BrandedSkeletonBlock className="h-4 w-32" />
+            </div>
+          </div>
+          <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-[var(--color-primary)] bg-white">
+          <div className="grid grid-cols-8 bg-[var(--color-primary)]">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="border-r border-white/20 px-3 py-4 last:border-r-0">
+                <BrandedSkeletonBlock className="mx-auto h-3 w-16 bg-white/30" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-8">
+            {Array.from({ length: 40 }).map((_, index) => (
+              <div key={index} className="h-16 border-b border-r border-[var(--color-default)] p-2">
+                {index === 9 || index === 27 ? (
+                  <BrandedSkeletonBlock className="h-10 rounded-md" strong />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -734,13 +806,7 @@ export default function RoomsTable() {
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading rooms"
-        useStoredBranding
-      />
-    );
+    return <RoomsTableSkeleton />;
   }
 
   return (

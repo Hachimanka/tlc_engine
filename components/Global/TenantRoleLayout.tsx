@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import TenantFeatureContent from "@/components/Global/TenantFeatureContent";
 import {
@@ -59,6 +59,98 @@ type TenantAccess = {
   };
   enabledFeatureKeys: string[];
 };
+
+function TenantRoleLayoutSkeleton({ contentClassName }: { contentClassName?: string }) {
+  const sectionClassName = [
+    "min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)]",
+    contentClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <TenantBrandScope className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]">
+      <header className="flex h-20 shrink-0 items-center justify-between bg-[var(--color-primary)] px-8">
+        <div className="flex items-center gap-4">
+          <BrandedSkeletonBlock className="h-12 w-12 rounded-lg bg-white/30" />
+          <div className="space-y-2">
+            <BrandedSkeletonBlock className="h-4 w-64 bg-white/30" />
+            <BrandedSkeletonBlock className="h-3 w-32 bg-white/30" />
+          </div>
+        </div>
+        <div className="flex items-center gap-5">
+          <BrandedSkeletonBlock className="h-9 w-9 rounded-full bg-white/30" />
+          <BrandedSkeletonBlock className="h-10 w-36 rounded-full bg-white/30" />
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-[320px] shrink-0 bg-[var(--color-sidebar)] px-3 py-7">
+          <div className="flex items-center gap-4 px-2">
+            <BrandedSkeletonBlock className="h-14 w-14 rounded-full" />
+            <div className="space-y-2">
+              <BrandedSkeletonBlock className="h-4 w-32" strong />
+              <BrandedSkeletonBlock className="h-3 w-24" />
+            </div>
+          </div>
+          <div className="my-5 h-px bg-[var(--color-primary)]/70" />
+          <BrandedSkeletonBlock className="h-14 rounded-lg" strong />
+        </aside>
+
+        <section className={sectionClassName}>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <BrandedSkeletonBlock className="h-8 w-72" strong />
+              <BrandedSkeletonBlock className="h-4 w-96" />
+            </div>
+
+            <div className="rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1">
+              <div className="flex flex-wrap gap-3">
+                <BrandedSkeletonBlock className="h-10 min-w-[260px] flex-1 rounded-lg" />
+                <BrandedSkeletonBlock className="h-10 w-48 rounded-lg" />
+                <BrandedSkeletonBlock className="h-10 w-40 rounded-lg" strong />
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+              <div className="grid grid-cols-5 gap-4 bg-[var(--color-primary)] px-4 py-3">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <BrandedSkeletonBlock key={index} className="h-3 bg-white/30" />
+                ))}
+              </div>
+              <div className="divide-y divide-[var(--color-default)]">
+                {Array.from({ length: 5 }).map((_, row) => (
+                  <div key={row} className="grid grid-cols-5 gap-4 px-4 py-4">
+                    {Array.from({ length: 5 }).map((__, column) => (
+                      <BrandedSkeletonBlock key={column} className="h-3" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+              <div className="grid grid-cols-8 gap-0 bg-[var(--color-primary)]">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className="border-r border-white/20 px-3 py-4 last:border-r-0">
+                    <BrandedSkeletonBlock className="mx-auto h-3 w-16 bg-white/30" />
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-8">
+                {Array.from({ length: 24 }).map((_, index) => (
+                  <div key={index} className="h-16 border-b border-r border-[var(--color-default)] p-3">
+                    {index % 11 === 0 ? <BrandedSkeletonBlock className="h-8 rounded-md" strong /> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </TenantBrandScope>
+  );
+}
 
 export default function TenantRoleLayout({
   tenantType,
@@ -221,13 +313,7 @@ export default function TenantRoleLayout({
   }, [activeKey, contentLoading]);
 
   if (checkingAuth) {
-    return (
-      <TenantLoadingScreen
-        branding={access?.branding}
-        label="Checking session"
-        useStoredBranding
-      />
-    );
+    return <TenantRoleLayoutSkeleton contentClassName={contentClassName} />;
   }
 
   if (accessError) {
@@ -310,11 +396,27 @@ export default function TenantRoleLayout({
         />
         <section className={sectionClassName}>
           {contentLoading ? (
-            <TenantLoadingScreen
-              branding={access?.branding}
-              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-              label="Loading section"
-            />
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <BrandedSkeletonBlock className="h-8 w-72" strong />
+                <BrandedSkeletonBlock className="h-4 w-96" />
+              </div>
+              <div className="rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1">
+                <BrandedSkeletonBlock className="h-10 rounded-lg" />
+              </div>
+              <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-5 gap-4 border-b border-[var(--color-default)] px-4 py-4 last:border-b-0"
+                  >
+                    {Array.from({ length: 5 }).map((__, column) => (
+                      <BrandedSkeletonBlock key={column} className="h-3" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : selectedFeatureKey ? (
             <TenantFeatureContent featureKey={selectedFeatureKey}>
               {children}

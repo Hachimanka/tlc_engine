@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import SubjectTable from "@/components/Features/Deped/manage-subject/components/SubjectTable";
 import SubjectManagementForm, {
   type SubjectFormValues,
@@ -8,25 +8,96 @@ import SubjectManagementForm, {
 import { type SubjectRow } from "@/components/Features/Deped/manage-subject/components/SubjectTable";
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import { ICON_SVGS } from "@/public/icons";
+import { supabase } from "@/lib/supabaseClient";
+
+type DepedSubjectsPayload = {
+  subjects?: SubjectRow[];
+  subject?: SubjectRow;
+  error?: string;
+};
+
+const parseDurationMinutes = (value: string) => {
+  const match = value.match(/\d+/);
+  return match ? Number(match[0]) : 0;
+};
 
 export default function TenantPage() {
   const [subjectRows, setSubjectRows] = useState<SubjectRow[]>([]);
   const [isCreateSubjectOpen, setIsCreateSubjectOpen] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCreateSubject = (values: SubjectFormValues) => {
-    setSubjectRows((currentRows) => [
-      {
-        id: `sub-${Date.now()}`,
+  const getAccessToken = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.access_token ?? "";
+  };
+
+  const loadSubjects = useCallback(async () => {
+    setLoadError("");
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      setLoadError("Your session expired. Please log in again.");
+      return;
+    }
+
+    const response = await fetch("/api/tenant/deped/subjects", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const payload: DepedSubjectsPayload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setLoadError(payload.error || "Unable to load DepEd subjects.");
+      return;
+    }
+
+    setSubjectRows(payload.subjects ?? []);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSubjects();
+  }, [loadSubjects]);
+
+  const handleCreateSubject = async (values: SubjectFormValues) => {
+    setSubmitError("");
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      setSubmitError("Your session expired. Please log in again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const response = await fetch("/api/tenant/deped/subjects", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
         subjectTitle: values.subjectTitle,
         department: values.department,
         yearLevel: values.yearLevel,
-        classDuration: values.classDuration,
+        classDurationMinutes: parseDurationMinutes(values.classDuration),
         dateCreated: values.dateCreated,
-        status: "Pending",
         description: values.description,
-      },
-      ...currentRows,
-    ]);
+      }),
+    });
+    const payload: DepedSubjectsPayload = await response.json().catch(() => ({}));
+    setIsSubmitting(false);
+
+    if (!response.ok || !payload.subject) {
+      setSubmitError(payload.error || "Unable to create DepEd subject.");
+      return;
+    }
+
+    setSubjectRows((currentRows) => [payload.subject as SubjectRow, ...currentRows]);
     setIsCreateSubjectOpen(false);
   };
 
@@ -34,8 +105,13 @@ export default function TenantPage() {
     <>
       <SubjectManagementForm
         isOpen={isCreateSubjectOpen}
-        onClose={() => setIsCreateSubjectOpen(false)}
+        onClose={() => {
+          setSubmitError("");
+          setIsCreateSubjectOpen(false);
+        }}
         onSubmit={handleCreateSubject}
+        submitError={submitError}
+        isSubmitting={isSubmitting}
       />
 
       <TenantRoleLayout
@@ -53,9 +129,18 @@ export default function TenantPage() {
             </h1>
           </div>
 
+          {loadError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          ) : null}
+
           <SubjectTable
             subjectRows={subjectRows}
-            onCreateSubjectClick={() => setIsCreateSubjectOpen(true)}
+            onCreateSubjectClick={() => {
+              setSubmitError("");
+              setIsCreateSubjectOpen(true);
+            }}
           />
         </div>
       </TenantRoleLayout>
