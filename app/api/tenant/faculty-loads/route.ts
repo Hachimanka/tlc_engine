@@ -154,6 +154,11 @@ const splitGroupedIds = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const normalizeSubjectSectionKey = (
+  subjectTitle?: string | null,
+  section?: string | null,
+) => `${(subjectTitle ?? "").trim().toLowerCase()}|${normalizeSection(section ?? "").toLowerCase()}`;
+
 const groupAvailableSubjects = (rows: SubjectRoomAssignmentRow[]) => {
   const grouped = new Map<string, ReturnType<typeof mapAvailableSubject>>();
 
@@ -602,6 +607,82 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "You can only assign subjects within your department." },
       { status: 403 },
+    );
+  }
+
+  const { data: subjectSectionAssignments, error: subjectSectionAssignmentsError } =
+    await supabaseAdmin
+      .from("academic_faculty_load_assignments")
+      .select(
+        `
+          faculty_org_user_id,
+          room_assignment:academic_room_assignments!academic_faculty_load_assignments_room_assignment_id_fkey(
+            id,
+            section,
+            day_of_week,
+            start_time,
+            end_time,
+            subject:academic_subjects!academic_room_assignments_subject_id_fkey(
+              id,
+              subject_title,
+              subject_code,
+              department,
+              year_level,
+              units
+            ),
+            room:academic_rooms!academic_room_assignments_room_id_fkey(
+              id,
+              room_name,
+              building
+            )
+          )
+        `,
+      )
+      .eq("org_id", context.org.id);
+
+  if (subjectSectionAssignmentsError) {
+    return NextResponse.json(
+      {
+        error:
+          subjectSectionAssignmentsError.message ||
+          "Failed to check existing subject assignments.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const selectedSubjectSectionKeys = new Set(
+    verifiedAssignments.map((assignment) =>
+      normalizeSubjectSectionKey(assignment.subject?.subject_title, assignment.section),
+    ),
+  );
+  const subjectAssignedToOtherFaculty = (
+    (subjectSectionAssignments ?? []) as unknown as FacultyLoadAssignmentRow[]
+  ).find((assignment) => {
+    if (assignment.faculty_org_user_id === facultyId) {
+      return false;
+    }
+
+    const roomAssignment = assignment.room_assignment;
+
+    if (!roomAssignment?.subject?.subject_title) {
+      return false;
+    }
+
+    return selectedSubjectSectionKeys.has(
+      normalizeSubjectSectionKey(roomAssignment.subject.subject_title, roomAssignment.section),
+    );
+  });
+
+  if (subjectAssignedToOtherFaculty?.room_assignment?.subject?.subject_title) {
+    const subject = subjectAssignedToOtherFaculty.room_assignment.subject;
+    const section = normalizeSection(subjectAssignedToOtherFaculty.room_assignment.section) || "-";
+
+    return NextResponse.json(
+      {
+        error: `${subject.subject_title} section ${section} is already assigned to another teacher.`,
+      },
+      { status: 409 },
     );
   }
 
