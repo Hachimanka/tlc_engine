@@ -1,12 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import AddFacultyForms, {
-	type FacultyAccountOption,
-	type FacultyFormValues,
-} from "./AddFacultyForms";
+import { useEffect, useMemo, useState } from "react";
 import SubjectAssignmentModal, { type SubjectOption } from "./SubjectAssignmentModal";
 import VersionHistory from "./VersionHistory";
+import { supabase } from "@/lib/supabaseClient";
 
 type FacultyRow = {
 	id: string;
@@ -14,6 +11,11 @@ type FacultyRow = {
 	name: string;
 	specialization: string;
 	employmentType: string;
+};
+
+type FacultyApiRow = FacultyRow & {
+	email?: string;
+	department?: string;
 };
 
 type SubjectRow = {
@@ -76,41 +78,6 @@ const approvedDepedSubjects: SubjectOption[] = [
 	},
 ];
 
-const depedFacultyAccounts: FacultyAccountOption[] = [
-	{
-		id: "acct-filipino-1",
-		name: "Maria Santos",
-		email: "maria.santos@faculty.tlc.local",
-		department: "Filipino Department",
-		employmentType: "Full Time",
-		specialization: "Filipino",
-	},
-	{
-		id: "acct-filipino-2",
-		name: "Jose Reyes",
-		email: "jose.reyes@faculty.tlc.local",
-		department: "Filipino Department",
-		employmentType: "Part Time",
-		specialization: "Filipino",
-	},
-	{
-		id: "acct-english-1",
-		name: "Anna Cruz",
-		email: "anna.cruz@faculty.tlc.local",
-		department: "English Department",
-		employmentType: "Full Time",
-		specialization: "English",
-	},
-	{
-		id: "acct-math-1",
-		name: "Daniel Garcia",
-		email: "daniel.garcia@faculty.tlc.local",
-		department: "Math Department",
-		employmentType: "Full Time",
-		specialization: "Math",
-	},
-];
-
 function formatTotalMinutes(subjects: SubjectRow[]) {
 	const totalMinutes = subjects.reduce((sum, subject) => {
 		const parsedMinutes = Number(subject.hoursPerDay.replace(/[^0-9]/g, ""));
@@ -157,16 +124,97 @@ function formatMinutesCapacity(subjects: SubjectRow[], employmentType: string) {
 	return `${totalMinutes} minutes / ${maxMinutes} minutes`;
 }
 
-export default function DepartmentFacultyTable({
-	departmentName = "Filipino Department",
-}: DepartmentFacultyTableProps) {
+export default function DepartmentFacultyTable({ departmentName }: DepartmentFacultyTableProps) {
+	const [resolvedDepartmentName, setResolvedDepartmentName] = useState(departmentName ?? "");
+	const [isDepartmentLoading, setIsDepartmentLoading] = useState(!departmentName);
+	const [departmentError, setDepartmentError] = useState("");
 	const [facultyRows, setFacultyRows] = useState<FacultyRow[]>([]);
+	const [facultyError, setFacultyError] = useState("");
 	const [facultySubjects, setFacultySubjects] = useState<Record<string, SubjectRow[]>>({});
 	const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
-	const [isAddFacultyOpen, setIsAddFacultyOpen] = useState(false);
 	const [isAssignSubjectOpen, setIsAssignSubjectOpen] = useState(false);
 	const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 	const [assignSubjectError, setAssignSubjectError] = useState("");
+	const activeDepartmentName = departmentName ?? resolvedDepartmentName;
+
+	useEffect(() => {
+		if (departmentName) {
+			setResolvedDepartmentName(departmentName);
+			setIsDepartmentLoading(false);
+			setDepartmentError("");
+			setFacultyRows([]);
+			return;
+		}
+
+		let isActive = true;
+
+		const loadDepartmentFaculty = async () => {
+			setIsDepartmentLoading(true);
+			setDepartmentError("");
+			setFacultyError("");
+
+			try {
+				const {
+					data: { session },
+					error: sessionError,
+				} = await supabase.auth.getSession();
+
+				if (sessionError) {
+					throw sessionError;
+				}
+
+				const response = await fetch("/api/tenant/deped/department-faculty", {
+					headers: session?.access_token
+						? { Authorization: `Bearer ${session.access_token}` }
+						: undefined,
+				});
+				const payload = await response.json().catch(() => ({}));
+
+				if (!response.ok) {
+					throw new Error(
+						typeof payload?.error === "string"
+							? payload.error
+							: "Failed to load the current department.",
+					);
+				}
+
+				if (!isActive) return;
+
+				setResolvedDepartmentName(
+					typeof payload?.departmentName === "string" ? payload.departmentName : "",
+				);
+				setFacultyRows(
+					Array.isArray(payload?.faculty)
+						? payload.faculty.map((faculty: FacultyApiRow) => ({
+								id: faculty.id,
+								accountId: faculty.accountId ?? faculty.id,
+								name: faculty.name,
+								specialization: faculty.specialization,
+								employmentType: faculty.employmentType,
+							}))
+						: [],
+				);
+			} catch (error) {
+				if (!isActive) return;
+				setDepartmentError(
+					error instanceof Error
+						? error.message
+						: "Failed to load department faculty.",
+				);
+				setFacultyRows([]);
+			} finally {
+				if (isActive) {
+					setIsDepartmentLoading(false);
+				}
+			}
+		};
+
+		void loadDepartmentFaculty();
+
+		return () => {
+			isActive = false;
+		};
+	}, [departmentName]);
 
 	const selectedFaculty = facultyRows.find((faculty) => faculty.id === selectedFacultyId) ?? null;
 	const selectedSubjects = useMemo(
@@ -174,42 +222,31 @@ export default function DepartmentFacultyTable({
 		[facultySubjects, selectedFaculty],
 	);
 
+	useEffect(() => {
+		if (!selectedFacultyId) {
+			return;
+		}
+
+		if (!facultyRows.some((faculty) => faculty.id === selectedFacultyId)) {
+			setSelectedFacultyId(null);
+		}
+	}, [facultyRows, selectedFacultyId]);
+
 	const availableSubjects = useMemo(
 		() =>
 			approvedDepedSubjects.filter(
 				(subject) =>
-					subject.department === departmentName &&
+					subject.department === activeDepartmentName &&
 					subject.status === "Approved" &&
 					!selectedSubjects.some((assigned) => assigned.id === subject.id),
 			),
-		[departmentName, selectedSubjects],
-	);
-
-	const availableFacultyAccounts = useMemo(
-		() =>
-			depedFacultyAccounts.filter(
-				(account) =>
-					account.department === departmentName &&
-					!facultyRows.some((faculty) => faculty.accountId === account.id),
-			),
-		[departmentName, facultyRows],
+		[activeDepartmentName, selectedSubjects],
 	);
 
 	const totalTeachingHoursLabel = useMemo(
 		() => formatTotalMinutes(selectedSubjects),
 		[selectedSubjects],
 	);
-
-	const handleAddFaculty = (values: FacultyFormValues) => {
-		const newFaculty: FacultyRow = {
-			id: `faculty-${Date.now()}`,
-			...values,
-		};
-
-		setFacultyRows((currentRows) => [...currentRows, newFaculty]);
-		setSelectedFacultyId(newFaculty.id);
-		setIsAddFacultyOpen(false);
-	};
 
 	const handleAssignSubject = (subject: SubjectOption) => {
 		if (!selectedFaculty) return;
@@ -255,21 +292,32 @@ export default function DepartmentFacultyTable({
 		}));
 	};
 
+	if (isDepartmentLoading) {
+		return (
+			<div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] p-5 shadow-level-1">
+				<div className="h-7 w-72 animate-pulse rounded bg-[var(--color-default)]" />
+				<div className="mt-3 h-4 w-96 max-w-full animate-pulse rounded bg-[var(--color-default)]" />
+				<div className="mt-6 h-28 animate-pulse rounded-xl bg-[var(--color-default)]" />
+			</div>
+		);
+	}
+
+	if (departmentError || !activeDepartmentName) {
+		return (
+			<div className="rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] p-5 text-body-small text-[var(--color-low-emphasis)] shadow-level-1">
+				{departmentError || "Your account has no department assigned yet."}
+			</div>
+		);
+	}
+
 	return (
 		<>
-			<AddFacultyForms
-				isOpen={isAddFacultyOpen}
-				departmentName={departmentName}
-				facultyAccounts={availableFacultyAccounts}
-				onClose={() => setIsAddFacultyOpen(false)}
-				onSubmit={handleAddFaculty}
-			/>
 			<SubjectAssignmentModal
 				isOpen={isAssignSubjectOpen}
 				onClose={() => setIsAssignSubjectOpen(false)}
 				onSubmit={handleAssignSubject}
 				selectedFacultyName={selectedFaculty?.name ?? "Faculty"}
-				departmentName={departmentName}
+				departmentName={activeDepartmentName}
 				subjectOptions={availableSubjects}
 				errorMessage={assignSubjectError}
 			/>
@@ -283,20 +331,12 @@ export default function DepartmentFacultyTable({
 				<div className="flex items-center justify-between gap-4 border-b border-[color:var(--color-default)] px-4 py-3 sm:px-5">
 					<div>
 						<h1 className="text-2xl text-[var(--color-high-emphasis)]">
-							{departmentName} Faculty
+							{activeDepartmentName} Faculty
 						</h1>
 						<p className="mt-1 text-body-small text-[var(--color-low-emphasis)]">
 							Click a faculty row to load the assigned subjects below.
 						</p>
 					</div>
-					<button
-						type="button"
-						onClick={() => setIsAddFacultyOpen(true)}
-						className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-label-button text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)]"
-					>
-						<span className="text-base leading-none">+</span>
-						Add Faculty
-					</button>
 				</div>
 
 				<div className="overflow-x-auto">
@@ -314,7 +354,7 @@ export default function DepartmentFacultyTable({
 							{facultyRows.length === 0 ? (
 								<tr>
 									<td colSpan={5} className="px-4 py-10 text-center text-sm text-[var(--color-low-emphasis)]">
-										No faculty added yet.
+										{facultyError || "No teachers found in this department yet."}
 									</td>
 								</tr>
 							) : facultyRows.map((faculty) => {

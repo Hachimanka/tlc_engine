@@ -11,9 +11,6 @@ import AddUserModal, {
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
-import {
-  getDepedTeacherAssignmentOptions,
-} from "@/lib/depedTeacherAssignments";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountRole = RoleOption;
@@ -358,7 +355,7 @@ function EditAccountForm({
             className="h-11 w-full rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:bg-[#f8fafc] disabled:text-[#475467]"
           />
           <p className="text-xs text-[var(--color-low-emphasis)]">
-            This is the account's role label. Feature access is managed separately.
+            This is the account&apos;s role label. Feature access is managed separately.
           </p>
         </div>
 
@@ -452,7 +449,6 @@ export default function Accounts() {
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [managedDepartments, setManagedDepartments] = useState<DepartmentOption[]>([]);
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
-  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -518,7 +514,6 @@ export default function Accounts() {
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setManagedDepartments((payload.departments ?? []) as DepartmentOption[]);
     setInstitutionType((payload.institutionType ?? null) as InstitutionType);
-    setOnboardingConfig((payload.onboardingConfig ?? {}) as Record<string, unknown>);
     setUsers(nextUsers);
     setSelectedUser((current) =>
       current ? nextUsers.find((user) => user.id === current.id) ?? current : current,
@@ -537,11 +532,6 @@ export default function Accounts() {
     [roles],
   );
   const isDeped = institutionType === "deped";
-  const depedAssignmentOptions = useMemo(
-    () => getDepedTeacherAssignmentOptions(onboardingConfig),
-    [onboardingConfig],
-  );
-
   const departmentOptions = useMemo(
     () =>
       Array.from(
@@ -811,16 +801,16 @@ export default function Accounts() {
         roleSuggestions={assignableRoles.map((role) => role.name)}
         features={features}
         departments={managedDepartments}
-        assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
-        assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
+        assignmentLabel={isDeped ? "Department Assignment" : undefined}
+        assignmentPlaceholder={isDeped ? "Select a department" : undefined}
         assignmentHint={
           isDeped
-            ? "Use this to scope teacher accounts to the enabled DepEd grade levels."
+            ? "Use this to scope accounts to the departments created by the principal."
             : undefined
         }
-        assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+        assignmentOptions={undefined}
         assignmentRequiredError={
-          isDeped ? "Grade level assignment is required for this role." : undefined
+          isDeped ? "Department assignment is required for this role." : undefined
         }
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
@@ -935,7 +925,7 @@ export default function Accounts() {
                   <th className="px-4 py-3 text-xs font-semibold">Name</th>
                   <th className="px-4 py-3 text-xs font-semibold">Email</th>
                   <th className="px-4 py-3 text-xs font-semibold">
-                    {isDeped ? "Grade Level" : "Department"}
+                    Department
                   </th>
                   <th className="px-4 py-3 text-xs font-semibold">Role</th>
                   <th className="px-4 py-3 text-xs font-semibold">Status</th>
@@ -1058,11 +1048,11 @@ export default function Accounts() {
                     key={selectedUser.id}
                     user={selectedUser}
                     departments={managedDepartments}
-                    assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
-                    assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
-                    assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+                    assignmentLabel={isDeped ? "Department Assignment" : undefined}
+                    assignmentPlaceholder={isDeped ? "Select a department" : undefined}
+                    assignmentOptions={undefined}
                     assignmentRequiredError={
-                      isDeped ? "Grade level assignment is required for this role." : undefined
+                      isDeped ? "Department assignment is required for this role." : undefined
                     }
                     onCancel={() => setPanelMode("view")}
                     onSave={(payload) => handleSaveAccount(selectedUser, payload)}
@@ -1079,7 +1069,7 @@ export default function Accounts() {
                     }
                   />
                   <FieldRow label="Employee ID" value={selectedUser.employeeId || "-"} />
-                  <FieldRow label={isDeped ? "Grade Level" : "Department"} value={selectedUser.department || "-"} />
+                  <FieldRow label="Department" value={selectedUser.department || "-"} />
                   <FieldRow label="Role" value={selectedUser.roleName} />
                   <FieldRow label="Status" value={<StatusBadge status={selectedUser.status} />} />
                   <FieldRow label="Created" value={formatDate(selectedUser.createdAt)} />
