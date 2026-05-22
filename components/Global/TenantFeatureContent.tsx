@@ -179,6 +179,7 @@ function DepedRoomContent() {
     <>
       <AssignSubjectModal
         isOpen={isAssignSubjectOpen}
+        subjectOptions={[]}
         errorMessage={assignSubjectError}
         onClose={() => {
           setAssignSubjectError("");
