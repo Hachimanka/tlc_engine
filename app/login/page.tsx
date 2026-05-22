@@ -50,7 +50,17 @@ function LoginSkeletonCard({
   label?: string;
   useStoredBranding?: boolean;
 }) {
-  const activeBranding = branding ?? (useStoredBranding ? readStoredTenantBranding() : null);
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
+
+  useEffect(() => {
+    if (!useStoredBranding || branding) {
+      return;
+    }
+
+    setStoredBranding(readStoredTenantBranding());
+  }, [branding, useStoredBranding]);
+
+  const activeBranding = branding ?? storedBranding;
 
   return (
     <TenantBrandScope
@@ -97,9 +107,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [requestedSlug, setRequestedSlug] = useState("");
   const [slugResolved, setSlugResolved] = useState(false);
-  const [branding, setBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
-  );
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
   const logoUrl = branding?.logoUrl || "";
   const logoAlt = branding?.logoAlt || "TLC Logo";
   const hasInstitutionBranding = Boolean(branding);
@@ -180,6 +188,8 @@ function LoginContent() {
   };
 
   useEffect(() => {
+    setBranding(readStoredTenantBranding());
+
     const loadPublicBranding = async (slug: string) => {
       try {
         const response = await fetch(`/api/tenant/branding/public?slug=${encodeURIComponent(slug)}`);

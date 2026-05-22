@@ -33,13 +33,13 @@ function TenantPasswordSetupContent() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [metadata, setMetadata] = useState<UserMetadata | null>(null);
-  const [branding, setBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
-  );
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
   const logoUrl = branding?.logoUrl || "";
   const logoAlt = branding?.logoAlt || "TLC Logo";
 
   useEffect(() => {
+    setBranding(readStoredTenantBranding());
+
     const checkSession = async () => {
       const expectedSlug = getExpectedTenantSlug();
       const loginUrl = buildTenantLoginUrl(expectedSlug);

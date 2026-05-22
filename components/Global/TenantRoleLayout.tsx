@@ -177,9 +177,7 @@ export default function TenantRoleLayout({
   const pathname = usePathname();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [access, setAccess] = useState<TenantAccess | null>(null);
-  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
-  );
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
   const [accessError, setAccessError] = useState("");
   const [contentLoading, setContentLoading] = useState(false);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
@@ -222,6 +220,8 @@ export default function TenantRoleLayout({
     .join(" ");
 
   useEffect(() => {
+    setStoredBranding(readStoredTenantBranding());
+
     const checkAuth = async () => {
       setCheckingAuth(true);
       setAccessError("");

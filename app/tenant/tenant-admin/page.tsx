@@ -86,27 +86,22 @@ const saveStoredTenantShell = (snapshot: TenantAdminShellSnapshot) => {
 
 export default function TenantPage() {
   const router = useRouter();
-  const [storedShell] = useState(() => readStoredTenantShell());
   const [activeView, setActiveView] = useState<TenantAdminView>(() =>
-    getDefaultTenantAdminView(storedShell?.institutionType ?? null),
+    getDefaultTenantAdminView(),
   );
-  const [institutionType, setInstitutionType] = useState<InstitutionType>(
-    storedShell?.institutionType ?? null,
-  );
-  const [orgName, setOrgName] = useState(storedShell?.orgName ?? "");
-  const [orgSlug, setOrgSlug] = useState(storedShell?.orgSlug ?? "");
-  const [roleName, setRoleName] = useState(storedShell?.roleName ?? "Org Admin");
+  const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
+  const [orgName, setOrgName] = useState("");
+  const [orgSlug, setOrgSlug] = useState("");
+  const [roleName, setRoleName] = useState("Org Admin");
   const [profile, setProfile] = useState(
-    storedShell?.profile ?? {
+    {
       displayName: "User",
       email: "",
       avatarUrl: "",
     },
   );
-  const [branding, setBranding] = useState<TenantBranding | null>(() =>
-    storedShell?.branding ?? readStoredTenantBranding(),
-  );
-  const [isBootstrapping, setIsBootstrapping] = useState(!storedShell);
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -150,6 +145,21 @@ export default function TenantPage() {
   }[activeView];
 
   useEffect(() => {
+    const storedShell = readStoredTenantShell();
+
+    if (storedShell) {
+      setInstitutionType(storedShell.institutionType);
+      setOrgName(storedShell.orgName);
+      setOrgSlug(storedShell.orgSlug);
+      setRoleName(storedShell.roleName);
+      setProfile(storedShell.profile);
+      setBranding(storedShell.branding);
+      setActiveView(getDefaultTenantAdminView(storedShell.institutionType));
+      setIsBootstrapping(false);
+    } else {
+      setBranding(readStoredTenantBranding());
+    }
+
     const checkAuth = async () => {
       setAuthError("");
       const expectedSlug = getExpectedTenantSlug();

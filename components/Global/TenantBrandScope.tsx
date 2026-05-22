@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   tenantBrandingToCssVariables,
   type TenantBranding,
@@ -19,9 +19,16 @@ export default function TenantBrandScope({
   className,
   children,
 }: TenantBrandScopeProps) {
-  const [storedBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
-  );
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
+
+  useEffect(() => {
+    if (branding) {
+      return;
+    }
+
+    setStoredBranding(readStoredTenantBranding());
+  }, [branding]);
+
   const activeBranding = branding ?? storedBranding;
 
   return (

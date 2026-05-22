@@ -21,9 +21,7 @@ export default function TenantLoadingScreen({
   label = "Loading workspace",
   useStoredBranding = false,
 }: TenantLoadingScreenProps) {
-  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(() =>
-    useStoredBranding ? readStoredTenantBranding() : null,
-  );
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
 
   useEffect(() => {
     if (!useStoredBranding || branding?.logoUrl) {

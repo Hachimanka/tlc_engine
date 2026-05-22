@@ -38,14 +38,14 @@ type NoAccessState = {
 
 export default function TenantNoAccessPage() {
   const router = useRouter();
-  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(() =>
-    readStoredTenantBranding(),
-  );
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [access, setAccess] = useState<NoAccessState | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setStoredBranding(readStoredTenantBranding());
+
     const checkAccess = async () => {
       const expectedSlug = getExpectedTenantSlug();
       const loginUrl = buildTenantLoginUrl(expectedSlug);
