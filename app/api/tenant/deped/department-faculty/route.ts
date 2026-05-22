@@ -15,11 +15,54 @@ type OrgUserRow = {
   roles?: { key?: string | null; name?: string | null } | { key?: string | null; name?: string | null }[] | null;
 };
 
+type RawRoomAssignmentRow = {
+  id: string;
+  subject_id: string;
+  room_id: string;
+  section: string | null;
+  day_of_week: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SubjectRow = {
+  id: string;
+  subject_title: string;
+  subject_code: string;
+  department: string | null;
+  year_level: string | null;
+};
+
+type RoomRow = {
+  id: string;
+  room_name: string;
+  building: string | null;
+  room_type: string | null;
+};
+
+const rawAssignmentSelect =
+  "id, subject_id, room_id, section, day_of_week, start_time, end_time, created_at, updated_at";
+const roomAssignmentTables = ["academic_room_assignment", "academic_room_assignments"];
+
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 
-const normalizeDepartmentKey = (value: unknown) =>
-  normalizeRoleKey(normalizeText(value).replace(/\s+department$/i, ""));
+const normalizeDepartmentKey = (value: unknown) => {
+  const key = normalizeRoleKey(normalizeText(value).replace(/\s+department$/i, ""));
+
+  if (key === "math") {
+    return "mathematics";
+  }
+
+  return key;
+};
+
+const isMissingTableError = (error: { code?: string; message?: string } | null | undefined) =>
+  error?.code === "42P01" ||
+  error?.message?.toLowerCase().includes("schema cache") ||
+  error?.message?.toLowerCase().includes("does not exist");
 
 const normalizeJoinedRole = (role: OrgUserRow["roles"]) => {
   if (Array.isArray(role)) {
@@ -53,6 +96,149 @@ const belongsToDepartment = (
     normalizeDepartmentKey(user.department ?? "") === normalizeDepartmentKey(departmentName)
   );
 };
+
+const parseTimeParts = (value: unknown) => {
+  const normalized = normalizeText(value);
+  const match = normalized.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  return { hours, minutes };
+};
+
+const formatTimeLabel = (value: unknown) => {
+  const parts = parseTimeParts(value);
+
+  if (!parts) {
+    return normalizeText(value);
+  }
+
+  const hour12 = parts.hours % 12 || 12;
+  const suffix = parts.hours >= 12 ? "PM" : "AM";
+
+  return `${hour12}:${String(parts.minutes).padStart(2, "0")} ${suffix}`;
+};
+
+const getDurationMinutes = (startTime: unknown, endTime: unknown) => {
+  const start = parseTimeParts(startTime);
+  const end = parseTimeParts(endTime);
+
+  if (!start || !end) {
+    return 0;
+  }
+
+  return Math.max(0, end.hours * 60 + end.minutes - (start.hours * 60 + start.minutes));
+};
+
+async function loadRoomAssignments(orgId: string) {
+  let lastError: { code?: string; message?: string } | null = null;
+
+  for (const tableName of roomAssignmentTables) {
+    const result = await supabaseAdmin
+      .from(tableName)
+      .select(rawAssignmentSelect)
+      .eq("org_id", orgId)
+      .order("day_of_week", { ascending: true })
+      .order("start_time", { ascending: true });
+
+    if (!result.error) {
+      return {
+        data: (result.data ?? []) as RawRoomAssignmentRow[],
+        error: null,
+      };
+    }
+
+    lastError = result.error;
+
+    if (!isMissingTableError(result.error)) {
+      break;
+    }
+  }
+
+  return { data: [] as RawRoomAssignmentRow[], error: lastError };
+}
+
+async function loadAssignedSubjects(orgId: string, departmentName: string) {
+  const assignmentsResult = await loadRoomAssignments(orgId);
+
+  if (assignmentsResult.error) {
+    throw new Error(assignmentsResult.error.message || "Failed to load room-assigned subjects.");
+  }
+
+  const assignments = assignmentsResult.data;
+
+  if (assignments.length === 0) {
+    return [];
+  }
+
+  const subjectIds = Array.from(new Set(assignments.map((assignment) => assignment.subject_id)));
+  const roomIds = Array.from(new Set(assignments.map((assignment) => assignment.room_id)));
+
+  const [subjectsResult, roomsResult] = await Promise.all([
+    supabaseAdmin
+      .from("academic_subjects")
+      .select("id, subject_title, subject_code, department, year_level")
+      .eq("org_id", orgId)
+      .in("id", subjectIds),
+    supabaseAdmin
+      .from("academic_rooms")
+      .select("id, room_name, building, room_type")
+      .eq("org_id", orgId)
+      .in("id", roomIds),
+  ]);
+
+  if (subjectsResult.error) {
+    throw new Error(subjectsResult.error.message || "Failed to load assigned subjects.");
+  }
+
+  if (roomsResult.error) {
+    throw new Error(roomsResult.error.message || "Failed to load assigned subject rooms.");
+  }
+
+  const subjectsById = new Map(
+    ((subjectsResult.data ?? []) as SubjectRow[]).map((subject) => [subject.id, subject]),
+  );
+  const roomsById = new Map(
+    ((roomsResult.data ?? []) as RoomRow[]).map((room) => [room.id, room]),
+  );
+  const activeDepartmentKey = normalizeDepartmentKey(departmentName);
+
+  return assignments
+    .map((assignment) => {
+      const subject = subjectsById.get(assignment.subject_id);
+
+      if (!subject || normalizeDepartmentKey(subject.department) !== activeDepartmentKey) {
+        return null;
+      }
+
+      const room = roomsById.get(assignment.room_id);
+      const startLabel = formatTimeLabel(assignment.start_time);
+      const endLabel = formatTimeLabel(assignment.end_time);
+      const durationMinutes = getDurationMinutes(assignment.start_time, assignment.end_time);
+
+      return {
+        id: assignment.id,
+        subjectTitle: subject.subject_title,
+        department: subject.department ?? departmentName,
+        yearLevel: subject.year_level ?? "",
+        schedule: `${normalizeText(assignment.day_of_week)} ${startLabel} - ${endLabel}`,
+        room: room?.room_name ?? "",
+        section: normalizeText(assignment.section) || "N/A",
+        hoursPerDay: `${durationMinutes} minutes`,
+        status: "Approved" as const,
+      };
+    })
+    .filter(Boolean);
+}
 
 export async function GET(req: Request) {
   const result = await loadTenantContext(req);
@@ -91,7 +277,7 @@ export async function GET(req: Request) {
   const departmentId = normalizeText(currentUser?.department_id);
 
   if (!departmentName && !departmentId) {
-    return NextResponse.json({ departmentName: "", faculty: [] });
+    return NextResponse.json({ departmentName: "", faculty: [], subjects: [] });
   }
 
   const { data: users, error: usersError } = await supabaseAdmin
@@ -123,8 +309,24 @@ export async function GET(req: Request) {
       employmentType: "Full Time",
     }));
 
+  let subjects = [];
+  try {
+    subjects = await loadAssignedSubjects(context.org.id, departmentName);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load room-assigned subjects.",
+      },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({
     departmentName,
     faculty,
+    subjects,
   });
 }

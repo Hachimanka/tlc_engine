@@ -18,6 +18,8 @@ type FacultyApiRow = FacultyRow & {
 	department?: string;
 };
 
+type SubjectApiRow = SubjectOption;
+
 type SubjectRow = {
 	id: string;
 	subjectTitle: string;
@@ -30,53 +32,6 @@ type SubjectRow = {
 type DepartmentFacultyTableProps = {
 	departmentName?: string;
 };
-
-const approvedDepedSubjects: SubjectOption[] = [
-	{
-		id: "filipino-7-approved",
-		subjectTitle: "Filipino 7",
-		department: "Filipino Department",
-		yearLevel: "Grade 7",
-		schedule: "Mon-Fri 7:00 - 7:45",
-		room: "Room 1",
-		section: "Amethyst",
-		hoursPerDay: "45 minutes",
-		status: "Approved",
-	},
-	{
-		id: "filipino-8-approved",
-		subjectTitle: "Filipino 8",
-		department: "Filipino Department",
-		yearLevel: "Grade 8",
-		schedule: "Mon-Fri 8:00 - 8:45",
-		room: "Room 11",
-		section: "Mercury",
-		hoursPerDay: "45 minutes",
-		status: "Approved",
-	},
-	{
-		id: "english-7-approved",
-		subjectTitle: "English 7",
-		department: "English Department",
-		yearLevel: "Grade 7",
-		schedule: "Mon-Fri 9:00 - 9:45",
-		room: "Room 2",
-		section: "Daisy",
-		hoursPerDay: "45 minutes",
-		status: "Approved",
-	},
-	{
-		id: "math-7-approved",
-		subjectTitle: "Mathematics 7",
-		department: "Math Department",
-		yearLevel: "Grade 7",
-		schedule: "Mon-Fri 10:00 - 10:45",
-		room: "Room 3",
-		section: "Ruby",
-		hoursPerDay: "45 minutes",
-		status: "Approved",
-	},
-];
 
 function formatTotalMinutes(subjects: SubjectRow[]) {
 	const totalMinutes = subjects.reduce((sum, subject) => {
@@ -129,6 +84,7 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 	const [isDepartmentLoading, setIsDepartmentLoading] = useState(!departmentName);
 	const [departmentError, setDepartmentError] = useState("");
 	const [facultyRows, setFacultyRows] = useState<FacultyRow[]>([]);
+	const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
 	const [facultyError, setFacultyError] = useState("");
 	const [facultySubjects, setFacultySubjects] = useState<Record<string, SubjectRow[]>>({});
 	const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
@@ -143,6 +99,7 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 			setIsDepartmentLoading(false);
 			setDepartmentError("");
 			setFacultyRows([]);
+			setSubjectOptions([]);
 			return;
 		}
 
@@ -194,6 +151,21 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 							}))
 						: [],
 				);
+				setSubjectOptions(
+					Array.isArray(payload?.subjects)
+						? payload.subjects.map((subject: SubjectApiRow) => ({
+								id: subject.id,
+								subjectTitle: subject.subjectTitle,
+								department: subject.department,
+								yearLevel: subject.yearLevel,
+								schedule: subject.schedule,
+								room: subject.room,
+								section: subject.section,
+								hoursPerDay: subject.hoursPerDay,
+								status: subject.status,
+							}))
+						: [],
+				);
 			} catch (error) {
 				if (!isActive) return;
 				setDepartmentError(
@@ -202,6 +174,7 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 						: "Failed to load department faculty.",
 				);
 				setFacultyRows([]);
+				setSubjectOptions([]);
 			} finally {
 				if (isActive) {
 					setIsDepartmentLoading(false);
@@ -234,13 +207,12 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 
 	const availableSubjects = useMemo(
 		() =>
-			approvedDepedSubjects.filter(
+			subjectOptions.filter(
 				(subject) =>
-					subject.department === activeDepartmentName &&
 					subject.status === "Approved" &&
 					!selectedSubjects.some((assigned) => assigned.id === subject.id),
 			),
-		[activeDepartmentName, selectedSubjects],
+		[subjectOptions, selectedSubjects],
 	);
 
 	const totalTeachingHoursLabel = useMemo(
