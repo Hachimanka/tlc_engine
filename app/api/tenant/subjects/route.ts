@@ -35,6 +35,17 @@ type AcademicSubjectRow = {
   updated_at: string;
 };
 
+const isApprovalWorkflowMigrationMissingError = (
+  error: { code?: string; message?: string; details?: string } | null | undefined,
+) => {
+  const message = `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+
+  return (
+    error?.code === "23514" &&
+    message.includes("academic_approval_requests_status_check")
+  );
+};
+
 const toNumber = (value: number | string | null | undefined, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -252,6 +263,13 @@ export async function POST(req: Request) {
     .single();
 
   if (createError || !createdRequest) {
+    if (isApprovalWorkflowMigrationMissingError(createError)) {
+      return jsonError(
+        "Academic approval workflow migration is missing. Run scripts/db/20260522_academic_approval_workflows.sql in Supabase.",
+        500,
+      );
+    }
+
     return jsonError(createError?.message || "Failed to submit subject for approval.", 500);
   }
 
