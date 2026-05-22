@@ -7,6 +7,7 @@ import StyledSelect, {
 
 export type AssignSubjectValues = {
 	department: string;
+	subjectId: string;
 	subject: string;
 	timeStart: string;
 	timeEnd: string;
@@ -15,24 +16,20 @@ export type AssignSubjectValues = {
 
 type AssignSubjectModalProps = {
 	isOpen: boolean;
+	subjectOptions: AssignSubjectOption[];
 	errorMessage?: string;
 	onClose: () => void;
 	onSubmit: (values: AssignSubjectValues) => void;
 };
 
-type FormErrors = Partial<Record<keyof AssignSubjectValues, string>>;
-
-const subjectsByDepartment: Record<string, string[]> = {
-	"Filipino Department": ["Filipino 7", "Filipino 8", "Filipino 9", "Filipino 10"],
-	"English Department": ["English 7", "English 8", "English 9", "English 10"],
-	"Math Department": ["Mathematics 7", "Mathematics 8", "Mathematics 9", "Mathematics 10"],
-	"Science Department": ["Science 7", "Science 8", "Science 9", "Science 10"],
-	"TLE Department": ["TLE 7", "TLE 8", "TLE 9", "TLE 10"],
-	"ESP Department": ["ESP 7", "ESP 8", "ESP 9", "ESP 10"],
-	"Araling Panlipunan Department": ["Araling Panlipunan 7", "Araling Panlipunan 8", "Araling Panlipunan 9", "Araling Panlipunan 10"],
-	"Physical Education Department": ["Physical Education", "Health", "MAPEH"],
-	"Senior High Department": ["Oral Communication", "General Mathematics", "Earth and Life Science", "Practical Research"],
+export type AssignSubjectOption = {
+	id: string;
+	title: string;
+	code: string;
+	department: string;
 };
+
+type FormErrors = Partial<Record<keyof AssignSubjectValues, string>>;
 
 const dayOptions: Array<{ value: AssignSubjectValues["day"]; label: string }> = [
 	{ value: "monday", label: "Monday" },
@@ -46,6 +43,7 @@ const dayOptions: Array<{ value: AssignSubjectValues["day"]; label: string }> = 
 
 const emptyValues: AssignSubjectValues = {
 	department: "",
+	subjectId: "",
 	subject: "",
 	timeStart: "",
 	timeEnd: "",
@@ -57,6 +55,7 @@ const toSelectOptions = (options: string[]): StyledSelectOption[] =>
 
 export default function AssignSubjectModal({
 	isOpen,
+	subjectOptions,
 	errorMessage,
 	onClose,
 	onSubmit,
@@ -64,9 +63,17 @@ export default function AssignSubjectModal({
 	const [formValues, setFormValues] = useState<AssignSubjectValues>(emptyValues);
 	const [errors, setErrors] = useState<FormErrors>({});
 
-	const subjectOptions = useMemo(
-		() => subjectsByDepartment[formValues.department] ?? [],
-		[formValues.department],
+	const filteredSubjectOptions = useMemo(
+		() => subjectOptions.filter((subject) => subject.department === formValues.department),
+		[formValues.department, subjectOptions],
+	);
+
+	const departmentOptions = useMemo(
+		() =>
+			Array.from(new Set(subjectOptions.map((subject) => subject.department).filter(Boolean))).sort(
+				(left, right) => left.localeCompare(right),
+			),
+		[subjectOptions],
 	);
 
 	const handleClose = useCallback(() => {
@@ -115,7 +122,12 @@ export default function AssignSubjectModal({
 		setFormValues((prev) => ({
 			...prev,
 			[name]: value,
-			...(name === "department" ? { subject: "" } : null),
+			...(name === "department" ? { subject: "", subjectId: "" } : null),
+			...(name === "subjectId"
+				? {
+						subject: subjectOptions.find((subject) => subject.id === value)?.title ?? "",
+					}
+				: null),
 		}));
 		setErrors((prev) => ({ ...prev, [name]: undefined }));
 	};
@@ -127,7 +139,7 @@ export default function AssignSubjectModal({
 		const maxEnd = toMinutes("18:00");
 
 		if (!formValues.department) nextErrors.department = "Department is required.";
-		if (!formValues.subject) nextErrors.subject = "Subject is required.";
+		if (!formValues.subjectId) nextErrors.subjectId = "Subject is required.";
 		if (!formValues.timeStart) nextErrors.timeStart = "Start time is required.";
 		if (!formValues.timeEnd) nextErrors.timeEnd = "End time is required.";
 		if (formValues.timeStart && formValues.timeEnd && formValues.timeEnd <= formValues.timeStart) {
@@ -199,17 +211,20 @@ export default function AssignSubjectModal({
 							<StyledSelect
 								value={formValues.department}
 								onChange={(value) => handleSelectChange("department", value)}
-								options={toSelectOptions(Object.keys(subjectsByDepartment))}
+								options={toSelectOptions(departmentOptions)}
 								placeholder="Select department"
 							/>
 						</Field>
 
-						<Field label="Subject" error={errors.subject} required>
+						<Field label="Subject" error={errors.subjectId} required>
 							<StyledSelect
-								value={formValues.subject}
+								value={formValues.subjectId}
 								disabled={!formValues.department}
-								onChange={(value) => handleSelectChange("subject", value)}
-								options={toSelectOptions(subjectOptions)}
+								onChange={(value) => handleSelectChange("subjectId", value)}
+								options={filteredSubjectOptions.map((subject) => ({
+									value: subject.id,
+									label: `${subject.code} - ${subject.title}`,
+								}))}
 								placeholder="Select subject"
 							/>
 						</Field>

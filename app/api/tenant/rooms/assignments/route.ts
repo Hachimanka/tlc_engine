@@ -10,6 +10,8 @@ import {
   rangesOverlap,
   validRoomScheduleDays,
   type AcademicRoomAssignmentRow,
+  type AcademicRoomRow,
+  type AcademicSubjectOptionRow,
 } from "@/lib/academicRooms";
 import { loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -28,31 +30,22 @@ type AssignmentRequest = {
 
 const scheduleStart = 7 * 60;
 const scheduleEnd = 21 * 60;
+const roomAssignmentTables = ["academic_room_assignment", "academic_room_assignments"];
 
-const assignmentSelect = `
-  id,
-  section,
-  day_of_week,
-  start_time,
-  end_time,
-  created_at,
-  updated_at,
-  subject:academic_subjects!academic_room_assignments_subject_id_fkey(
-    id,
-    subject_title,
-    subject_code,
-    department,
-    year_level,
-    meetings_per_week,
-    units
-  ),
-  room:academic_rooms!academic_room_assignments_room_id_fkey(
-    id,
-    room_name,
-    building,
-    room_type
-  )
-`;
+type RawRoomAssignmentRow = {
+  id: string;
+  subject_id: string;
+  room_id: string;
+  section: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+  updated_at: string;
+};
+
+const assignmentSelect =
+  "id, subject_id, room_id, section, day_of_week, start_time, end_time, created_at, updated_at";
 
 const getAssignmentValues = (payload: AssignmentRequest) => ({
   roomId: normalizeText(payload.roomId),
@@ -61,6 +54,49 @@ const getAssignmentValues = (payload: AssignmentRequest) => ({
   dayOfWeek: normalizeText(payload.dayOfWeek),
   startTime: normalizeTime(payload.startTime),
   endTime: normalizeTime(payload.endTime),
+});
+
+const isMissingTableError = (error: { code?: string; message?: string } | null | undefined) =>
+  error?.code === "42P01" ||
+  error?.message?.toLowerCase().includes("schema cache") ||
+  error?.message?.toLowerCase().includes("does not exist");
+
+async function withRoomAssignmentTable<T>(
+  operation: (tableName: string) => Promise<{ data: T; error: { code?: string; message?: string } | null }>,
+) {
+  let lastError: { code?: string; message?: string } | null = null;
+
+  for (const tableName of roomAssignmentTables) {
+    const result = await operation(tableName);
+
+    if (!result.error) {
+      return result;
+    }
+
+    lastError = result.error;
+
+    if (!isMissingTableError(result.error)) {
+      break;
+    }
+  }
+
+  return { data: null as T, error: lastError };
+}
+
+const hydrateAssignment = (
+  assignment: RawRoomAssignmentRow,
+  subject: AcademicSubjectOptionRow | null,
+  room: Pick<AcademicRoomRow, "id" | "room_name" | "building" | "room_type"> | null,
+): AcademicRoomAssignmentRow => ({
+  id: assignment.id,
+  section: assignment.section,
+  day_of_week: assignment.day_of_week,
+  start_time: assignment.start_time,
+  end_time: assignment.end_time,
+  created_at: assignment.created_at,
+  updated_at: assignment.updated_at,
+  subject,
+  room,
 });
 
 export async function POST(req: Request) {
@@ -115,16 +151,16 @@ export async function POST(req: Request) {
   const [roomResult, subjectResult] = await Promise.all([
     supabaseAdmin
       .from("academic_rooms")
-      .select("id")
+      .select("id, room_name, building, room_type")
       .eq("id", values.roomId)
       .eq("org_id", context.org.id)
-      .maybeSingle(),
+      .maybeSingle<Pick<AcademicRoomRow, "id" | "room_name" | "building" | "room_type">>(),
     supabaseAdmin
       .from("academic_subjects")
-      .select("id, subject_code, meetings_per_week")
+      .select("id, subject_title, subject_code, department, year_level, meetings_per_week, units")
       .eq("id", values.subjectId)
       .eq("org_id", context.org.id)
-      .maybeSingle(),
+      .maybeSingle<AcademicSubjectOptionRow>(),
   ]);
 
   if (roomResult.error) {
@@ -151,11 +187,16 @@ export async function POST(req: Request) {
     return jsonError("Subject meetings per week must be greater than zero.", 400);
   }
 
-  const { count: subjectMeetingCount, error: subjectMeetingCountError } = await supabaseAdmin
-    .from("academic_room_assignments")
-    .select("id", { count: "exact", head: true })
-    .eq("org_id", context.org.id)
-    .eq("subject_id", values.subjectId);
+  const { data: subjectMeetingCount, error: subjectMeetingCountError } =
+    await withRoomAssignmentTable<number | null>(async (tableName) => {
+      const { count, error } = await supabaseAdmin
+        .from(tableName)
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", context.org.id)
+        .eq("subject_id", values.subjectId);
+
+      return { data: count ?? 0, error };
+    });
 
   if (subjectMeetingCountError) {
     return jsonError(
@@ -176,18 +217,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data: existingAssignments, error: conflictError } = await supabaseAdmin
-    .from("academic_room_assignments")
-    .select(assignmentSelect)
-    .eq("org_id", context.org.id)
-    .eq("room_id", values.roomId)
-    .eq("day_of_week", values.dayOfWeek);
+  const { data: existingAssignments, error: conflictError } =
+    await withRoomAssignmentTable<unknown[] | null>(async (tableName) => {
+      const result = await supabaseAdmin
+        .from(tableName)
+        .select(assignmentSelect)
+        .eq("org_id", context.org.id)
+        .eq("room_id", values.roomId)
+        .eq("day_of_week", values.dayOfWeek);
+
+      return { data: result.data, error: result.error };
+    });
 
   if (conflictError) {
     return jsonError(conflictError.message || "Failed to check room schedule conflicts.", 500);
   }
 
-  const conflict = ((existingAssignments ?? []) as AcademicRoomAssignmentRow[]).find(
+  const conflict = ((existingAssignments ?? []) as RawRoomAssignmentRow[]).find(
     (assignment) => {
       const existingStart = parseTimeToMinutes(assignment.start_time);
       const existingEnd = parseTimeToMinutes(assignment.end_time);
@@ -201,41 +247,59 @@ export async function POST(req: Request) {
   );
 
   if (conflict) {
-    const mappedConflict = mapRoomAssignment(conflict);
+    const { data: conflictSubject } = await supabaseAdmin
+      .from("academic_subjects")
+      .select("subject_code")
+      .eq("id", conflict.subject_id)
+      .eq("org_id", context.org.id)
+      .maybeSingle<{ subject_code: string | null }>();
+
     return jsonError(
-      `Room conflict: ${mappedConflict.subject?.code ?? "Subject"} is already assigned from ${
-        mappedConflict.startTime
-      } to ${mappedConflict.endTime}.`,
+      `Room conflict: ${conflictSubject?.subject_code ?? "Subject"} is already assigned from ${
+        conflict.start_time
+      } to ${conflict.end_time}.`,
       409,
     );
   }
 
   const now = new Date().toISOString();
-  const { data, error } = await supabaseAdmin
-    .from("academic_room_assignments")
-    .insert([
-      {
-        org_id: context.org.id,
-        room_id: values.roomId,
-        subject_id: values.subjectId,
-        section: values.section,
-        day_of_week: values.dayOfWeek,
-        start_time: values.startTime,
-        end_time: values.endTime,
-        created_by_org_user_id: context.orgUser.id,
-        created_at: now,
-        updated_at: now,
-      },
-    ])
-    .select(assignmentSelect)
-    .single();
+  const { data, error } = await withRoomAssignmentTable<unknown | null>(async (tableName) => {
+    const result = await supabaseAdmin
+      .from(tableName)
+      .insert([
+        {
+          org_id: context.org.id,
+          room_id: values.roomId,
+          subject_id: values.subjectId,
+          section: values.section,
+          day_of_week: values.dayOfWeek,
+          start_time: values.startTime,
+          end_time: values.endTime,
+          created_by_org_user_id: context.orgUser.id,
+          created_at: now,
+          updated_at: now,
+        },
+      ])
+      .select(assignmentSelect)
+      .single();
+
+    return { data: result.data, error: result.error };
+  });
 
   if (error || !data) {
     return jsonError(error?.message || "Failed to assign subject to room.", 500);
   }
 
   return NextResponse.json(
-    { assignment: mapRoomAssignment(data as AcademicRoomAssignmentRow) },
+    {
+      assignment: mapRoomAssignment(
+        hydrateAssignment(
+          data as RawRoomAssignmentRow,
+          subjectResult.data as AcademicSubjectOptionRow,
+          roomResult.data as Pick<AcademicRoomRow, "id" | "room_name" | "building" | "room_type">,
+        ),
+      ),
+    },
     { status: 201 },
   );
 }
@@ -263,13 +327,17 @@ export async function DELETE(req: Request) {
     return jsonError("Assignment id is required.", 400);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("academic_room_assignments")
-    .delete()
-    .eq("id", assignmentId)
-    .eq("org_id", context.org.id)
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await withRoomAssignmentTable<{ id: string } | null>(async (tableName) => {
+    const result = await supabaseAdmin
+      .from(tableName)
+      .delete()
+      .eq("id", assignmentId)
+      .eq("org_id", context.org.id)
+      .select("id")
+      .maybeSingle();
+
+    return { data: result.data, error: result.error };
+  });
 
   if (error) {
     return jsonError(error.message || "Failed to remove room assignment.", 500);
