@@ -401,7 +401,7 @@ export async function GET(req: Request) {
 
   let departments: DepartmentOptionRow[] = [];
 
-  if (context.institutionType === "higher_ed") {
+  if (context.institutionType === "higher_ed" || context.institutionType === "deped") {
     const { data: departmentRows, error: departmentsError } = await supabaseAdmin
       .from("org_departments")
       .select("id, name, code, college_id")

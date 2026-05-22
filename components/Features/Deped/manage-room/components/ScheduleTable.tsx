@@ -53,6 +53,10 @@ const toMinutes = (time: string) => {
 	return Number(hour) * 60 + Number(minute);
 };
 
+const scheduleStart = toMinutes(scheduleSlots[0]?.start ?? "07:30");
+const scheduleEnd = toMinutes(scheduleSlots[scheduleSlots.length - 1]?.end ?? "18:00");
+const scheduleRowHeight = 98;
+
 const formatTime = (time: string) => {
 	const [hourValue, minute = "00"] = time.split(":");
 	const hour = Number(hourValue);
@@ -61,24 +65,18 @@ const formatTime = (time: string) => {
 	return `${String(displayHour).padStart(2, "0")}:${minute} ${suffix}`;
 };
 
-const getSlotAssignment = (
-	scheduleRows: ScheduleRow[],
-	day: ScheduleDay,
-	slotStart: string,
-	slotEnd: string,
-) => {
-	const slotStartMinutes = toMinutes(slotStart);
-	const slotEndMinutes = toMinutes(slotEnd);
+const getRoomScheduleTag = (department: string) => {
+	const words = department
+		.replace(/department/i, "")
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean);
 
-	return scheduleRows.find((row) => {
-		if (row.day !== day) {
-			return false;
-		}
+	if (words.length === 0) {
+		return "CLS";
+	}
 
-		const rowStartMinutes = toMinutes(row.timeStart);
-		const rowEndMinutes = toMinutes(row.timeEnd);
-		return rowStartMinutes < slotEndMinutes && rowEndMinutes > slotStartMinutes;
-	});
+	return words.map((word) => word[0]).join("").slice(0, 4).toUpperCase();
 };
 
 export default function ScheduleTable({
@@ -86,6 +84,12 @@ export default function ScheduleTable({
 	scheduleRows,
 	onAssignSubjectClick,
 }: ScheduleTableProps) {
+	const assignmentsByDay = dayColumns.map((day) => ({
+		...day,
+		assignments: scheduleRows.filter((row) => row.day === day.key),
+	}));
+	const gridHeight = scheduleSlots.length * scheduleRowHeight;
+
 	return (
 		<div className="overflow-hidden rounded-[8px] border border-[color:var(--color-default)] bg-white shadow-level-1">
 			<div className="flex items-center justify-between gap-3 border-b border-[var(--color-default)] px-4 py-3">
@@ -102,67 +106,79 @@ export default function ScheduleTable({
 			</div>
 
 			<div className="overflow-x-auto">
-				<table className="min-w-full border-collapse text-left">
-					<thead>
-						<tr>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Time
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Monday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Tuesday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Wednesday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Thursday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Friday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Saturday
-							</th>
-							<th className="bg-[var(--color-primary)] px-3 py-3 text-[12px] font-semibold text-white sm:px-4">
-								Sunday
-							</th>
-						</tr>
-					</thead>
+				<div className="min-w-[1120px]">
+					<div className="grid grid-cols-[280px_repeat(7,minmax(120px,1fr))] bg-[var(--color-primary)]">
+						<div className="border-r border-white/20 px-5 py-4 text-[12px] font-semibold text-white">
+							Time
+						</div>
+						{dayColumns.map((day) => (
+							<div
+								key={day.key}
+								className="border-r border-white/20 px-5 py-4 text-center text-[12px] font-semibold text-white last:border-r-0"
+							>
+								{day.label}
+							</div>
+						))}
+					</div>
 
-					<tbody>
-						{scheduleSlots.map((slot) => (
-							<tr key={`${slot.start}-${slot.end}`}>
-								<td className="border border-[var(--color-default)] px-3 py-4 text-[12px] font-medium text-[var(--color-high-emphasis)] sm:px-4">
+					<div className="grid grid-cols-[280px_repeat(7,minmax(120px,1fr))]">
+						<div>
+							{scheduleSlots.map((slot) => (
+								<div
+									key={`${slot.start}-${slot.end}`}
+									className="flex items-center border-b border-r border-[var(--color-default)] px-5 text-[12px] font-medium text-[var(--color-high-emphasis)]"
+									style={{ height: scheduleRowHeight }}
+								>
 									{formatTime(slot.start)} - {formatTime(slot.end)}
-								</td>
-								{dayColumns.map((day) => {
-									const assignment = getSlotAssignment(scheduleRows, day.key, slot.start, slot.end);
+								</div>
+							))}
+						</div>
+
+						{assignmentsByDay.map((day) => (
+							<div
+								key={day.key}
+								className="relative border-r border-[var(--color-default)] last:border-r-0"
+								style={{ height: gridHeight }}
+							>
+								{scheduleSlots.map((slot) => (
+									<div
+										key={`${day.key}-${slot.start}-${slot.end}`}
+										className="border-b border-[var(--color-default)]"
+										style={{ height: scheduleRowHeight }}
+									/>
+								))}
+
+								{day.assignments.map((assignment) => {
+									const start = toMinutes(assignment.timeStart);
+									const end = toMinutes(assignment.timeEnd);
+									const clampedStart = Math.max(scheduleStart, start);
+									const clampedEnd = Math.min(scheduleEnd, Math.max(end, clampedStart + 15));
+									const top =
+										((clampedStart - scheduleStart) / 60) * scheduleRowHeight;
+									const height =
+										((clampedEnd - clampedStart) / 60) * scheduleRowHeight;
 
 									return (
-										<td
-											key={day.key}
-											className="h-[72px] border border-[var(--color-default)] px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4"
+										<div
+											key={assignment.id}
+											className="absolute left-4 right-4 flex min-h-10 flex-col justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-3 py-2 text-white shadow-level-1"
+											style={{ top, height: Math.max(height - 8, 42) }}
+											title={`${assignment.subject} ${formatTime(assignment.timeStart)} - ${formatTime(assignment.timeEnd)}`}
 										>
-											{assignment ? (
-												<div className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-white shadow-level-1">
-													<p className="font-semibold">{assignment.subject}</p>
-													<p className="mt-1 text-[11px] text-white/80">
-														{formatTime(assignment.timeStart)} - {formatTime(assignment.timeEnd)}
-													</p>
-												</div>
-											) : (
-												null
-											)}
-										</td>
+											<p className="truncate text-xs font-bold">{assignment.subject}</p>
+											<p className="mt-1 truncate text-[11px] font-semibold text-white/90">
+												{formatTime(assignment.timeStart)} - {formatTime(assignment.timeEnd)}
+											</p>
+											<p className="mt-1 text-[10px] font-semibold uppercase text-white/75">
+												{getRoomScheduleTag(assignment.department)}
+											</p>
+										</div>
 									);
 								})}
-							</tr>
+							</div>
 						))}
-					</tbody>
-				</table>
+					</div>
+				</div>
 			</div>
 		</div>
 	);

@@ -12,9 +12,6 @@ import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { isDepartmentRequiredRole } from "@/features/tenant-role-catalog";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
-import {
-  getDepedTeacherAssignmentOptions,
-} from "@/lib/depedTeacherAssignments";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountRole = RoleOption;
@@ -196,8 +193,8 @@ function EditAccountForm({
   departments,
   assignmentLabel = "Department",
   assignmentPlaceholder = "e.g., Mathematics Department",
-  assignmentOptions = [],
   assignmentRequiredError,
+  forceDepartmentDropdown = false,
   onCancel,
   onSave,
 }: {
@@ -208,6 +205,7 @@ function EditAccountForm({
   assignmentPlaceholder?: string;
   assignmentOptions?: string[];
   assignmentRequiredError?: string;
+  forceDepartmentDropdown?: boolean;
   onSave: (payload: EditAccountPayload) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -229,8 +227,7 @@ function EditAccountForm({
     [roleId, roleOptions],
   );
   const requiresDepartment = roleRequiresDepartment(selectedRole);
-  const hasManagedDepartments = departments.length > 0;
-  const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
+  const hasManagedDepartments = departments.length > 0 || forceDepartmentDropdown;
   const requiredAssignmentMessage =
     assignmentRequiredError ?? `${assignmentLabel} is required for this role.`;
 
@@ -448,7 +445,6 @@ export default function Accounts() {
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [managedDepartments, setManagedDepartments] = useState<DepartmentOption[]>([]);
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
-  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
   const [orgEmailDomain, setOrgEmailDomain] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -510,7 +506,6 @@ export default function Accounts() {
     setFeatures((payload.features ?? []) as FeatureDefinition[]);
     setManagedDepartments((payload.departments ?? []) as DepartmentOption[]);
     setInstitutionType((payload.institutionType ?? null) as InstitutionType);
-    setOnboardingConfig((payload.onboardingConfig ?? {}) as Record<string, unknown>);
     setUsers(nextUsers);
     setSelectedUser((current) =>
       current ? nextUsers.find((user) => user.id === current.id) ?? current : current,
@@ -529,10 +524,6 @@ export default function Accounts() {
     [roles],
   );
   const isDeped = institutionType === "deped";
-  const depedAssignmentOptions = useMemo(
-    () => getDepedTeacherAssignmentOptions(onboardingConfig),
-    [onboardingConfig],
-  );
 
   const departmentOptions = useMemo(
     () =>
@@ -743,16 +734,16 @@ export default function Accounts() {
         roleSuggestions={assignableRoles.map((role) => role.name)}
         features={features}
         departments={managedDepartments}
-        assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
-        assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
+        assignmentLabel="Department"
+        assignmentPlaceholder="e.g., Mathematics Department"
         assignmentHint={
           isDeped
-            ? "Use this to scope teacher accounts to the enabled DepEd grade levels."
+            ? "Choose the department created by the principal for this account."
             : undefined
         }
-        assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+        forceDepartmentDropdown={isDeped}
         assignmentRequiredError={
-          isDeped ? "Grade level assignment is required for this role." : undefined
+          isDeped ? "Department is required for this role." : undefined
         }
         emailDomain={orgEmailDomain}
         onClose={() => setIsAddUserOpen(false)}
@@ -866,9 +857,7 @@ export default function Accounts() {
                   <th className="px-4 py-3 text-xs font-semibold">ID No.</th>
                   <th className="px-4 py-3 text-xs font-semibold">Name</th>
                   <th className="px-4 py-3 text-xs font-semibold">Email</th>
-                  <th className="px-4 py-3 text-xs font-semibold">
-                    {isDeped ? "Grade Level" : "Department"}
-                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold">Department</th>
                   <th className="px-4 py-3 text-xs font-semibold">Role</th>
                   <th className="px-4 py-3 text-xs font-semibold">Status</th>
                   <th className="px-4 py-3 text-xs font-semibold">Created</th>
@@ -991,11 +980,11 @@ export default function Accounts() {
                     user={selectedUser}
                     roles={roles}
                     departments={managedDepartments}
-                    assignmentLabel={isDeped ? "Grade Level Assignment" : undefined}
-                    assignmentPlaceholder={isDeped ? "e.g., Grade 7, STEM, or Elementary" : undefined}
-                    assignmentOptions={isDeped ? depedAssignmentOptions : undefined}
+                    assignmentLabel="Department"
+                    assignmentPlaceholder="e.g., Mathematics Department"
+                    forceDepartmentDropdown={isDeped}
                     assignmentRequiredError={
-                      isDeped ? "Grade level assignment is required for this role." : undefined
+                      isDeped ? "Department is required for this role." : undefined
                     }
                     onCancel={() => setPanelMode("view")}
                     onSave={(payload) => handleSaveAccount(selectedUser, payload)}
@@ -1012,7 +1001,7 @@ export default function Accounts() {
                     }
                   />
                   <FieldRow label="Employee ID" value={selectedUser.employeeId || "-"} />
-                  <FieldRow label={isDeped ? "Grade Level" : "Department"} value={selectedUser.department || "-"} />
+                  <FieldRow label="Department" value={selectedUser.department || "-"} />
                   <FieldRow label="Role" value={selectedUser.roleName} />
                   <FieldRow label="Status" value={<StatusBadge status={selectedUser.status} />} />
                   <FieldRow label="Created" value={formatDate(selectedUser.createdAt)} />

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
 import Departments from "@/components/Features/Tenant/Departments";
@@ -29,6 +29,44 @@ import {
 } from "@/lib/tenantRoute";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
+
+function TenantAdminSectionSkeleton() {
+  return (
+    <div className="space-y-5" role="status" aria-label="Loading section">
+      <span className="sr-only">Loading section</span>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+          <BrandedSkeletonBlock className="h-8 w-64" strong />
+          <BrandedSkeletonBlock className="h-4 w-80" />
+        </div>
+        <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <BrandedSkeletonBlock className="h-24 rounded-lg" />
+        <BrandedSkeletonBlock className="h-24 rounded-lg" />
+        <BrandedSkeletonBlock className="h-24 rounded-lg" />
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+        <div className="grid grid-cols-5 gap-4 bg-[var(--color-primary)] px-4 py-4">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <BrandedSkeletonBlock key={index} className="h-3 bg-white/30" />
+          ))}
+        </div>
+        <div className="divide-y divide-[var(--color-default)]">
+          {Array.from({ length: 5 }).map((_, row) => (
+            <div key={row} className="grid grid-cols-5 gap-4 px-4 py-4">
+              {Array.from({ length: 5 }).map((__, column) => (
+                <BrandedSkeletonBlock key={column} className="h-3" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TenantPage() {
   const router = useRouter();
@@ -247,11 +285,7 @@ export default function TenantPage() {
           activeView !== "departments" &&
           activeView !== "policies" &&
           activeView !== "branding" ? (
-            <TenantLoadingScreen
-              branding={branding}
-              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-              label="Loading section"
-            />
+            <TenantAdminSectionSkeleton />
           ) : (
             content
           )}
