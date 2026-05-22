@@ -3,21 +3,12 @@ import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Section = "profile" | "security" | "admins" | "notifications" | "system" | "danger";
+type Section = "profile" | "security" | "admins" | "notifications" | "danger";
 
 type ProfileResponse = {
 	displayName?: string;
 	email?: string;
 	avatarUrl?: string;
-};
-
-type ActivityLogPreview = {
-	id: string;
-	action: string;
-	target: string | null;
-	target_type: string | null;
-	status: string;
-	created_at: string;
 };
 
 type SuperAdminAccount = {
@@ -37,7 +28,6 @@ const Icons = {
 	security: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2L4 6v6c0 5 3.6 9.3 8 10.5C16.4 21.3 20 17 20 12V6l-8-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
 	admins: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2l7 3v6c0 4.8-3 9.1-7 10.5C8 20.1 5 15.8 5 11V5l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M8.5 15c.7-1.4 2-2.2 3.5-2.2s2.8.8 3.5 2.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
 	notifications: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-	system: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.8"/></svg>,
 	danger: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
 	eye: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>,
 	eyeOff: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
@@ -249,19 +239,6 @@ export default function SuperAdminSettings() {
 	const [notifWeeklyReport, setNotifWeeklyReport] = useState(false);
 	const [notifLoginAlert, setNotifLoginAlert] = useState(true);
 
-	// System
-	const [maintenanceMode, setMaintenanceMode] = useState(false);
-	const [allowRegistrations, setAllowRegistrations] = useState(true);
-	const [defaultPlan, setDefaultPlan] = useState("basic");
-	const [maxOrgsPerPlan, setMaxOrgsPerPlan] = useState("50");
-	const [supportEmail, setSupportEmail] = useState("support@platform.edu");
-	const [platformName, setPlatformName] = useState("EduAdmin Platform");
-	const [systemSaving, setSystemSaving] = useState(false);
-	const [systemSuccess, setSystemSuccess] = useState(false);
-	const [recentLogs, setRecentLogs] = useState<ActivityLogPreview[]>([]);
-	const [logsLoading, setLogsLoading] = useState(false);
-	const [logsError, setLogsError] = useState("");
-
 	// Danger
 	const [confirmDelete, setConfirmDelete] = useState("");
 
@@ -270,7 +247,6 @@ export default function SuperAdminSettings() {
 		{ key: "security", label: "Security", icon: Icons.security },
 		{ key: "admins", label: "Super Admins", icon: Icons.admins },
 		{ key: "notifications", label: "Notifications", icon: Icons.notifications },
-		{ key: "system", label: "System", icon: Icons.system },
 		{ key: "danger", label: "Danger Zone", icon: Icons.danger },
 	];
 
@@ -312,44 +288,6 @@ export default function SuperAdminSettings() {
 		loadProfile();
 	}, []);
 
-	const loadRecentLogs = async () => {
-		setLogsLoading(true);
-		setLogsError("");
-
-		try {
-			const { data: sessionData } = await supabase.auth.getSession();
-			const token = sessionData.session?.access_token;
-
-			if (!token) {
-				setLogsError("Your session expired. Please log in again.");
-				setRecentLogs([]);
-				return;
-			}
-
-			const response = await fetch("/api/superadmin/activity-logs?limit=5", {
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
-			const payload: { logs?: ActivityLogPreview[]; error?: string } = await response
-				.json()
-				.catch(() => ({}));
-
-			if (!response.ok) {
-				setLogsError(payload.error || "Unable to load recent activity.");
-				setRecentLogs([]);
-				return;
-			}
-
-			setRecentLogs(payload.logs || []);
-		} catch {
-			setLogsError("Unable to load recent activity.");
-			setRecentLogs([]);
-		} finally {
-			setLogsLoading(false);
-		}
-	};
-
 	const loadSuperAdmins = async () => {
 		setAdminsLoading(true);
 		setAdminsError("");
@@ -389,10 +327,6 @@ export default function SuperAdminSettings() {
 	};
 
 	useEffect(() => {
-		if (activeSection === "system") {
-			loadRecentLogs();
-		}
-
 		if (activeSection === "admins") {
 			loadSuperAdmins();
 		}
@@ -599,15 +533,6 @@ export default function SuperAdminSettings() {
 		} finally {
 			setCreateAdminLoading(false);
 		}
-	};
-
-	const handleSystemSave = async () => {
-		setSystemSaving(true);
-		setSystemSuccess(false);
-		await new Promise(r => setTimeout(r, 800));
-		setSystemSaving(false);
-		setSystemSuccess(true);
-		setTimeout(() => setSystemSuccess(false), 3000);
 	};
 
 	const displayAvatarUrl = avatarPreviewUrl || avatarUrl;
@@ -1058,100 +983,6 @@ export default function SuperAdminSettings() {
 						</SectionCard>
 					)}
 
-					{/* ── System ── */}
-					{activeSection === "system" && (
-						<>
-							<SectionCard title="Platform Settings" icon={Icons.system}>
-								<div className="flex flex-col gap-4">
-									<div className="grid grid-cols-2 gap-4">
-										<Field label="Platform Name">
-											<input className={INPUT_CLASS} value={platformName} onChange={e => setPlatformName(e.target.value)} />
-										</Field>
-										<Field label="Support Email">
-											<input className={INPUT_CLASS} type="email" value={supportEmail} onChange={e => setSupportEmail(e.target.value)} />
-										</Field>
-									</div>
-									<div className="grid grid-cols-2 gap-4">
-										<Field label="Max Orgs per Plan (override)" hint="0 = use plan default">
-											<input className={INPUT_CLASS} type="number" value={maxOrgsPerPlan} onChange={e => setMaxOrgsPerPlan(e.target.value)} />
-										</Field>
-										<Field label="Default Plan">
-											<StyledSelect
-												value={defaultPlan}
-												onChange={setDefaultPlan}
-												options={[
-													{ value: "starter", label: "Starter" },
-													{ value: "basic", label: "Basic" },
-													{ value: "premium", label: "Premium" },
-													{ value: "diamond", label: "Diamond" },
-												]}
-											/>
-										</Field>
-									</div>
-
-									<div className="flex flex-col gap-1 pt-2 border-t border-gray-100">
-										<Toggle
-											value={allowRegistrations}
-											onChange={setAllowRegistrations}
-											label="Allow New Registrations"
-											description="Let new tenant organizations enter the setup flow"
-										/>
-										<Toggle
-											value={maintenanceMode}
-											onChange={setMaintenanceMode}
-											label="Maintenance Mode"
-											description="Block all user access and show a maintenance message"
-										/>
-									</div>
-
-									{maintenanceMode && (
-										<div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-700">
-											⚠️ Maintenance mode is <strong>ON</strong>. All tenant users are currently blocked from accessing the platform.
-										</div>
-									)}
-
-									<div className="flex justify-end pt-2">
-										<SaveButton onClick={handleSystemSave} saving={systemSaving} success={systemSuccess} />
-									</div>
-								</div>
-							</SectionCard>
-
-							<SectionCard title="Audit & Logs" icon={Icons.system}>
-								<div className="flex flex-col gap-3">
-									<p className="text-sm text-gray-500">Recent super admin activity on this platform.</p>
-									{logsLoading ? (
-										<p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">Loading recent activity...</p>
-									) : logsError ? (
-										<p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">{logsError}</p>
-									) : recentLogs.length === 0 ? (
-										<p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-400">No activity has been recorded yet.</p>
-									) : recentLogs.map(log => {
-										const actionKey = log.action.toLowerCase();
-										const dotClass =
-											log.status === "failed" ? "bg-red-400" :
-											log.status === "warning" ? "bg-yellow-400" :
-											actionKey.includes("convert") ? "bg-teal-400" :
-											actionKey.includes("create") ? "bg-green-400" :
-											actionKey.includes("log") ? "bg-gray-400" :
-											"bg-blue-400";
-
-										return (
-											<div key={log.id} className="flex items-start gap-3 text-sm py-2 border-b border-gray-50 last:border-0">
-												<span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
-												<div className="flex-1">
-													<p className="text-gray-700">
-														<span className="capitalize">{log.action}</span>
-														{log.target ? <span> - {log.target}</span> : null}
-													</p>
-													<p className="text-xs text-gray-400">{formatRelativeTime(log.created_at)}</p>
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							</SectionCard>
-						</>
-					)}
 
 					{/* ── Danger Zone ── */}
 					{activeSection === "danger" && (
