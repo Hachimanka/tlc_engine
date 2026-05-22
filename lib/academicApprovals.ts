@@ -93,7 +93,9 @@ export const canUseHigherEdApprovals = (context: TenantContext) =>
   context.institutionType === "higher_ed";
 
 export const canSubmitSubject = (context: TenantContext) =>
-  context.isOrgAdmin || allowedSubjectSubmitterRoles.has(context.role.key);
+  context.isOrgAdmin ||
+  allowedSubjectSubmitterRoles.has(context.role.key) ||
+  context.enabledFeatureKeys.includes("higher-subject-management");
 
 export const canViewApprovals = (context: TenantContext) =>
   context.isOrgAdmin ||
