@@ -40,6 +40,7 @@ type OrgUserRow = {
   full_name: string;
   email: string;
   department?: string | null;
+  department_id?: string | null;
   status?: string | null;
 };
 
@@ -71,6 +72,7 @@ export type TenantContext = {
     full_name: string;
     email: string;
     department: string | null;
+    department_id: string | null;
     status: string;
   };
   org: TenantOrganization;
@@ -114,7 +116,7 @@ export async function loadTenantContext(
 
   let { data: orgUserRow, error: orgUserError } = await supabaseAdmin
     .from("org_users")
-    .select("id, org_id, role_id, role_label, full_name, email, department, status")
+    .select("id, org_id, role_id, role_label, full_name, email, department, department_id, status")
     .eq("auth_user_id", authUser.id)
     .maybeSingle<OrgUserRow>();
 
@@ -215,6 +217,7 @@ export async function loadTenantContext(
         full_name: orgUserRow.full_name,
         email: orgUserRow.email,
         department: orgUserRow.department ?? null,
+        department_id: orgUserRow.department_id ?? null,
         status: accountStatus,
       },
       org,

@@ -154,7 +154,7 @@ export default function TenantRolePermissionsPanel() {
       return;
     }
 
-    const response = await fetch("/api/tenant/users", {
+    const response = await fetch("/api/tenant/users?scope=access", {
       headers: {
         Authorization: `Bearer ${token}`,
       },

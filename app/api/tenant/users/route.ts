@@ -362,19 +362,23 @@ export async function GET(req: Request) {
   }
 
   const { context } = result;
+  const url = new URL(req.url);
+  const accessOnly = url.searchParams.get("scope") === "access";
 
-  try {
-    await reconcileInstitutionSystemRoles(context.org.id, context.institutionType);
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to reconcile institution roles.",
-      },
-      { status: 500 },
-    );
+  if (!accessOnly) {
+    try {
+      await reconcileInstitutionSystemRoles(context.org.id, context.institutionType);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to reconcile institution roles.",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const usersResult = await supabaseAdmin
@@ -422,27 +426,33 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: usersError.message || "Failed to load users." }, { status: 500 });
   }
 
-  const { data: orgInfo } = await supabaseAdmin
-    .from("organizations")
-    .select("admin_email, slug")
-    .eq("id", context.org.id)
-    .single();
+  const orgInfoResult = accessOnly
+    ? { data: null }
+    : await supabaseAdmin
+        .from("organizations")
+        .select("admin_email, slug")
+        .eq("id", context.org.id)
+        .single();
+  const orgInfo = orgInfoResult.data;
 
   let departments: DepartmentOptionRow[] = [];
-  const { data: departmentRows, error: departmentsError } = await supabaseAdmin
-    .from("org_departments")
-    .select("id, name, code, college_id")
-    .eq("org_id", context.org.id)
-    .order("name", { ascending: true });
 
-  if (departmentsError && !isMissingDepartmentSetupError(departmentsError)) {
-    return NextResponse.json(
-      { error: departmentsError.message || "Failed to load departments." },
-      { status: 500 },
-    );
+  if (!accessOnly) {
+    const { data: departmentRows, error: departmentsError } = await supabaseAdmin
+      .from("org_departments")
+      .select("id, name, code, college_id")
+      .eq("org_id", context.org.id)
+      .order("name", { ascending: true });
+
+    if (departmentsError && !isMissingDepartmentSetupError(departmentsError)) {
+      return NextResponse.json(
+        { error: departmentsError.message || "Failed to load departments." },
+        { status: 500 },
+      );
+    }
+
+    departments = departmentRows ?? [];
   }
-
-  departments = departmentRows ?? [];
 
   const allFeatureKeys = getFeatureKeysForInstitution(context.institutionType);
   const userRows = (usersData ?? []) as Array<{
@@ -480,10 +490,12 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     institutionType: context.institutionType,
-    onboardingConfig: asRecord(context.org.onboarding_config),
-    org: {
-      emailDomain: getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug),
-    },
+    onboardingConfig: accessOnly ? {} : asRecord(context.org.onboarding_config),
+    org: accessOnly
+      ? undefined
+      : {
+          emailDomain: getEmailDomain(orgInfo?.admin_email, orgInfo?.slug ?? context.org.slug),
+        },
     features: getFeaturesForInstitution(context.institutionType),
     roles: [],
     roleLabels: Array.from(
@@ -493,12 +505,14 @@ export async function GET(req: Request) {
           .filter((label) => label !== "Org Admin"),
       ),
     ).sort((left, right) => left.localeCompare(right)),
-    departments: departments.map((department) => ({
-      id: department.id,
-      name: department.name,
-      code: department.code ?? null,
-      collegeId: department.college_id ?? null,
-    })),
+    departments: accessOnly
+      ? []
+      : departments.map((department) => ({
+          id: department.id,
+          name: department.name,
+          code: department.code ?? null,
+          collegeId: department.college_id ?? null,
+        })),
     users: userRows.map((user) => {
       const joinedRole = Array.isArray(user.roles)
         ? user.roles[0]

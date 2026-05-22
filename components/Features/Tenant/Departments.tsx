@@ -117,17 +117,25 @@ const sortPeople = (people: Person[]) =>
 const activeAssignablePeople = (users: Person[]) =>
   sortPeople(users.filter((user) => user.status !== "disabled" && user.roleKey !== "org_admin"));
 
-const leaderCandidates = (users: Person[], preferredRoleKey: string) =>
-  activeAssignablePeople(users).sort((left, right) => {
-    const leftPreferred = left.roleKey === preferredRoleKey ? 0 : 1;
-    const rightPreferred = right.roleKey === preferredRoleKey ? 0 : 1;
+const normalizeRoleTag = (value: string) =>
+  value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
-    if (leftPreferred !== rightPreferred) {
-      return leftPreferred - rightPreferred;
-    }
+const personMatchesRoleTag = (person: Person, keywords: string[]) => {
+  const roleKey = normalizeRoleTag(person.roleKey);
+  const roleName = normalizeRoleTag(person.roleName);
 
-    return left.fullName.localeCompare(right.fullName);
+  return keywords.some((keyword) => {
+    const normalizedKeyword = normalizeRoleTag(keyword);
+    return roleKey.includes(normalizedKeyword) || roleName.includes(normalizedKeyword);
   });
+};
+
+const leaderCandidates = (users: Person[], keywords: string[]) =>
+  activeAssignablePeople(users).filter((person) => personMatchesRoleTag(person, keywords));
 
 const getPersonGroup = (person: Person) => {
   if (person.roleKey === "faculty" || person.roleKey === "teacher") {
@@ -137,7 +145,8 @@ const getPersonGroup = (person: Person) => {
   if (
     person.roleKey.includes("manager") ||
     person.roleKey.includes("head") ||
-    person.roleKey.includes("chair")
+    person.roleKey.includes("chair") ||
+    personMatchesRoleTag(person, ["manager", "head", "chair", "chairman", "dean", "vpaa"])
   ) {
     return "Academic Operations";
   }
@@ -325,8 +334,11 @@ export default function Departments() {
   const [actionError, setActionError] = useState("");
   const [savingKey, setSavingKey] = useState("");
 
-  const deanCandidates = useMemo(() => leaderCandidates(users, "dean"), [users]);
-  const chairCandidates = useMemo(() => leaderCandidates(users, "department_head"), [users]);
+  const deanCandidates = useMemo(() => leaderCandidates(users, ["dean"]), [users]);
+  const chairCandidates = useMemo(
+    () => leaderCandidates(users, ["department head", "program chair", "chairman", "chair"]),
+    [users],
+  );
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
   const deanCollegeByUserId = useMemo(
     () =>
@@ -1281,7 +1293,7 @@ export default function Departments() {
                 departmentDraft.chairUserId,
                 (value) =>
                   setDepartmentDraft((current) => ({ ...current, chairUserId: value })),
-                chairCandidates,
+                getAvailableChairCandidates(editingDepartment.id),
                 "Department chair",
                 "No assigned chair",
               )}
@@ -1456,7 +1468,7 @@ export default function Departments() {
               departmentForm.chairUserId,
               (value) =>
                 setDepartmentForm((current) => ({ ...current, chairUserId: value })),
-              chairCandidates,
+              getAvailableChairCandidates(),
               "Department chair",
               "No assigned chair",
             )}

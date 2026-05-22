@@ -59,42 +59,71 @@ const ensureDepartmentExists = async (orgId: string, departmentName: string) => 
   const normalizedName = normalizeDepartmentName(departmentName);
 
   if (!normalizedName) {
-    return;
+    return null;
   }
 
   const { data: departments, error: lookupError } = await supabaseAdmin
     .from("org_departments")
-    .select("id, name")
+    .select("id, name, code")
     .eq("org_id", orgId);
 
   if (lookupError) {
     throw new Error(lookupError.message || "Failed to check departments.");
   }
 
-  const exists = (departments ?? []).some(
+  const existingDepartment = (departments ?? []).find(
     (department) => department.name.trim().toLowerCase() === normalizedName.toLowerCase(),
   );
 
-  if (exists) {
-    return;
+  if (existingDepartment) {
+    return {
+      id: existingDepartment.id,
+      name: existingDepartment.name,
+      code: existingDepartment.code ?? null,
+    };
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabaseAdmin.from("org_departments").insert([
-    {
-      org_id: orgId,
-      name: normalizedName,
-      code: null,
-      college_id: null,
-      chair_user_id: null,
-      created_at: now,
-      updated_at: now,
-    },
-  ]);
+  const { data: createdDepartment, error } = await supabaseAdmin
+    .from("org_departments")
+    .insert([
+      {
+        org_id: orgId,
+        name: normalizedName,
+        code: null,
+        college_id: null,
+        chair_user_id: null,
+        created_at: now,
+        updated_at: now,
+      },
+    ])
+    .select("id, name, code")
+    .single<OrgDepartmentRow>();
 
-  if (error) {
+  if (error || !createdDepartment) {
     throw new Error(error.message || "Failed to add department.");
   }
+
+  return createdDepartment;
+};
+
+const loadDepartmentById = async (orgId: string, departmentId: string) => {
+  const { data: department, error } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name, code")
+    .eq("id", departmentId)
+    .eq("org_id", orgId)
+    .maybeSingle<OrgDepartmentRow>();
+
+  if (error) {
+    throw new Error(error.message || "Failed to load department.");
+  }
+
+  if (!department?.id) {
+    throw new Error("Selected department was not found.");
+  }
+
+  return department;
 };
 
 const toNumber = (value: number | string | null | undefined, fallback = 0) => {
@@ -257,11 +286,15 @@ export async function POST(req: Request) {
     return jsonError("Meetings per week must be greater than zero.", 400);
   }
 
+  let subjectDepartment: OrgDepartmentRow | null = null;
+
   try {
-    await ensureDepartmentExists(context.org.id, subjectPayload.department);
+    subjectDepartment = subjectPayload.departmentId
+      ? await loadDepartmentById(context.org.id, subjectPayload.departmentId)
+      : await ensureDepartmentExists(context.org.id, subjectPayload.department);
   } catch (error) {
     return jsonError(
-      error instanceof Error ? error.message : "Failed to add department.",
+      error instanceof Error ? error.message : "Failed to resolve department.",
       500,
     );
   }
@@ -307,6 +340,8 @@ export async function POST(req: Request) {
   const requestPayload: SubjectPayload = {
     ...subjectPayload,
     subjectCode,
+    department: subjectDepartment?.name ?? subjectPayload.department,
+    departmentId: subjectDepartment?.id ?? subjectPayload.departmentId ?? null,
   };
   const workflow = getAcademicApprovalWorkflow(context.org.onboarding_config);
   const initialStatus = getInitialApprovalStatus(workflow);

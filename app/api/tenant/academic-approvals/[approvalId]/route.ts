@@ -166,7 +166,7 @@ export async function PATCH(
     to_status: nextStatus,
     actor_org_user_id: context.orgUser.id,
     actor_name: context.orgUser.full_name,
-    actor_role: context.role.key,
+    actor_role: context.orgUser.role_label ?? context.role.name,
     remarks: remarks || null,
     at: now,
   });

@@ -3,6 +3,9 @@ import {
   canReviewApprovalRequest,
   canUseHigherEdApprovals,
   canViewAcademicApprovals,
+  finalStatuses,
+  getAcademicApprovalWorkflow,
+  getApprovalWorkflowSteps,
   jsonError,
   mapApprovalRequest,
   type AcademicApprovalRow,
@@ -54,6 +57,15 @@ export async function GET(req: Request) {
     return jsonError(requestsError.message || "Failed to load academic approvals.", 500);
   }
 
+  const workflow = getAcademicApprovalWorkflow(context.org.onboarding_config);
+  const workflowSteps = getApprovalWorkflowSteps(workflow);
+  const wasReviewedByCurrentUser = (request: AcademicApprovalRow) =>
+    request.reviewed_by_chairman_org_user_id === context.orgUser.id ||
+    request.reviewed_by_dean_org_user_id === context.orgUser.id ||
+    request.reviewed_by_vpaa_org_user_id === context.orgUser.id;
+  const canViewRequestHistory = (request: AcademicApprovalRow) =>
+    finalStatuses.has(request.status) || wasReviewedByCurrentUser(request);
+
   const submittedByIds = Array.from(
     new Set(
       (requests ?? [])
@@ -87,7 +99,8 @@ export async function GET(req: Request) {
       const canAct = await canReviewApprovalRequest(context, request);
 
       return {
-        canView: context.isOrgAdmin || canAct,
+        canView: context.isOrgAdmin || canAct || canViewRequestHistory(request),
+        hasReviewHistory: context.isOrgAdmin || wasReviewedByCurrentUser(request),
         ...mapApprovalRequest(request, canAct),
         submittedBy: submitter
           ? {
@@ -100,6 +113,8 @@ export async function GET(req: Request) {
     }));
 
   return NextResponse.json({
+    workflow,
+    workflowSteps,
     requests: mappedRequests
       .filter((request) => request.canView)
       .map(({ canView: _canView, ...request }) => request),

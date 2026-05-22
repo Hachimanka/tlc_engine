@@ -29,6 +29,7 @@ export type SubjectPayload = {
   subjectTitle: string;
   subjectCode: string;
   department: string;
+  departmentId: string | null;
   yearLevel: string;
   lectureHours: number;
   labHours: number;
@@ -92,6 +93,35 @@ export const allowedSubjectSubmitterRoles = new Set([
 export const canUseHigherEdApprovals = (context: TenantContext) =>
   context.institutionType === "higher_ed";
 
+const normalizeRoleTag = (value?: string | null) =>
+  (value ?? "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const roleTagIncludesAny = (
+  context: TenantContext,
+  keywords: string[],
+) => {
+  const roleTag = normalizeRoleTag(context.orgUser.role_label ?? context.role.name);
+  const roleKey = normalizeRoleTag(context.role.key);
+
+  return keywords.some((keyword) => {
+    const normalizedKeyword = normalizeRoleTag(keyword);
+    return roleTag.includes(normalizedKeyword) || roleKey.includes(normalizedKeyword);
+  });
+};
+
+const hasChairmanReviewerTag = (context: TenantContext) =>
+  roleTagIncludesAny(context, ["chairman", "department head", "program chair", "chair"]);
+
+const hasDeanReviewerTag = (context: TenantContext) =>
+  roleTagIncludesAny(context, ["dean"]);
+
+const hasVpaaReviewerTag = (context: TenantContext) =>
+  roleTagIncludesAny(context, ["vpaa", "vice president academic affairs"]);
+
 export const canSubmitSubject = (context: TenantContext) =>
   context.isOrgAdmin ||
   allowedSubjectSubmitterRoles.has(context.role.key) ||
@@ -99,33 +129,29 @@ export const canSubmitSubject = (context: TenantContext) =>
 
 export const canViewApprovals = (context: TenantContext) =>
   context.isOrgAdmin ||
-  context.role.key === "dean" ||
-  context.role.key === "vpaa" ||
-  context.role.key === "department_head" ||
+  hasChairmanReviewerTag(context) ||
+  hasDeanReviewerTag(context) ||
+  hasVpaaReviewerTag(context) ||
   context.enabledFeatureKeys.includes("higher-dean-vpaa-approvals");
 
 export const canReviewStatus = (
   context: TenantContext,
   status: ApprovalStatus,
 ) => {
-  const hasAcademicApprovalAccess = context.enabledFeatureKeys.includes(
-    "higher-dean-vpaa-approvals",
-  );
-
   if (context.isOrgAdmin) {
     return status === "pending_chairman" || status === "pending_dean" || status === "pending_vpaa";
   }
 
   if (status === "pending_chairman") {
-    return context.role.key === "department_head";
+    return hasChairmanReviewerTag(context);
   }
 
   if (status === "pending_dean") {
-    return context.role.key === "dean";
+    return hasDeanReviewerTag(context);
   }
 
   if (status === "pending_vpaa") {
-    return context.role.key === "vpaa" || hasAcademicApprovalAccess;
+    return hasVpaaReviewerTag(context);
   }
 
   return false;
@@ -179,15 +205,19 @@ const workflowSteps: Record<AcademicApprovalWorkflow, ApprovalStatus[]> = {
   chairman_dean_vpaa: ["pending_chairman", "pending_dean", "pending_vpaa"],
 };
 
+export const getApprovalWorkflowSteps = (
+  workflow: AcademicApprovalWorkflow,
+): ApprovalStatus[] => workflowSteps[workflow] ?? workflowSteps.dean_vpaa;
+
 export const getInitialApprovalStatus = (
   workflow: AcademicApprovalWorkflow,
-): ApprovalStatus => workflowSteps[workflow][0] ?? "pending_dean";
+): ApprovalStatus => getApprovalWorkflowSteps(workflow)[0] ?? "pending_dean";
 
 export const getNextApprovalStatus = (
   workflow: AcademicApprovalWorkflow,
   currentStatus: ApprovalStatus,
 ): ApprovalStatus => {
-  const steps = workflowSteps[workflow];
+  const steps = getApprovalWorkflowSteps(workflow);
   const currentIndex = steps.indexOf(currentStatus);
 
   if (currentIndex < 0 || currentIndex === steps.length - 1) {
@@ -210,6 +240,33 @@ const getRequestDepartment = (request: AcademicApprovalRow) => {
 };
 
 const loadDepartmentForRequest = async (request: AcademicApprovalRow) => {
+  const subjectPayload = request.request_type === SUBJECT_APPROVAL_TYPE
+    ? getSubjectPayload(request.payload)
+    : null;
+
+  if (subjectPayload?.departmentId) {
+    const { data: department, error } = await supabaseAdmin
+      .from("org_departments")
+      .select("id, name, code, college_id, chair_user_id")
+      .eq("id", subjectPayload.departmentId)
+      .eq("org_id", request.org_id)
+      .maybeSingle<{
+        id: string;
+        name: string | null;
+        code: string | null;
+        college_id: string | null;
+        chair_user_id: string | null;
+      }>();
+
+    if (error) {
+      throw new Error(error.message || "Failed to load department reviewer.");
+    }
+
+    if (department?.id) {
+      return department;
+    }
+  }
+
   const departmentLabel = normalizeLookupValue(getRequestDepartment(request));
 
   if (!departmentLabel) {
@@ -256,6 +313,32 @@ const isAssignedDeanForRequest = async (
   return college?.dean_user_id === context.orgUser.id;
 };
 
+const isSameDepartmentForRequest = async (
+  context: TenantContext,
+  request: AcademicApprovalRow,
+) => {
+  const department = await loadDepartmentForRequest(request);
+
+  if (!department) {
+    return false;
+  }
+
+  if (context.orgUser.department_id) {
+    return context.orgUser.department_id === department.id;
+  }
+
+  const userDepartmentLabel = normalizeLookupValue(context.orgUser.department ?? "");
+
+  if (!userDepartmentLabel) {
+    return false;
+  }
+
+  return (
+    userDepartmentLabel === normalizeLookupValue(String(department.name ?? "")) ||
+    userDepartmentLabel === normalizeLookupValue(String(department.code ?? ""))
+  );
+};
+
 const isAssignedChairmanForRequest = async (
   context: TenantContext,
   request: AcademicApprovalRow,
@@ -295,10 +378,6 @@ export const canReviewApprovalRequest = async (
   context: TenantContext,
   request: AcademicApprovalRow,
 ) => {
-  const hasAcademicApprovalAccess = context.enabledFeatureKeys.includes(
-    "higher-dean-vpaa-approvals",
-  );
-
   if (context.isOrgAdmin) {
     return request.status === "pending_chairman" ||
       request.status === "pending_dean" ||
@@ -306,7 +385,11 @@ export const canReviewApprovalRequest = async (
   }
 
   if (request.status === "pending_chairman") {
-    return isAssignedChairmanForRequest(context, request);
+    if (await isAssignedChairmanForRequest(context, request)) {
+      return true;
+    }
+
+    return hasChairmanReviewerTag(context) && isSameDepartmentForRequest(context, request);
   }
 
   if (request.status === "pending_dean") {
@@ -314,7 +397,7 @@ export const canReviewApprovalRequest = async (
   }
 
   if (request.status === "pending_vpaa") {
-    return context.role.key === "vpaa" || hasAcademicApprovalAccess;
+    return hasVpaaReviewerTag(context);
   }
 
   return false;
@@ -330,6 +413,7 @@ export const getSubjectPayload = (value: unknown): SubjectPayload => {
     subjectTitle: toText(payload.subjectTitle),
     subjectCode: normalizeSubjectCode(toText(payload.subjectCode)),
     department: toText(payload.department),
+    departmentId: toText(payload.departmentId) || null,
     yearLevel: toText(payload.yearLevel, "Second Year"),
     lectureHours: toNumber(payload.lectureHours),
     labHours: toNumber(payload.labHours),

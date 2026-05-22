@@ -45,6 +45,7 @@ type FormData = {
   title: string;
   code: string;
   department: string;
+  departmentId: string;
   units: string;
   lecHours: string;
   labHours: string;
@@ -57,6 +58,7 @@ const emptyForm: FormData = {
   title: "",
   code: "",
   department: "",
+  departmentId: "",
   units: "",
   lecHours: "",
   labHours: "",
@@ -221,7 +223,10 @@ export default function SubjectManagementTable() {
   const departmentFilterOptions = ["All Departments", ...departmentNames];
   const departmentSelectOptions = [
     { value: "", label: "Select Department" },
-    ...departmentNames.map((department) => ({ value: department, label: department })),
+    ...departments.map((department) => ({
+      value: department.id,
+      label: department.code ? `${department.code} - ${department.name}` : department.name,
+    })),
     { value: addDepartmentValue, label: "+ Add Department" },
   ];
 
@@ -235,7 +240,7 @@ export default function SubjectManagementTable() {
 
     const departmentName = isAddingDepartment ? newDepartmentName.trim() : form.department;
 
-    if (!form.title || !form.code || !departmentName || !form.units || !form.meetingsPerWeek) {
+    if (!form.title || !form.code || !departmentName || (!isAddingDepartment && !form.departmentId) || !form.units || !form.meetingsPerWeek) {
       setSubmitError("Subject title, code, department, units, and meetings per week are required.");
       return;
     }
@@ -285,6 +290,7 @@ export default function SubjectManagementTable() {
           subjectTitle: form.title,
           subjectCode: form.code,
           department: isAddingDepartment ? newDepartmentName.trim() : form.department,
+          departmentId: isAddingDepartment ? null : form.departmentId,
           units: Number(form.units),
           lectureHours: Number(form.lecHours || 0),
           labHours: Number(form.labHours || 0),
@@ -393,17 +399,22 @@ export default function SubjectManagementTable() {
                     Department <span className="text-red-500">*</span>
                   </span>
                   <StyledSelect
-                    value={isAddingDepartment ? addDepartmentValue : form.department}
+                    value={isAddingDepartment ? addDepartmentValue : form.departmentId}
                     onChange={(value) => {
                       if (value === addDepartmentValue) {
                         setIsAddingDepartment(true);
-                        setForm((current) => ({ ...current, department: "" }));
+                        setForm((current) => ({ ...current, department: "", departmentId: "" }));
                         return;
                       }
 
                       setIsAddingDepartment(false);
                       setNewDepartmentName("");
-                      setForm((current) => ({ ...current, department: value }));
+                      const selectedDepartment = departments.find((department) => department.id === value);
+                      setForm((current) => ({
+                        ...current,
+                        department: selectedDepartment?.name ?? "",
+                        departmentId: value,
+                      }));
                     }}
                     options={departmentSelectOptions}
                     className="[&_button]:h-10"

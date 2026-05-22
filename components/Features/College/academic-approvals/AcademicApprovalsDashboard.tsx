@@ -15,7 +15,6 @@ import { supabase } from "@/lib/supabaseClient";
 type ApprovalRequestType =
   | "subject"
   | "teaching_load"
-  | "schedule_conflict"
   | "overload_exception"
   | "adjustment_request";
 
@@ -26,6 +25,12 @@ type ApprovalStatus =
   | "approved"
   | "returned"
   | "rejected";
+
+type AcademicApprovalWorkflow =
+  | "dean_vpaa"
+  | "chairman_only"
+  | "chairman_dean"
+  | "chairman_dean_vpaa";
 
 type ApprovalRequest = {
   id: string;
@@ -42,6 +47,7 @@ type ApprovalRequest = {
   submittedAt: string;
   updatedAt: string;
   canAct: boolean;
+  hasReviewHistory?: boolean;
 };
 
 type Decision = "approve" | "return" | "reject";
@@ -56,11 +62,6 @@ const categories: { key: ApprovalRequestType | "history"; label: string; empty: 
     key: "teaching_load",
     label: "Teaching Load Approvals",
     empty: "Teaching load approval requests will appear here once load modules submit them.",
-  },
-  {
-    key: "schedule_conflict",
-    label: "Schedule Conflicts",
-    empty: "Schedule conflict requests will appear here once schedule modules submit them.",
   },
   {
     key: "overload_exception",
@@ -97,6 +98,24 @@ const statusClass: Record<ApprovalStatus, string> = {
   approved: "bg-green-50 text-green-700 border border-green-200",
   returned: "bg-orange-50 text-orange-700 border border-orange-200",
   rejected: "bg-red-50 text-red-700 border border-red-200",
+};
+
+const pendingStatMeta: Record<
+  Extract<ApprovalStatus, "pending_chairman" | "pending_dean" | "pending_vpaa">,
+  { label: string; icon: ReactNode }
+> = {
+  pending_chairman: {
+    label: "Pending Chairman",
+    icon: <Clock className="h-5 w-5" />,
+  },
+  pending_dean: {
+    label: "Pending Dean",
+    icon: <Clock className="h-5 w-5" />,
+  },
+  pending_vpaa: {
+    label: "Pending VPAA",
+    icon: <ShieldCheck className="h-5 w-5" />,
+  },
 };
 
 const decisionMeta: Record<Decision, { label: string; icon: ReactNode; buttonClass: string }> = {
@@ -175,9 +194,11 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 
 export default function AcademicApprovalsDashboard() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [workflowSteps, setWorkflowSteps] = useState<ApprovalStatus[]>(["pending_dean", "pending_vpaa"]);
   const [activeTab, setActiveTab] = useState<ApprovalRequestType | "history">("subject");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [actionRequest, setActionRequest] = useState<ApprovalRequest | null>(null);
   const [decision, setDecision] = useState<Decision>("approve");
   const [remarks, setRemarks] = useState("");
@@ -206,14 +227,23 @@ export default function AcademicApprovalsDashboard() {
       const payload: { requests?: ApprovalRequest[]; error?: string } = await response
         .json()
         .catch(() => ({}));
+      const nextPayload = payload as {
+        requests?: ApprovalRequest[];
+        workflow?: AcademicApprovalWorkflow;
+        workflowSteps?: ApprovalStatus[];
+        error?: string;
+      };
 
       if (!response.ok) {
-        setError(payload.error || "Unable to load approval requests.");
+        setError(nextPayload.error || "Unable to load approval requests.");
         setRequests([]);
         return;
       }
 
-      setRequests(payload.requests || []);
+      setRequests(nextPayload.requests || []);
+      if (nextPayload.workflowSteps?.length) {
+        setWorkflowSteps(nextPayload.workflowSteps);
+      }
     } catch {
       setError("Unable to load approval requests.");
       setRequests([]);
@@ -228,10 +258,17 @@ export default function AcademicApprovalsDashboard() {
 
   const filteredRequests = useMemo(() => {
     if (activeTab === "history") {
-      return requests.filter((request) => closedStatuses.has(request.status));
+      return requests.filter(
+        (request) => closedStatuses.has(request.status) || request.hasReviewHistory,
+      );
     }
 
-    return requests.filter((request) => request.requestType === activeTab);
+    return requests.filter(
+      (request) =>
+        request.requestType === activeTab &&
+        !closedStatuses.has(request.status) &&
+        request.canAct,
+    );
   }, [activeTab, requests]);
 
   const stats = useMemo(
@@ -245,11 +282,38 @@ export default function AcademicApprovalsDashboard() {
     [requests],
   );
 
+  const statCards = useMemo(
+    () => [
+      ...workflowSteps
+        .filter((status): status is keyof typeof pendingStatMeta => status in pendingStatMeta)
+        .map((status) => ({
+          key: status,
+          label: pendingStatMeta[status].label,
+          value: requests.filter((request) => request.status === status).length,
+          icon: pendingStatMeta[status].icon,
+        })),
+      {
+        key: "approved",
+        label: "Approved",
+        value: stats.approved,
+        icon: <CheckCircle className="h-5 w-5" />,
+      },
+      {
+        key: "exceptions",
+        label: "Returned / Rejected",
+        value: stats.exceptions,
+        icon: <XCircle className="h-5 w-5" />,
+      },
+    ],
+    [requests, stats.approved, stats.exceptions, workflowSteps],
+  );
+
   const openDecisionModal = (request: ApprovalRequest, nextDecision: Decision) => {
     setActionRequest(request);
     setDecision(nextDecision);
     setRemarks("");
     setActionError("");
+    setSuccessMessage("");
   };
 
   const closeDecisionModal = () => {
@@ -295,14 +359,26 @@ export default function AcademicApprovalsDashboard() {
           remarks,
         }),
       });
-      const payload: { error?: string } = await response.json().catch(() => ({}));
+      const payload: { request?: ApprovalRequest; error?: string } = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         setActionError(payload.error || "Unable to save decision.");
         return;
       }
 
+      const nextStatus = payload.request?.status;
+      const nextStatusText = nextStatus ? statusLabel[nextStatus] : "the next step";
+      const nextMessage = decision === "approve"
+        ? nextStatus === "approved"
+          ? "Approved. The request was saved to Approval History."
+          : `Approved. This request moved to ${nextStatusText}.`
+        : decision === "return"
+        ? "Returned. The request was saved to Approval History."
+        : "Rejected. The request was saved to Approval History.";
+
       closeDecisionModal();
+      setSuccessMessage(nextMessage);
+      setActiveTab(nextStatus && closedStatuses.has(nextStatus) ? "history" : actionRequest.requestType);
       await loadApprovals();
     } catch {
       setActionError("Unable to save decision.");
@@ -320,16 +396,14 @@ export default function AcademicApprovalsDashboard() {
           Academic Approval Center
         </h1>
         <p className="text-sm text-[var(--color-low-emphasis)]">
-          Review subjects, loads, schedules, and academic exceptions assigned to your role.
+          Review requests assigned by the active approval workflow.
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
-        <StatCard label="Pending Chairman" value={stats.chairman} icon={<Clock className="h-5 w-5" />} />
-        <StatCard label="Pending Dean" value={stats.dean} icon={<Clock className="h-5 w-5" />} />
-        <StatCard label="Pending VPAA" value={stats.vpaa} icon={<ShieldCheck className="h-5 w-5" />} />
-        <StatCard label="Approved" value={stats.approved} icon={<CheckCircle className="h-5 w-5" />} />
-        <StatCard label="Returned / Rejected" value={stats.exceptions} icon={<XCircle className="h-5 w-5" />} />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {statCards.map((card) => (
+          <StatCard key={card.key} label={card.label} value={card.value} icon={card.icon} />
+        ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -352,6 +426,12 @@ export default function AcademicApprovalsDashboard() {
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+
+      {successMessage ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          {successMessage}
         </div>
       ) : null}
 
