@@ -6,7 +6,10 @@ import Navbar from "@/components/Global/navbar";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import type { TenantBranding } from "@/lib/tenantBranding";
-import { saveStoredTenantBranding } from "@/lib/tenantBrandingSession";
+import {
+  readStoredTenantBranding,
+  saveStoredTenantBranding,
+} from "@/lib/tenantBrandingSession";
 import {
   buildTenantLoginUrl,
   buildTenantMeUrl,
@@ -35,6 +38,9 @@ type NoAccessState = {
 
 export default function TenantNoAccessPage() {
   const router = useRouter();
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(() =>
+    readStoredTenantBranding(),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [access, setAccess] = useState<NoAccessState | null>(null);
   const [error, setError] = useState("");
@@ -96,6 +102,7 @@ export default function TenantNoAccessPage() {
 
         setAccess(payload);
         saveStoredTenantBranding(payload.branding ?? null);
+        setStoredBranding(payload.branding ?? null);
         setIsLoading(false);
       } catch {
         setError("Unable to reach the authentication service. Please try again.");
@@ -112,11 +119,11 @@ export default function TenantNoAccessPage() {
 
   return (
     <TenantBrandScope
-      branding={access?.branding}
+      branding={access?.branding ?? storedBranding}
       className="flex min-h-screen flex-col bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
     >
       <Navbar
-        branding={access?.branding}
+        branding={access?.branding ?? storedBranding}
         organizationName={access?.org?.name}
         organizationSlug={access?.org?.slug}
         profile={{
