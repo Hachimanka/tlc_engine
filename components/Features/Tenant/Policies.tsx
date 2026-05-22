@@ -1173,7 +1173,7 @@ export default function Policies() {
           </div>
 
           <div className="mt-5 rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-4 py-3 text-sm text-[var(--color-low-emphasis)]">
-            Assigned department chairmen and college deans come from Colleges & Departments. VPAA reviewers need Academic Approvals feature access.
+            Assigned department chairmen and college deans review their workflow steps. VPAA reviewers need Academic Approvals feature access.
           </div>
         </Section>
       ) : null}

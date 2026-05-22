@@ -79,8 +79,7 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({
-    requests: await Promise.all((requests ?? []).map(async (row) => {
+  const mappedRequests = await Promise.all((requests ?? []).map(async (row) => {
       const request = row as AcademicApprovalRow;
       const submitter = request.submitted_by_org_user_id
         ? submittersById.get(request.submitted_by_org_user_id)
@@ -88,6 +87,7 @@ export async function GET(req: Request) {
       const canAct = await canReviewApprovalRequest(context, request);
 
       return {
+        canView: context.isOrgAdmin || canAct,
         ...mapApprovalRequest(request, canAct),
         submittedBy: submitter
           ? {
@@ -97,6 +97,11 @@ export async function GET(req: Request) {
             }
           : null,
       };
-    })),
+    }));
+
+  return NextResponse.json({
+    requests: mappedRequests
+      .filter((request) => request.canView)
+      .map(({ canView: _canView, ...request }) => request),
   });
 }

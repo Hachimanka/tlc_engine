@@ -108,6 +108,10 @@ export const canReviewStatus = (
   context: TenantContext,
   status: ApprovalStatus,
 ) => {
+  const hasAcademicApprovalAccess = context.enabledFeatureKeys.includes(
+    "higher-dean-vpaa-approvals",
+  );
+
   if (context.isOrgAdmin) {
     return status === "pending_chairman" || status === "pending_dean" || status === "pending_vpaa";
   }
@@ -121,7 +125,7 @@ export const canReviewStatus = (
   }
 
   if (status === "pending_vpaa") {
-    return context.role.key === "vpaa";
+    return context.role.key === "vpaa" || hasAcademicApprovalAccess;
   }
 
   return false;
@@ -291,6 +295,10 @@ export const canReviewApprovalRequest = async (
   context: TenantContext,
   request: AcademicApprovalRow,
 ) => {
+  const hasAcademicApprovalAccess = context.enabledFeatureKeys.includes(
+    "higher-dean-vpaa-approvals",
+  );
+
   if (context.isOrgAdmin) {
     return request.status === "pending_chairman" ||
       request.status === "pending_dean" ||
@@ -306,10 +314,7 @@ export const canReviewApprovalRequest = async (
   }
 
   if (request.status === "pending_vpaa") {
-    return (
-      context.role.key === "vpaa" ||
-      context.enabledFeatureKeys.includes("higher-dean-vpaa-approvals")
-    );
+    return context.role.key === "vpaa" || hasAcademicApprovalAccess;
   }
 
   return false;

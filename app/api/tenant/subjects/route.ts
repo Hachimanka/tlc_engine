@@ -35,6 +35,12 @@ type AcademicSubjectRow = {
   updated_at: string;
 };
 
+type OrgDepartmentRow = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
 const isApprovalWorkflowMigrationMissingError = (
   error: { code?: string; message?: string; details?: string } | null | undefined,
 ) => {
@@ -44,6 +50,51 @@ const isApprovalWorkflowMigrationMissingError = (
     error?.code === "23514" &&
     message.includes("academic_approval_requests_status_check")
   );
+};
+
+const normalizeDepartmentName = (value: string) =>
+  value.trim().replace(/\s+/g, " ");
+
+const ensureDepartmentExists = async (orgId: string, departmentName: string) => {
+  const normalizedName = normalizeDepartmentName(departmentName);
+
+  if (!normalizedName) {
+    return;
+  }
+
+  const { data: departments, error: lookupError } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name")
+    .eq("org_id", orgId);
+
+  if (lookupError) {
+    throw new Error(lookupError.message || "Failed to check departments.");
+  }
+
+  const exists = (departments ?? []).some(
+    (department) => department.name.trim().toLowerCase() === normalizedName.toLowerCase(),
+  );
+
+  if (exists) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin.from("org_departments").insert([
+    {
+      org_id: orgId,
+      name: normalizedName,
+      code: null,
+      college_id: null,
+      chair_user_id: null,
+      created_at: now,
+      updated_at: now,
+    },
+  ]);
+
+  if (error) {
+    throw new Error(error.message || "Failed to add department.");
+  }
 };
 
 const toNumber = (value: number | string | null | undefined, fallback = 0) => {
@@ -110,16 +161,28 @@ export async function GET(req: Request) {
     return jsonError("Academic approvals are available for Higher Ed institutions only.", 400);
   }
 
-  const { data: approvedSubjects, error: approvedError } = await supabaseAdmin
-    .from("academic_subjects")
-    .select(
-      "id, subject_title, subject_code, department, year_level, lecture_hours, lab_hours, meetings_per_week, units, description, approved_at, created_at, updated_at",
-    )
-    .eq("org_id", context.org.id)
-    .order("created_at", { ascending: false });
+  const [approvedSubjectResult, departmentResult] = await Promise.all([
+    supabaseAdmin
+      .from("academic_subjects")
+      .select(
+        "id, subject_title, subject_code, department, year_level, lecture_hours, lab_hours, meetings_per_week, units, description, approved_at, created_at, updated_at",
+      )
+      .eq("org_id", context.org.id)
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("org_departments")
+      .select("id, name, code")
+      .eq("org_id", context.org.id)
+      .order("name", { ascending: true }),
+  ]);
+  const { data: approvedSubjects, error: approvedError } = approvedSubjectResult;
 
   if (approvedError) {
     return jsonError(approvedError.message || "Failed to load subjects.", 500);
+  }
+
+  if (departmentResult.error) {
+    return jsonError(departmentResult.error.message || "Failed to load departments.", 500);
   }
 
   const { data: subjectRequests, error: requestsError } = await supabaseAdmin
@@ -143,7 +206,15 @@ export async function GET(req: Request) {
     return bTime - aTime;
   });
 
-  return NextResponse.json({ subjects, canSubmit: canSubmitSubject(context) });
+  return NextResponse.json({
+    subjects,
+    canSubmit: canSubmitSubject(context),
+    departments: ((departmentResult.data ?? []) as OrgDepartmentRow[]).map((department) => ({
+      id: department.id,
+      name: department.name,
+      code: department.code,
+    })),
+  });
 }
 
 export async function POST(req: Request) {
@@ -184,6 +255,15 @@ export async function POST(req: Request) {
 
   if (subjectPayload.meetingsPerWeek <= 0) {
     return jsonError("Meetings per week must be greater than zero.", 400);
+  }
+
+  try {
+    await ensureDepartmentExists(context.org.id, subjectPayload.department);
+  } catch (error) {
+    return jsonError(
+      error instanceof Error ? error.message : "Failed to add department.",
+      500,
+    );
   }
 
   const { data: existingSubject, error: existingSubjectError } = await supabaseAdmin

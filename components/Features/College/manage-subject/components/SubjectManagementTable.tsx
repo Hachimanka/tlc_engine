@@ -35,6 +35,12 @@ type Subject = {
   vpaaRemarks: string | null;
 };
 
+type DepartmentOption = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
 type FormData = {
   title: string;
   code: string;
@@ -59,9 +65,8 @@ const emptyForm: FormData = {
   level: "Second Year",
 };
 
-const departmentOptions = ["All Departments", "Computer Engineering", "Civil Engineering", "Electrical Engineering", "Information Technology"];
+const addDepartmentValue = "__add_department__";
 const levelOptions = ["All Levels", "First Year", "Second Year", "Third Year", "Fourth Year"];
-const departmentSelectOptions = departmentOptions.filter((option) => option !== "All Departments");
 const levelSelectOptions = levelOptions.filter((option) => option !== "All Levels");
 
 const statusLabel: Record<SubjectStatus, string> = {
@@ -99,6 +104,7 @@ const formatDate = (value: string) => {
 export default function SubjectManagementTable() {
   const [search, setSearch] = useState("");
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [levelFilter, setLevelFilter] = useState("All Levels");
   const [showForm, setShowForm] = useState(false);
@@ -109,6 +115,8 @@ export default function SubjectManagementTable() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [canSubmitSubject, setCanSubmitSubject] = useState(false);
+  const [isAddingDepartment, setIsAddingDepartment] = useState(false);
+  const [newDepartmentName, setNewDepartmentName] = useState("");
 
   const loadSubjects = async () => {
     setLoading(true);
@@ -130,22 +138,30 @@ export default function SubjectManagementTable() {
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload: { subjects?: Subject[]; canSubmit?: boolean; error?: string } = await response
+      const payload: {
+        subjects?: Subject[];
+        canSubmit?: boolean;
+        departments?: DepartmentOption[];
+        error?: string;
+      } = await response
         .json()
         .catch(() => ({}));
 
       if (!response.ok) {
         setError(payload.error || "Unable to load subjects.");
         setSubjects([]);
+        setDepartments([]);
         setCanSubmitSubject(false);
         return;
       }
 
       setSubjects(payload.subjects || []);
+      setDepartments(payload.departments || []);
       setCanSubmitSubject(Boolean(payload.canSubmit));
     } catch {
       setError("Unable to load subjects.");
       setSubjects([]);
+      setDepartments([]);
       setCanSubmitSubject(false);
     } finally {
       setLoading(false);
@@ -184,6 +200,31 @@ export default function SubjectManagementTable() {
     });
   }, [departmentFilter, levelFilter, search, subjects]);
 
+  const departmentNames = useMemo(() => {
+    const names = new Set<string>();
+
+    departments.forEach((department) => {
+      if (department.name.trim()) {
+        names.add(department.name);
+      }
+    });
+
+    subjects.forEach((subject) => {
+      if (subject.department.trim()) {
+        names.add(subject.department);
+      }
+    });
+
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [departments, subjects]);
+
+  const departmentFilterOptions = ["All Departments", ...departmentNames];
+  const departmentSelectOptions = [
+    { value: "", label: "Select Department" },
+    ...departmentNames.map((department) => ({ value: department, label: department })),
+    { value: addDepartmentValue, label: "+ Add Department" },
+  ];
+
   const handleSubmit = () => {
     setSubmitError("");
 
@@ -192,7 +233,9 @@ export default function SubjectManagementTable() {
       return;
     }
 
-    if (!form.title || !form.code || !form.department || !form.units || !form.meetingsPerWeek) {
+    const departmentName = isAddingDepartment ? newDepartmentName.trim() : form.department;
+
+    if (!form.title || !form.code || !departmentName || !form.units || !form.meetingsPerWeek) {
       setSubmitError("Subject title, code, department, units, and meetings per week are required.");
       return;
     }
@@ -212,6 +255,8 @@ export default function SubjectManagementTable() {
 
   const resetForm = () => {
     setForm(emptyForm);
+    setIsAddingDepartment(false);
+    setNewDepartmentName("");
     setSubmitError("");
     setShowForm(false);
     setShowConfirm(false);
@@ -239,7 +284,7 @@ export default function SubjectManagementTable() {
         body: JSON.stringify({
           subjectTitle: form.title,
           subjectCode: form.code,
-          department: form.department,
+          department: isAddingDepartment ? newDepartmentName.trim() : form.department,
           units: Number(form.units),
           lectureHours: Number(form.lecHours || 0),
           labHours: Number(form.labHours || 0),
@@ -258,6 +303,14 @@ export default function SubjectManagementTable() {
       }
 
       setSubjects((current) => [payload.subject as Subject, ...current]);
+      if (isAddingDepartment && newDepartmentName.trim()) {
+        const departmentName = newDepartmentName.trim();
+        setDepartments((current) =>
+          current.some((department) => department.name === departmentName)
+            ? current
+            : [...current, { id: departmentName, name: departmentName, code: null }],
+        );
+      }
       resetForm();
     } catch {
       setSubmitError("Unable to submit subject for approval.");
@@ -340,14 +393,29 @@ export default function SubjectManagementTable() {
                     Department <span className="text-red-500">*</span>
                   </span>
                   <StyledSelect
-                    value={form.department}
-                    onChange={(value) => setForm((current) => ({ ...current, department: value }))}
-                    options={[
-                      { value: "", label: "Select Department" },
-                      ...departmentSelectOptions.map((department) => ({ value: department, label: department })),
-                    ]}
+                    value={isAddingDepartment ? addDepartmentValue : form.department}
+                    onChange={(value) => {
+                      if (value === addDepartmentValue) {
+                        setIsAddingDepartment(true);
+                        setForm((current) => ({ ...current, department: "" }));
+                        return;
+                      }
+
+                      setIsAddingDepartment(false);
+                      setNewDepartmentName("");
+                      setForm((current) => ({ ...current, department: value }));
+                    }}
+                    options={departmentSelectOptions}
                     className="[&_button]:h-10"
                   />
+                  {isAddingDepartment ? (
+                    <input
+                      value={newDepartmentName}
+                      onChange={(event) => setNewDepartmentName(event.target.value)}
+                      placeholder="Enter new department name"
+                      className="mt-2 h-10 w-full rounded-md border border-[var(--color-default)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
+                    />
+                  ) : null}
                 </label>
 
                 <label className="space-y-1">
@@ -475,7 +543,7 @@ export default function SubjectManagementTable() {
           <StyledSelect
             value={departmentFilter}
             onChange={setDepartmentFilter}
-            options={departmentOptions.map((option) => ({ value: option, label: option }))}
+            options={departmentFilterOptions.map((option) => ({ value: option, label: option }))}
             className="min-w-[180px] [&_button]:h-10"
           />
 
