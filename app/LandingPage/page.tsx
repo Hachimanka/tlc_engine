@@ -10,10 +10,12 @@ import About from "@/components/LandingPage/About";
 import Contact from "@/components/LandingPage/Contact";
 import CTABanner from "@/components/LandingPage/CTABanner";
 import Footer from "@/components/LandingPage/Footer";
+import LogoLoadingScreen from "@/components/LandingPage/LogoLoadingScreen";
 
 export default function Home() {
   return (
     <main>
+      <LogoLoadingScreen />
       <Navbar />
       <Hero />
       <WhatIs />
