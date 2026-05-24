@@ -1,15 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import ExportForm from "@/components/Features/College/view-teaching-load/components/ExportForm";
 import RequestForm from "@/components/Features/College/view-teaching-load/components/RequestForm";
 import TeachingLoadTable from "@/components/Features/College/view-teaching-load/components/TeachingLoadTable";
 import { ICON_SVGS } from "@/public/icons";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  teacherLoadRows,
+  type TeacherLoadRow,
+} from "@/components/Features/College/view-teaching-load/components/teacher-load-data-college";
 
 export default function TenantPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isRequestOpen, setIsRequestOpen] = useState(false);
+  const [rows, setRows] = useState<TeacherLoadRow[]>(teacherLoadRows);
+
+  const loadTeachingLoad = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setRows(teacherLoadRows);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/tenant/my-teaching-load", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setRows(teacherLoadRows);
+        return;
+      }
+
+      setRows(payload.rows ?? teacherLoadRows);
+    } catch {
+      setRows(teacherLoadRows);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTeachingLoad();
+  }, [loadTeachingLoad]);
 
   return (
     <>
@@ -41,7 +79,7 @@ export default function TenantPage() {
             </button>
           </div>
 
-          <TeachingLoadTable />
+          <TeachingLoadTable rows={rows} />
 
           <div className="flex justify-end pt-2">
             <button
@@ -64,6 +102,7 @@ export default function TenantPage() {
       <ExportForm
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
+        rows={rows}
       />
       <RequestForm
         isOpen={isRequestOpen}

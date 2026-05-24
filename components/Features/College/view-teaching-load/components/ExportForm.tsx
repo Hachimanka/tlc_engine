@@ -32,6 +32,84 @@ const scheduleTimes = [
 
 const days = ["Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
+const dayAbbreviationMap: Record<string, string> = {
+  Monday: "Mon",
+  Tuesday: "Tue",
+  Wednesday: "Wed",
+  Thursday: "Thu",
+  Friday: "Fri",
+  Saturday: "Sat",
+  Sunday: "Sun",
+  Mon: "Mon",
+  Tue: "Tue",
+  Wed: "Wed",
+  Thu: "Thu",
+  Fri: "Fri",
+  Sat: "Sat",
+  Sun: "Sun",
+};
+
+const parseTimeToMinutes = (time: string) => {
+  const normalized = time.trim().toUpperCase();
+  const [, hourText, minuteText, meridiem] =
+    normalized.match(/^(\d{1,2}):(\d{2})(AM|PM)?$/) ?? [];
+
+  if (!hourText || !minuteText) {
+    return 0;
+  }
+
+  let hour = Number(hourText);
+  const minutes = Number(minuteText);
+
+  if (meridiem === "PM" && hour !== 12) {
+    hour += 12;
+  }
+
+  if (meridiem === "AM" && hour === 12) {
+    hour = 0;
+  }
+
+  return hour * 60 + minutes;
+};
+
+const buildTimeSlotLabel = (startMinutes: number) => {
+  const endMinutes = startMinutes + 60;
+  const format = (minutes: number) => {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    return `${hour}:${minute.toString().padStart(2, "0")}`;
+  };
+
+  return `${format(startMinutes)}-${format(endMinutes)}`;
+};
+
+const extractScheduleSlots = (schedule: string) => {
+  return schedule
+    .split("/")
+    .map((part) => part.trim())
+    .flatMap((part) => {
+      const match = part.match(
+        /^([A-Za-z]+)\s+(\d{1,2}:\d{2}(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}(?:AM|PM)?)$/i,
+      );
+
+      if (!match) {
+        return [];
+      }
+
+      const [, rawDay, rawStart, rawEnd] = match;
+      const dayAbbr = dayAbbreviationMap[rawDay] ?? rawDay;
+      const startMinutes = parseTimeToMinutes(rawStart);
+      const endMinutes = parseTimeToMinutes(rawEnd);
+      const slots = [] as { dayAbbr: string; time: string }[];
+
+      for (let current = startMinutes; current < endMinutes; current += 60) {
+        slots.push({ dayAbbr, time: buildTimeSlotLabel(current) });
+      }
+
+      return slots;
+    });
+};
+
 function HeaderPlaceholder() {
   return (
     <div
@@ -163,23 +241,16 @@ export default function ExportFrom({
                           {/* Monday to Friday Columns */}
                           {[1, 2, 3, 4, 5].map((i) => {
                             const dayName = days[i];
+                            const dayAbbr =
+                              dayAbbreviationMap[dayName] ?? dayName;
 
-                            const dayMap: { [key: string]: string } = {
-                              Monday: "M",
-                              Tuesday: "T",
-                              Wednesday: "W",
-                              Thursday: "Th",
-                              Friday: "F",
-                            };
-                            const dayAbbr = dayMap[dayName];
-
-                            const matchedRow = rows.find((row) => {
-                              const [daysPart, timePart] =
-                                row.schedule.split(" ");
-                              return (
-                                daysPart.includes(dayAbbr) && timePart === time
-                              );
-                            });
+                            const matchedRow = rows.find((row) =>
+                              extractScheduleSlots(row.schedule).some(
+                                (slot) =>
+                                  slot.dayAbbr === dayAbbr &&
+                                  slot.time === time,
+                              ),
+                            );
 
                             return (
                               <td

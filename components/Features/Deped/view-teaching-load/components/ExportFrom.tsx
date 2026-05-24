@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data";
+import { supabase } from "@/lib/supabaseClient";
 
 type ExportFromProps = {
 	isOpen: boolean;
@@ -22,6 +23,23 @@ type ExportFromProps = {
 	approvedPosition?: string;
 	address?: string;
 	rows?: TeacherLoadRow[];
+};
+
+type TeachingLoadPayload = {
+	rows?: TeacherLoadRow[];
+	error?: string;
+};
+
+type MePayload = {
+	orgUser?: {
+		fullName?: string | null;
+		department?: string | null;
+	};
+	branding?: {
+		logoUrl?: string | null;
+		logoAlt?: string | null;
+	};
+	error?: string;
 };
 
 const scheduleRows = [
@@ -46,9 +64,93 @@ const scheduleRows = [
 	"5:15-6:00",
 ];
 
+const dayLabels: Record<string, string> = {
+	mon: "Mon",
+	monday: "Mon",
+	tue: "Tue",
+	tues: "Tue",
+	tuesday: "Tue",
+	wed: "Wed",
+	wednesday: "Wed",
+	thu: "Thu",
+	thur: "Thu",
+	thurs: "Thu",
+	thursday: "Thu",
+	fri: "Fri",
+	friday: "Fri",
+	sat: "Sat",
+	saturday: "Sat",
+	sun: "Sun",
+	sunday: "Sun",
+};
+
+const scheduleSegmentPattern =
+	/\b(mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)\s*-\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/gi;
+
+function parseTimeToMinutes(value: string) {
+	const normalized = value.trim().replace(/\s+/g, "");
+	const match = normalized.match(/^(\d{1,2}):(\d{2})(AM|PM)?$/i);
+
+	if (!match) {
+		return null;
+	}
+
+	let hour = Number(match[1]);
+	const minute = Number(match[2]);
+	const period = match[3]?.toUpperCase();
+
+	if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+		return null;
+	}
+
+	if (period === "PM" && hour !== 12) {
+		hour += 12;
+	}
+
+	if (period === "AM" && hour === 12) {
+		hour = 0;
+	}
+
+	if (!period && hour >= 1 && hour <= 5) {
+		hour += 12;
+	}
+
+	return hour * 60 + minute;
+}
+
+function parseSlot(slot: string) {
+	const [startValue = "", endValue = ""] = slot.split("-").map((part) => part.trim());
+	const start = parseTimeToMinutes(startValue);
+	const end = parseTimeToMinutes(endValue);
+
+	return start === null || end === null ? null : { start, end };
+}
+
+function rangesOverlap(firstStart: number, firstEnd: number, secondStart: number, secondEnd: number) {
+	return firstStart < secondEnd && secondStart < firstEnd;
+}
+
+function parseScheduleSegments(row: TeacherLoadRow) {
+	return Array.from(row.schedule.matchAll(scheduleSegmentPattern))
+		.map((match) => {
+			const day = dayLabels[match[1].toLowerCase()] ?? match[1];
+			const start = parseTimeToMinutes(match[2]);
+			const end = parseTimeToMinutes(match[3]);
+
+			if (start === null || end === null || start >= end) {
+				return null;
+			}
+
+			return { day, start, end, row };
+		})
+		.filter(
+			(segment): segment is { day: string; start: number; end: number; row: TeacherLoadRow } =>
+				Boolean(segment),
+		);
+}
+
 function createPrintableAssignments(rows: TeacherLoadRow[]) {
-	const teachingRows = rows.filter((row) => row.subjectTitle.trim().length > 0);
-	let rowIndex = 0;
+	const scheduleSegments = rows.flatMap(parseScheduleSegments);
 
 	return scheduleRows.map((time) => {
 		if (time === "8:15-8:30" || time === "9:00-9:15" || time === "2:45-3:00" || time === "3:30-3:45") {
@@ -59,27 +161,50 @@ function createPrintableAssignments(rows: TeacherLoadRow[]) {
 			};
 		}
 
-		const currentRow = teachingRows[rowIndex];
-		rowIndex += 1;
+		const slot = parseSlot(time);
+		const matchingSegments = slot
+			? scheduleSegments.filter((segment) =>
+					rangesOverlap(slot.start, slot.end, segment.start, segment.end),
+				)
+			: [];
+		const subjectGroups = new Map<string, { row: TeacherLoadRow; days: string[] }>();
+
+		matchingSegments.forEach((segment) => {
+			const key = `${segment.row.subjectTitle}|${segment.row.subjectCode}|${segment.row.section}`;
+			const current = subjectGroups.get(key);
+
+			if (current) {
+				current.days.push(segment.day);
+				return;
+			}
+
+			subjectGroups.set(key, { row: segment.row, days: [segment.day] });
+		});
+
+		const subjects = Array.from(subjectGroups.values()).map(({ row, days }) => {
+			const uniqueDays = Array.from(new Set(days)).join("/");
+			return `${uniqueDays} - ${row.subjectTitle}${row.subjectCode ? ` (${row.subjectCode})` : ""}`;
+		});
+		const sections = Array.from(subjectGroups.values()).map(({ row }) => row.section);
 
 		return {
 			time,
-			subject: currentRow ? `${currentRow.subjectTitle} (${currentRow.subjectCode})` : "",
-			section: currentRow ? `${currentRow.section}` : "",
+			subject: subjects.join("; "),
+			section: Array.from(new Set(sections.filter(Boolean))).join("; "),
 		};
 	});
 }
 
-function HeaderPlaceholder() {
+function HeaderLogo({ logoUrl, logoAlt }: { logoUrl?: string; logoAlt?: string }) {
 	return (
 		<div
-			className="flex h-16 w-16 items-center justify-center rounded-full border-2 bg-contain bg-center bg-no-repeat text-[10px] font-semibold uppercase tracking-[0.18em] text-transparent"
+			className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 bg-white bg-contain bg-center bg-no-repeat text-[10px] font-semibold uppercase tracking-[0.18em] text-transparent"
 			style={{
-				backgroundImage: "var(--tenant-logo-url)",
+				backgroundImage: `url("${logoUrl || "/navbar/tlclogo.png"}")`,
 				borderColor: "var(--color-primary)",
 			}}
 		>
-			<span className="sr-only">Logo</span>
+			<span className="sr-only">{logoAlt || "School logo"}</span>
 		</div>
 	);
 }
@@ -113,9 +238,59 @@ export default function ExportFrom({
 	approvedBy = "CRISTOPHER C. PIODOS",
 	approvedPosition = "Acting Secondary School Principal",
 	address = "Public Schools District Supervisor",
-	rows = teacherLoadRows,
+	rows,
 }: ExportFromProps) {
-	const printableAssignments = createPrintableAssignments(rows);
+	const [loadedRows, setLoadedRows] = useState<TeacherLoadRow[]>(teacherLoadRows);
+	const [resolvedTeacherName, setResolvedTeacherName] = useState(teacherName);
+	const [resolvedSubjectArea, setResolvedSubjectArea] = useState(subjectArea);
+	const [logoUrl, setLogoUrl] = useState("");
+	const [logoAlt, setLogoAlt] = useState("School logo");
+	const effectiveRows = rows ?? loadedRows;
+	const printableAssignments = useMemo(
+		() => createPrintableAssignments(effectiveRows),
+		[effectiveRows],
+	);
+
+	const loadExportData = useCallback(async () => {
+		if (!isOpen || rows) {
+			return;
+		}
+
+		const {
+			data: { session },
+		} = await supabase.auth.getSession();
+
+		if (!session?.access_token) {
+			setLoadedRows([]);
+			return;
+		}
+
+		const [loadResponse, meResponse] = await Promise.all([
+			fetch("/api/tenant/my-teaching-load", {
+				headers: { Authorization: `Bearer ${session.access_token}` },
+			}),
+			fetch("/api/tenant/me", {
+				headers: { Authorization: `Bearer ${session.access_token}` },
+			}),
+		]);
+		const loadPayload: TeachingLoadPayload = await loadResponse.json().catch(() => ({}));
+		const mePayload: MePayload = await meResponse.json().catch(() => ({}));
+		const nextRows = loadResponse.ok ? loadPayload.rows ?? [] : [];
+
+		setLoadedRows(nextRows);
+		setResolvedTeacherName(mePayload.orgUser?.fullName || teacherName);
+		setResolvedSubjectArea(
+			nextRows.length > 0
+				? Array.from(new Set(nextRows.map((row) => row.subjectTitle).filter(Boolean))).join(", ")
+				: mePayload.orgUser?.department || subjectArea,
+		);
+		setLogoUrl(mePayload.branding?.logoUrl || "");
+		setLogoAlt(mePayload.branding?.logoAlt || "School logo");
+	}, [isOpen, rows, subjectArea, teacherName]);
+
+	useEffect(() => {
+		void loadExportData();
+	}, [loadExportData]);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -182,15 +357,15 @@ export default function ExportFrom({
 						<div className="teacher-export-print-root mx-auto flex w-full max-w-[210mm] flex-col gap-6">
 							<PrintablePage>
 								<div className="space-y-4">
-									<div className="grid grid-cols-[64px_1fr_64px] items-center gap-4">
-										<HeaderPlaceholder />
+											<div className="grid grid-cols-[64px_1fr_64px] items-center gap-4">
+										<HeaderLogo logoUrl={logoUrl} logoAlt={logoAlt} />
 										<div className="space-y-1 text-center">
 											<p className="text-[12px]">{region}</p>
 											<p className="text-[12px] font-semibold uppercase">{division}</p>
 											<p className="text-[12px] underline decoration-[rgba(0,0,0,0.4)] underline-offset-2">{district}</p>
 											<p className="text-[12px] font-bold uppercase tracking-[0.02em]">{schoolName}</p>
 										</div>
-										<HeaderPlaceholder />
+										<HeaderLogo logoUrl={logoUrl} logoAlt={logoAlt} />
 									</div>
 
 									<div className="space-y-1 text-center">
@@ -202,9 +377,9 @@ export default function ExportFrom({
 										<tbody>
 											<tr>
 												<td className="w-[26%] border border-black px-1 py-0.5 font-semibold">Name of Teacher:</td>
-												<td className="border border-black px-1 py-0.5">{teacherName}</td>
+												<td className="border border-black px-1 py-0.5">{resolvedTeacherName}</td>
 												<td className="w-[22%] border border-black px-1 py-0.5 font-semibold">Subject Area:</td>
-												<td className="border border-black px-1 py-0.5">{subjectArea}</td>
+												<td className="border border-black px-1 py-0.5">{resolvedSubjectArea}</td>
 											</tr>
 											<tr>
 												<td className="border border-black px-1 py-0.5 font-semibold">Advisory Class:</td>
