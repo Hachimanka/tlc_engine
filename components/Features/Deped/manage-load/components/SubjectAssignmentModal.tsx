@@ -5,6 +5,7 @@ import { useState } from "react";
 export type SubjectOption = {
 	id: string;
 	subjectTitle: string;
+	subjectCode?: string;
 	department: string;
 	yearLevel: string;
 	schedule: string;
@@ -22,6 +23,7 @@ type SubjectAssignmentModalProps = {
 	departmentName: string;
 	subjectOptions: SubjectOption[];
 	errorMessage?: string;
+	isSubmitting?: boolean;
 };
 
 export default function SubjectAssignmentModal({
@@ -32,6 +34,7 @@ export default function SubjectAssignmentModal({
 	departmentName,
 	subjectOptions,
 	errorMessage,
+	isSubmitting = false,
 }: SubjectAssignmentModalProps) {
 	const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
@@ -134,7 +137,7 @@ export default function SubjectAssignmentModal({
 					</button>
 					<button
 						type="button"
-						disabled={!selectedSubject}
+						disabled={!selectedSubject || isSubmitting}
 						onClick={() => {
 							if (selectedSubject) {
 								onSubmit(selectedSubject);
@@ -142,7 +145,7 @@ export default function SubjectAssignmentModal({
 						}}
 						className="rounded-lg bg-[var(--color-primary)] px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						Assign Subject
+						{isSubmitting ? "Assigning..." : "Assign Subject"}
 					</button>
 				</div>
 			</div>

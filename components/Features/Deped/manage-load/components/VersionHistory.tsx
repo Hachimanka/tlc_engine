@@ -12,6 +12,12 @@ type VersionHistoryProps = {
 	onClose: () => void;
 	selectedFacultyName?: string;
 	selectedSubjectTitle?: string;
+	entries?: Array<{
+		id: string;
+		changedAt: string;
+		changedBy: string;
+		action: string;
+	}>;
 };
 
 const versionEntries: VersionEntry[] = [
@@ -53,12 +59,27 @@ const versionEntries: VersionEntry[] = [
 	},
 ];
 
-export default function VersionHistory({ isOpen, onClose, selectedFacultyName, selectedSubjectTitle }: VersionHistoryProps) {
+export default function VersionHistory({
+	isOpen,
+	onClose,
+	selectedFacultyName,
+	selectedSubjectTitle,
+	entries,
+}: VersionHistoryProps) {
 	if (!isOpen) {
 		return null;
 	}
 
 	const subtitle = selectedFacultyName || selectedSubjectTitle || "Recent changes for this record";
+	const visibleEntries =
+		entries && entries.length > 0
+			? entries.map((entry) => ({
+					id: entry.id,
+					time: entry.changedAt,
+					author: entry.changedBy,
+					description: entry.action,
+				}))
+			: versionEntries;
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
@@ -86,7 +107,7 @@ export default function VersionHistory({ isOpen, onClose, selectedFacultyName, s
 					<div className="relative space-y-5 pl-5">
 						<div className="absolute left-[14px] top-2 bottom-2 w-px bg-[var(--color-default)]" />
 
-						{versionEntries.map((entry) => (
+						{visibleEntries.map((entry) => (
 							<div key={entry.id} className="relative flex items-start justify-between gap-4">
 								<div className="absolute left-[-22px] top-2 h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--color-primary)] shadow-sm" />
 								<div className="min-w-0">

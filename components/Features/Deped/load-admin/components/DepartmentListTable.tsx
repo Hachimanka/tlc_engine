@@ -41,6 +41,7 @@ export default function DepartmentFacultyTable() {
   const [editHeadUserId, setEditHeadUserId] = useState("");
   const [editError, setEditError] = useState("");
   const [isUpdatingHead, setIsUpdatingHead] = useState(false);
+  const [deletingDepartmentId, setDeletingDepartmentId] = useState("");
 
   const loadDepartments = useCallback(async () => {
     setIsLoading(true);
@@ -202,6 +203,51 @@ export default function DepartmentFacultyTable() {
     closeEditDepartmentHead();
   };
 
+  const handleDeleteDepartment = async (department: DepartmentRow) => {
+    const confirmed = window.confirm(
+      `Delete ${department.departmentName}? Teachers assigned to this department will be unassigned.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadError("");
+    setDeletingDepartmentId(department.id);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setLoadError("Please sign in again to delete the department.");
+      setDeletingDepartmentId("");
+      return;
+    }
+
+    const response = await fetch("/api/tenant/deped/departments", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        departmentId: department.id,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setLoadError(payload.error || "Failed to delete department.");
+      setDeletingDepartmentId("");
+      return;
+    }
+
+    setDepartmentRows(payload.departments ?? []);
+    setDepartmentHeadOptions(payload.departmentHeadOptions ?? []);
+    setDeletingDepartmentId("");
+  };
+
   return (
     <>
       <div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
@@ -296,6 +342,7 @@ export default function DepartmentFacultyTable() {
                       {dept.departmentHead || "Unassigned"}
                     </td>
                     <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => openEditDepartmentHead(dept)}
@@ -303,6 +350,15 @@ export default function DepartmentFacultyTable() {
                       >
                         Edit
                       </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDepartment(dept)}
+                          disabled={deletingDepartmentId === dept.id}
+                          className="inline-flex min-h-10 items-center rounded-lg border border-red-200 px-4 py-2 text-label-button text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletingDepartmentId === dept.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

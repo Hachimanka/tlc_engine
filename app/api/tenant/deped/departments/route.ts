@@ -34,6 +34,10 @@ type UpdateDepedDepartmentRequest = {
   departmentHeadUserId?: string | null;
 };
 
+type DeleteDepedDepartmentRequest = {
+  departmentId?: string;
+};
+
 const departmentManagerRoles = new Set([
   "org_admin",
   "school_head",
@@ -369,6 +373,115 @@ export async function PATCH(req: Request) {
           error instanceof Error
             ? error.message
             : "Department was updated, but the updated list could not be loaded.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  const result = await loadTenantContext(req);
+
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (!canManageDepedDepartments(context)) {
+    return NextResponse.json(
+      { error: "Only DepEd department load managers can delete departments." },
+      { status: 403 },
+    );
+  }
+
+  let payload: DeleteDepedDepartmentRequest = {};
+
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const departmentId = normalizeText(payload.departmentId);
+
+  if (!departmentId) {
+    return NextResponse.json(
+      { error: "Department is required." },
+      { status: 400 },
+    );
+  }
+
+  const { data: department, error: departmentError } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name")
+    .eq("id", departmentId)
+    .eq("org_id", context.org.id)
+    .maybeSingle<Pick<DepedDepartmentRow, "id" | "name">>();
+
+  if (departmentError || !department?.id) {
+    return NextResponse.json(
+      { error: "Department was not found in this organization." },
+      { status: 404 },
+    );
+  }
+
+  const { error: clearUsersByIdError } = await supabaseAdmin
+    .from("org_users")
+    .update({
+      department_id: null,
+      department: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("org_id", context.org.id)
+    .eq("department_id", department.id);
+
+  if (clearUsersByIdError) {
+    return NextResponse.json(
+      { error: clearUsersByIdError.message || "Failed to clear department assignments." },
+      { status: 500 },
+    );
+  }
+
+  const { error: clearUsersByNameError } = await supabaseAdmin
+    .from("org_users")
+    .update({
+      department_id: null,
+      department: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("org_id", context.org.id)
+    .ilike("department", department.name);
+
+  if (clearUsersByNameError) {
+    return NextResponse.json(
+      { error: clearUsersByNameError.message || "Failed to clear department assignments." },
+      { status: 500 },
+    );
+  }
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("org_departments")
+    .delete()
+    .eq("id", department.id)
+    .eq("org_id", context.org.id);
+
+  if (deleteError) {
+    return NextResponse.json(
+      { error: deleteError.message || "Failed to delete department." },
+      { status: 500 },
+    );
+  }
+
+  try {
+    return NextResponse.json(await loadDepartmentRows(context.org.id));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Department was deleted, but the updated list could not be loaded.",
       },
       { status: 500 },
     );

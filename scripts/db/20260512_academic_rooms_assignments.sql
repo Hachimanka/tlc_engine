@@ -10,10 +10,16 @@ create table if not exists public.academic_rooms (
   capacity integer not null default 1 check (capacity > 0),
   status text not null default 'available'
     check (status in ('available', 'occupied', 'under_maintenance')),
+  section text,
+  year_level text,
   created_by_org_user_id uuid references public.org_users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.academic_rooms
+  add column if not exists section text,
+  add column if not exists year_level text;
 
 create unique index if not exists academic_rooms_org_name_building_unique
   on public.academic_rooms (org_id, lower(room_name), lower(building));
