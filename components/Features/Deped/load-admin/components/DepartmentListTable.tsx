@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type DepartmentRow = {
@@ -28,6 +28,7 @@ const normalizeDepartmentName = (value: string) =>
     .replace(/\s+department$/, "");
 
 export default function DepartmentFacultyTable() {
+  const router = useRouter();
   const [departmentRows, setDepartmentRows] = useState<DepartmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -248,6 +249,11 @@ export default function DepartmentFacultyTable() {
     setDeletingDepartmentId("");
   };
 
+  const openDepartmentFaculty = (department: DepartmentRow) => {
+    const params = new URLSearchParams({ departmentName: department.departmentName });
+    router.push(`/tenant/deped/load-admin/facultytable/${department.id}?${params.toString()}`);
+  };
+
   return (
     <>
       <div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
@@ -325,18 +331,18 @@ export default function DepartmentFacultyTable() {
                 departmentRows.map((dept) => (
                   <tr
                     key={dept.id}
-                    className="group transition-colors hover:bg-[var(--color-default)]/35"
+                    tabIndex={0}
+                    onClick={() => openDepartmentFaculty(dept)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDepartmentFaculty(dept);
+                      }
+                    }}
+                    className="group cursor-pointer transition-colors hover:bg-[var(--color-default)]/35 focus-within:bg-[var(--color-default)]/35 focus:outline-none"
                   >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={{
-                          pathname: `/tenant/deped/load-admin/facultytable/${dept.id}`,
-                          query: { departmentName: dept.departmentName },
-                        }}
-                        className="text-body-small font-semibold text-[var(--color-high-emphasis)] no-underline hover:text-[var(--color-primary)]"
-                      >
+                    <td className="px-4 py-3 text-body-small font-semibold text-[var(--color-high-emphasis)] group-hover:text-[var(--color-primary)]">
                         {dept.departmentName}
-                      </Link>
                     </td>
                     <td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
                       {dept.departmentHead || "Unassigned"}
@@ -345,14 +351,20 @@ export default function DepartmentFacultyTable() {
                       <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => openEditDepartmentHead(dept)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditDepartmentHead(dept);
+                        }}
                         className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--color-default)] px-4 py-2 text-label-button text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/10"
                       >
                         Edit
                       </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteDepartment(dept)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDeleteDepartment(dept);
+                          }}
                           disabled={deletingDepartmentId === dept.id}
                           className="inline-flex min-h-10 items-center rounded-lg border border-red-200 px-4 py-2 text-label-button text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >

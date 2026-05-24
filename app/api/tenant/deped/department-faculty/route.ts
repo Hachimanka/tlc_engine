@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeRoleKey } from "@/features/tenant-role-catalog";
 import { parseTimeToMinutes, rangesOverlap } from "@/lib/academicRooms";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import { loadTenantContext, type TenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -71,6 +71,12 @@ type DeleteFacultyRequest = AssignFacultyRequest;
 const rawAssignmentSelect =
   "id, subject_id, room_id, section, day_of_week, start_time, end_time, created_at, updated_at";
 const roomAssignmentTables = ["academic_room_assignment", "academic_room_assignments"];
+const departmentLoadManagerRoles = new Set([
+  "org_admin",
+  "school_head",
+  "principal",
+  "load_admin",
+]);
 
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
@@ -107,6 +113,18 @@ const isTeacherAccount = (user: OrgUserRow) => {
 
   return combined.includes("teacher") || combined.includes("faculty");
 };
+
+const hasDepartmentLoadManagerRole = (context: TenantContext) =>
+  [context.role.key, context.role.name, context.orgUser.role_label].some((value) =>
+    departmentLoadManagerRoles.has(normalizeRoleKey(value ?? "")),
+  );
+
+const canManageDepedFacultyLoads = (context: TenantContext) =>
+  context.institutionType === "deped" &&
+  (context.isOrgAdmin ||
+    hasDepartmentLoadManagerRole(context) ||
+    context.enabledFeatureKeys.includes("deped-teacher-load-assignment") ||
+    context.enabledFeatureKeys.includes("deped-department-load"));
 
 const belongsToDepartment = (
   user: Pick<OrgUserRow, "department" | "department_id">,
@@ -487,10 +505,7 @@ export async function GET(req: Request) {
   const { context } = result;
   const requestedDepartmentName = new URL(req.url).searchParams.get("departmentName");
 
-  if (
-    context.institutionType !== "deped" ||
-    (!context.isOrgAdmin && !context.enabledFeatureKeys.includes("deped-teacher-load-assignment"))
-  ) {
+  if (!canManageDepedFacultyLoads(context)) {
     return NextResponse.json(
       { error: "DepEd teacher load assignment is not available for this account." },
       { status: 403 },
@@ -601,10 +616,7 @@ export async function POST(req: Request) {
 
   const { context } = result;
 
-  if (
-    context.institutionType !== "deped" ||
-    (!context.isOrgAdmin && !context.enabledFeatureKeys.includes("deped-teacher-load-assignment"))
-  ) {
+  if (!canManageDepedFacultyLoads(context)) {
     return NextResponse.json(
       { error: "DepEd teacher load assignment is not available for this account." },
       { status: 403 },
@@ -876,10 +888,7 @@ export async function DELETE(req: Request) {
 
   const { context } = result;
 
-  if (
-    context.institutionType !== "deped" ||
-    (!context.isOrgAdmin && !context.enabledFeatureKeys.includes("deped-teacher-load-assignment"))
-  ) {
+  if (!canManageDepedFacultyLoads(context)) {
     return NextResponse.json(
       { error: "DepEd teacher load assignment is not available for this account." },
       { status: 403 },
