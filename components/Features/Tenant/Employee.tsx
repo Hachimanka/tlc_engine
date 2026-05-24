@@ -8,7 +8,7 @@ import AddUserModal, {
   type RoleOption,
 } from "./AddUserModal";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import type { FeatureDefinition } from "@/features/tenant-feature-catalog";
 import {
   getDepedSelectedLevelSummary,
@@ -62,6 +62,44 @@ type UserPayload = {
   role?: unknown;
   roles?: unknown;
 };
+
+function EmployeeSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col space-y-4" role="status" aria-label="Loading teachers">
+      <span className="sr-only">Loading teachers</span>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-2">
+          <BrandedSkeletonBlock className="h-8 w-48" strong />
+          <BrandedSkeletonBlock className="h-4 w-80" />
+        </div>
+        <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-[var(--color-default)] bg-white p-4 shadow-level-1 lg:flex-row">
+        <BrandedSkeletonBlock className="h-10 min-w-[260px] flex-1 rounded-lg" />
+        <BrandedSkeletonBlock className="h-10 w-48 rounded-lg" />
+        <BrandedSkeletonBlock className="h-10 w-48 rounded-lg" />
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+        <div className="grid grid-cols-5 gap-4 bg-[var(--color-primary)] px-4 py-4">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <BrandedSkeletonBlock key={index} className="h-3 bg-white/30" />
+          ))}
+        </div>
+        <div className="divide-y divide-[var(--color-default)]">
+          {Array.from({ length: 6 }).map((_, row) => (
+            <div key={row} className="grid grid-cols-5 gap-4 px-4 py-4">
+              {Array.from({ length: 5 }).map((__, column) => (
+                <BrandedSkeletonBlock key={column} className="h-3" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const normalizeJoinedRole = (role: unknown) => {
   if (Array.isArray(role)) {
@@ -356,13 +394,7 @@ export default function Employee() {
   };
 
   if (isLoading) {
-    return (
-      <TenantLoadingScreen
-        className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-        label="Loading faculty and staff"
-        useStoredBranding
-      />
-    );
+    return <EmployeeSkeleton />;
   }
 
   if (loadError) {

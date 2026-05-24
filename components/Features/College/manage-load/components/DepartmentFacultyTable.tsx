@@ -192,6 +192,9 @@ function formatConflictMessage(subject: AvailableSubject, conflict: ScheduleConf
   )} to ${formatTime(conflict.endMinutes)}.`;
 }
 
+const normalizeSubjectSectionKey = (subjectTitle?: string | null, section?: string | null) =>
+  `${(subjectTitle ?? "").trim().toLowerCase()}|${(section ?? "").trim().toLowerCase()}`;
+
 function TableSkeleton({ columns, rows }: { columns: number; rows: number }) {
   return (
     <div className="overflow-hidden rounded-md border border-[var(--color-default)] bg-white">
@@ -349,14 +352,55 @@ export default function DepartmentFacultyTable() {
 
     return conflicts;
   }, [availableSubjects, selectedSubjects]);
+  const assignedToOtherTeacherById = useMemo(() => {
+    const assignedKeys = new Map<string, string>();
+
+    facultyRows.forEach((faculty) => {
+      if (faculty.id === selectedFaculty?.id) {
+        return;
+      }
+
+      faculty.subjects.forEach((subject) => {
+        assignedKeys.set(
+          normalizeSubjectSectionKey(subject.subjectTitle, subject.section),
+          faculty.name,
+        );
+      });
+    });
+
+    const assignedSubjects = new Map<string, string>();
+
+    availableSubjects.forEach((subject) => {
+      const teacherName = assignedKeys.get(
+        normalizeSubjectSectionKey(subject.subjectTitle, subject.section),
+      );
+
+      if (teacherName) {
+        assignedSubjects.set(
+          subject.id,
+          `${subject.subjectTitle} section ${subject.section || "-"} is already assigned to ${teacherName}.`,
+        );
+      }
+    });
+
+    return assignedSubjects;
+  }, [availableSubjects, facultyRows, selectedFaculty?.id]);
   const selectedSubjectConflict = selectedAvailableSubjectId
     ? subjectConflictById.get(selectedAvailableSubjectId) ?? ""
     : "";
+  const selectedSubjectAssignedToOther = selectedAvailableSubjectId
+    ? assignedToOtherTeacherById.get(selectedAvailableSubjectId) ?? ""
+    : "";
+  const selectedSubjectBlockReason = selectedSubjectConflict || selectedSubjectAssignedToOther;
 
   const openAssignModal = () => {
     setAssignError("");
     setSelectedAvailableSubjectId(
-      availableSubjects.find((subject) => !subjectConflictById.has(subject.id))?.id ?? "",
+      availableSubjects.find(
+        (subject) =>
+          !subjectConflictById.has(subject.id) &&
+          !assignedToOtherTeacherById.has(subject.id),
+      )?.id ?? "",
     );
     setIsAssignOpen(true);
   };
@@ -387,6 +431,13 @@ export default function DepartmentFacultyTable() {
 
     if (conflictMessage) {
       setAssignError(conflictMessage);
+      return;
+    }
+
+    const assignedToOtherMessage = assignedToOtherTeacherById.get(selectedSubject.id);
+
+    if (assignedToOtherMessage) {
+      setAssignError(assignedToOtherMessage);
       return;
     }
 
@@ -678,6 +729,12 @@ export default function DepartmentFacultyTable() {
                 </div>
               ) : null}
 
+              {assignedToOtherTeacherById.size > 0 ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Subjects already assigned to another teacher with the same section are disabled.
+                </div>
+              ) : null}
+
               <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-lg border border-[var(--color-default)] bg-white">
                 <div className="overflow-auto">
                   <table className="min-w-full border-collapse text-left">
@@ -705,7 +762,9 @@ export default function DepartmentFacultyTable() {
                         availableSubjects.map((subject) => {
                           const isSelected = selectedAvailableSubjectId === subject.id;
                           const conflictMessage = subjectConflictById.get(subject.id);
-                          const isDisabled = Boolean(conflictMessage);
+                          const assignedToOtherMessage = assignedToOtherTeacherById.get(subject.id);
+                          const disabledMessage = conflictMessage || assignedToOtherMessage;
+                          const isDisabled = Boolean(disabledMessage);
 
                           return (
                             <tr
@@ -747,7 +806,7 @@ export default function DepartmentFacultyTable() {
                                     }}
                                     className="sr-only"
                                     aria-label={
-                                      conflictMessage ??
+                                      disabledMessage ??
                                       `Select ${subject.subjectTitle}`
                                     }
                                   />
@@ -775,9 +834,9 @@ export default function DepartmentFacultyTable() {
                               </td>
                               <td className="px-4 py-4 text-[13px] text-[var(--color-high-emphasis)]">
                                 <div>{subject.schedule}</div>
-                                {conflictMessage ? (
+                                {disabledMessage ? (
                                   <div className="mt-1 text-[11px] font-medium text-red-600">
-                                    {conflictMessage}
+                                    {disabledMessage}
                                   </div>
                                 ) : null}
                               </td>
@@ -807,7 +866,7 @@ export default function DepartmentFacultyTable() {
                 <button
                   type="button"
                   onClick={handleAssignSubject}
-                  disabled={!selectedAvailableSubjectId || Boolean(selectedSubjectConflict) || isAssigning}
+                  disabled={!selectedAvailableSubjectId || Boolean(selectedSubjectBlockReason) || isAssigning}
                   className="h-10 rounded-md bg-[var(--color-primary)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isAssigning ? "Assigning..." : "Assign Subject"}

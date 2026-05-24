@@ -17,7 +17,7 @@ export default function TenantPage() {
       <div className="mx-auto w-full max-w-none space-y-4">
         <div>
           <h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
-            Subject Management
+            Teacher Load Assignment
           </h1>
         </div>
 

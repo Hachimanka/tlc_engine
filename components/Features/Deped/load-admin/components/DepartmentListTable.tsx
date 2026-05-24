@@ -16,7 +16,16 @@ type DepartmentHeadOption = {
   name: string;
   email: string;
   roleName: string;
+  department: string;
+  departmentId: string;
 };
+
+const normalizeDepartmentName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s+department$/, "");
 
 export default function DepartmentFacultyTable() {
   const [departmentRows, setDepartmentRows] = useState<DepartmentRow[]>([]);
@@ -28,6 +37,10 @@ export default function DepartmentFacultyTable() {
   const [departmentHeadUserId, setDepartmentHeadUserId] = useState("");
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<DepartmentRow | null>(null);
+  const [editHeadUserId, setEditHeadUserId] = useState("");
+  const [editError, setEditError] = useState("");
+  const [isUpdatingHead, setIsUpdatingHead] = useState(false);
 
   const loadDepartments = useCallback(async () => {
     setIsLoading(true);
@@ -73,6 +86,27 @@ export default function DepartmentFacultyTable() {
     setDepartmentName("");
     setDepartmentHeadUserId("");
     setSaveError("");
+  };
+
+  const getHeadOptionsForDepartment = (department: DepartmentRow) =>
+    departmentHeadOptions.filter(
+      (user) =>
+        user.departmentId === department.id ||
+        normalizeDepartmentName(user.department) ===
+          normalizeDepartmentName(department.departmentName) ||
+        user.id === department.departmentHeadUserId,
+    );
+
+  const openEditDepartmentHead = (department: DepartmentRow) => {
+    setEditingDepartment(department);
+    setEditHeadUserId(department.departmentHeadUserId ?? "");
+    setEditError("");
+  };
+
+  const closeEditDepartmentHead = () => {
+    setEditingDepartment(null);
+    setEditHeadUserId("");
+    setEditError("");
   };
 
   const handleAddDepartment = async (event: FormEvent<HTMLFormElement>) => {
@@ -123,6 +157,51 @@ export default function DepartmentFacultyTable() {
     resetForm();
   };
 
+  const handleUpdateDepartmentHead = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingDepartment) {
+      return;
+    }
+
+    setEditError("");
+    setIsUpdatingHead(true);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setEditError("Please sign in again to update the department head.");
+      setIsUpdatingHead(false);
+      return;
+    }
+
+    const response = await fetch("/api/tenant/deped/departments", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        departmentId: editingDepartment.id,
+        departmentHeadUserId: editHeadUserId,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setEditError(payload.error || "Failed to update department head.");
+      setIsUpdatingHead(false);
+      return;
+    }
+
+    setDepartmentRows(payload.departments ?? []);
+    setDepartmentHeadOptions(payload.departmentHeadOptions ?? []);
+    setIsUpdatingHead(false);
+    closeEditDepartmentHead();
+  };
+
   return (
     <>
       <div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
@@ -158,6 +237,9 @@ export default function DepartmentFacultyTable() {
                 <th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">
                   Department Head in Charge
                 </th>
+                <th className="bg-[var(--color-primary)] px-4 py-4 text-label-table-header text-white">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[color:var(--color-default)] bg-white">
@@ -170,12 +252,15 @@ export default function DepartmentFacultyTable() {
                     <td className="px-4 py-4">
                       <div className="h-4 w-56 animate-pulse rounded-full bg-[var(--color-default)]/50" />
                     </td>
+                    <td className="px-4 py-4">
+                      <div className="h-9 w-20 animate-pulse rounded-lg bg-[var(--color-default)]/50" />
+                    </td>
                   </tr>
                 ))
               ) : loadError ? (
                 <tr>
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="px-4 py-10 text-center text-body-small font-semibold text-red-700"
                   >
                     {loadError}
@@ -184,7 +269,7 @@ export default function DepartmentFacultyTable() {
               ) : departmentRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="px-4 py-10 text-center text-body-small font-semibold text-[var(--color-low-emphasis)]"
                   >
                     No departments yet. Add a department to start tracking load.
@@ -194,23 +279,30 @@ export default function DepartmentFacultyTable() {
                 departmentRows.map((dept) => (
                   <tr
                     key={dept.id}
-                    className="group cursor-pointer transition-colors hover:bg-[var(--color-default)]/35"
+                    className="group transition-colors hover:bg-[var(--color-default)]/35"
                   >
-                    <td className="p-0" colSpan={2}>
+                    <td className="px-4 py-3">
                       <Link
                         href={{
                           pathname: `/tenant/deped/load-admin/facultytable/${dept.id}`,
                           query: { departmentName: dept.departmentName },
                         }}
-                        className="grid w-full grid-cols-2 px-4 py-3 no-underline"
+                        className="text-body-small font-semibold text-[var(--color-high-emphasis)] no-underline hover:text-[var(--color-primary)]"
                       >
-                        <span className="text-body-small font-semibold text-[var(--color-high-emphasis)]">
-                          {dept.departmentName}
-                        </span>
-                        <span className="text-body-small text-[var(--color-low-emphasis)]">
-                          {dept.departmentHead || "Unassigned"}
-                        </span>
+                        {dept.departmentName}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3 text-body-small text-[var(--color-low-emphasis)]">
+                      {dept.departmentHead || "Unassigned"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => openEditDepartmentHead(dept)}
+                        className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--color-default)] px-4 py-2 text-label-button text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/10"
+                      >
+                        Edit
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -313,6 +405,92 @@ export default function DepartmentFacultyTable() {
                 className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-label-button text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving ? "Adding..." : "Add Department"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {editingDepartment ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-department-head-title"
+        >
+          <form
+            onSubmit={handleUpdateDepartmentHead}
+            className="w-full max-w-lg overflow-hidden rounded-[18px] bg-white shadow-level-3"
+          >
+            <div className="bg-[var(--color-primary)] px-5 py-4 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="edit-department-head-title" className="text-xl font-semibold">
+                    Assign Department Head
+                  </h2>
+                  <p className="mt-1 text-sm text-white/85">
+                    {editingDepartment.departmentName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close assign department head modal"
+                  onClick={closeEditDepartmentHead}
+                  className="rounded-md px-2 py-1 text-2xl leading-none text-white/85 transition hover:bg-white/10 hover:text-white"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              {editError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  {editError}
+                </div>
+              ) : null}
+
+              <label className="block">
+                <span className="text-sm font-semibold text-[var(--color-high-emphasis)]">
+                  Department Head in Charge
+                </span>
+                <select
+                  value={editHeadUserId}
+                  onChange={(event) => setEditHeadUserId(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-[color:var(--color-default)] px-3 py-2 text-body-small outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                  disabled={isUpdatingHead}
+                >
+                  <option value="">Unassigned</option>
+                  {getHeadOptionsForDepartment(editingDepartment).map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} - {user.roleName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {getHeadOptionsForDepartment(editingDepartment).length === 0 ? (
+                <p className="text-sm text-[var(--color-low-emphasis)]">
+                  No faculty members are assigned to this department yet.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-[color:var(--color-default)] px-5 py-4">
+              <button
+                type="button"
+                onClick={closeEditDepartmentHead}
+                disabled={isUpdatingHead}
+                className="rounded-lg border border-[var(--color-primary)] px-4 py-2 text-label-button text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingHead}
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-label-button text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUpdatingHead ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </form>

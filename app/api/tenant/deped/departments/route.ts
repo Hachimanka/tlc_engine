@@ -17,6 +17,7 @@ type OrgUserRow = {
   full_name: string;
   email: string;
   role_id: string;
+  role_label?: string | null;
   department?: string | null;
   department_id?: string | null;
   roles?: { key?: string | null; name?: string | null } | { key?: string | null; name?: string | null }[] | null;
@@ -24,6 +25,11 @@ type OrgUserRow = {
 
 type CreateDepedDepartmentRequest = {
   departmentName?: string;
+  departmentHeadUserId?: string | null;
+};
+
+type UpdateDepedDepartmentRequest = {
+  departmentId?: string;
   departmentHeadUserId?: string | null;
 };
 
@@ -36,6 +42,9 @@ const departmentManagerRoles = new Set([
 
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+
+const normalizeDepartmentKey = (value: unknown) =>
+  normalizeRoleKey(normalizeText(value).replace(/\s+department$/i, ""));
 
 const canManageDepedDepartments = (context: TenantContext) =>
   context.institutionType === "deped" &&
@@ -55,6 +64,13 @@ const normalizeJoinedRole = (role: OrgUserRow["roles"]) => {
   return role ?? null;
 };
 
+const userBelongsToDepartment = (
+  user: Pick<OrgUserRow, "department" | "department_id">,
+  department: Pick<DepedDepartmentRow, "id" | "name">,
+) =>
+  user.department_id === department.id ||
+  normalizeDepartmentKey(user.department ?? "") === normalizeDepartmentKey(department.name);
+
 const mapDepartment = (row: DepedDepartmentRow, usersById: Map<string, OrgUserRow>) => ({
   id: row.id,
   departmentName: row.name,
@@ -72,7 +88,7 @@ const mapHeadOption = (user: OrgUserRow) => {
     id: user.id,
     name: user.full_name,
     email: user.email,
-    roleName: role?.name ?? "Staff",
+    roleName: user.role_label ?? role?.name ?? "Staff",
     department: user.department ?? "",
     departmentId: user.department_id ?? "",
   };
@@ -88,7 +104,7 @@ async function loadDepartmentRows(orgId: string) {
       .order("name", { ascending: true }),
     supabaseAdmin
       .from("org_users")
-      .select("id, full_name, email, role_id, department, department_id, roles(key, name)")
+      .select("id, full_name, email, role_id, role_label, department, department_id, roles(key, name)")
       .eq("org_id", orgId)
       .eq("status", "active")
       .order("full_name", { ascending: true }),
@@ -225,6 +241,109 @@ export async function POST(req: Request) {
           error instanceof Error
             ? error.message
             : "Department was added, but the updated list could not be loaded.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  const result = await loadTenantContext(req);
+
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (!canManageDepedDepartments(context)) {
+    return NextResponse.json(
+      { error: "Only DepEd department load managers can update departments." },
+      { status: 403 },
+    );
+  }
+
+  let payload: UpdateDepedDepartmentRequest = {};
+
+  try {
+    payload = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const departmentId = normalizeText(payload.departmentId);
+  const departmentHeadUserId = normalizeText(payload.departmentHeadUserId);
+
+  if (!departmentId) {
+    return NextResponse.json(
+      { error: "Department is required." },
+      { status: 400 },
+    );
+  }
+
+  const { data: department, error: departmentError } = await supabaseAdmin
+    .from("org_departments")
+    .select("id, name, chair_user_id, created_at")
+    .eq("id", departmentId)
+    .eq("org_id", context.org.id)
+    .maybeSingle<DepedDepartmentRow>();
+
+  if (departmentError || !department?.id) {
+    return NextResponse.json(
+      { error: "Department was not found in this organization." },
+      { status: 404 },
+    );
+  }
+
+  if (departmentHeadUserId) {
+    const { data: headUser, error: headError } = await supabaseAdmin
+      .from("org_users")
+      .select("id, full_name, email, role_id, role_label, department, department_id, roles(key, name)")
+      .eq("id", departmentHeadUserId)
+      .eq("org_id", context.org.id)
+      .eq("status", "active")
+      .maybeSingle<OrgUserRow>();
+
+    if (headError || !headUser?.id) {
+      return NextResponse.json(
+        { error: "Selected department head was not found in this organization." },
+        { status: 400 },
+      );
+    }
+
+    if (!userBelongsToDepartment(headUser, department)) {
+      return NextResponse.json(
+        { error: "Selected department head must belong to this department." },
+        { status: 400 },
+      );
+    }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("org_departments")
+    .update({
+      chair_user_id: departmentHeadUserId || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", department.id)
+    .eq("org_id", context.org.id);
+
+  if (updateError) {
+    return NextResponse.json(
+      { error: updateError.message || "Failed to update department head." },
+      { status: 500 },
+    );
+  }
+
+  try {
+    return NextResponse.json(await loadDepartmentRows(context.org.id));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Department was updated, but the updated list could not be loaded.",
       },
       { status: 500 },
     );

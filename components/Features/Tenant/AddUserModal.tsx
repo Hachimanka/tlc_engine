@@ -72,6 +72,7 @@ type AddUserModalProps = {
   assignmentHint?: string;
   assignmentOptions?: string[];
   assignmentRequiredError?: string;
+  forceDepartmentDropdown?: boolean;
   showTeacherProfileFields?: boolean;
   subjectOptions?: string[];
   emailDomain?: string | null;
@@ -145,7 +146,7 @@ export default function AddUserModal({
   assignmentPlaceholder = "e.g., Computer Engineering",
   assignmentHint,
   assignmentOptions = [],
-  assignmentRequiredError,
+  forceDepartmentDropdown = false,
   showTeacherProfileFields = false,
   subjectOptions = [],
   emailDomain,
@@ -165,7 +166,7 @@ export default function AddUserModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<AddUserResult | null>(null);
 
-  const hasManagedDepartments = departments.length > 0;
+  const hasManagedDepartments = departments.length > 0 || forceDepartmentDropdown;
   const hasAssignmentOptions = !hasManagedDepartments && assignmentOptions.length > 0;
   const datalistId = "role-position-tag-suggestions";
   const assignableFeatures = useMemo(
