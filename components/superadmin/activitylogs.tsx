@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 type ActivityLog = {
@@ -153,6 +154,65 @@ function FilterDropdown({
 	);
 }
 
+function ActivityLogsLoadingScreen() {
+	return (
+		<div className="w-full px-8 py-6 relative animate-pulse" role="status" aria-label="Loading activity logs">
+			<span className="sr-only">Loading activity logs</span>
+
+			<div className="border-b border-teal-200 mb-6">
+				<BrandedSkeletonBlock className="h-8 w-56 mb-2" strong />
+			</div>
+
+			<div className="flex items-center gap-3 mb-5 w-full">
+				<div className="relative flex-1">
+					<BrandedSkeletonBlock className="h-12 w-full rounded-lg" />
+				</div>
+				<BrandedSkeletonBlock className="h-12 w-40 shrink-0 rounded-lg" />
+				<BrandedSkeletonBlock className="h-12 w-40 shrink-0 rounded-lg" />
+				<BrandedSkeletonBlock className="h-12 w-24 shrink-0 rounded-lg" strong />
+			</div>
+
+			<div className="overflow-x-auto rounded-xl shadow border border-gray-100">
+				<table className="min-w-full bg-white text-sm">
+					<thead>
+						<tr className="bg-teal-800">
+							{[0, 1, 2, 3, 4].map((head) => (
+								<th key={head} className="px-5 py-3 text-left">
+									<div className="h-3 w-24 rounded bg-white/40" />
+								</th>
+							))}
+						</tr>
+					</thead>
+					<tbody>
+						{[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
+							<tr key={row} className={row % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+								<td className="px-5 py-3">
+									<div className="flex items-center gap-2">
+										<BrandedSkeletonBlock className="h-7 w-7 shrink-0 rounded-full" strong />
+										<BrandedSkeletonBlock className="h-4 w-44" />
+									</div>
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-6 w-24 rounded-full" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-52" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-6 w-20 rounded-full" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-28" />
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	);
+}
+
 export default function ActivityLogsTable() {
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState("");
@@ -232,6 +292,10 @@ export default function ActivityLogsTable() {
 
 	const statusLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label || "All Status";
 	const actionLabel = ACTION_OPTIONS.find(o => o.value === actionFilter)?.label || "All Actions";
+
+	if (loading) {
+		return <ActivityLogsLoadingScreen />;
+	}
 
 	return (
 		<div className="w-full px-8 py-6 relative">

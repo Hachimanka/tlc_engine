@@ -28,6 +28,7 @@ type TenantOrganization = {
   id: string;
   name: string;
   slug: string;
+  subscription_plan?: string | null;
   institution_type?: string | null;
   onboarding_config?: unknown;
 };
@@ -171,7 +172,7 @@ export async function loadTenantContext(
 
   const { data: org, error: orgError } = await supabaseAdmin
     .from("organizations")
-    .select("id, name, slug, institution_type, onboarding_config")
+    .select("id, name, slug, subscription_plan, institution_type, onboarding_config")
     .eq("id", orgUserRow.org_id)
     .maybeSingle<TenantOrganization>();
 

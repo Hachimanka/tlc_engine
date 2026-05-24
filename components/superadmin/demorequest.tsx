@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
@@ -119,6 +120,64 @@ const PLAN_OPTIONS = [
 ];
 
 // ─── Add Demo Request Modal ───────────────────────────────────────────────────
+function DemoRequestsLoadingScreen() {
+	return (
+		<div className="w-full px-8 py-6 relative animate-pulse" role="status" aria-label="Loading demo requests">
+			<span className="sr-only">Loading demo requests</span>
+
+			<div className="border-b border-teal-200 mb-6">
+				<BrandedSkeletonBlock className="h-8 w-56 mb-2" strong />
+			</div>
+
+			<div className="flex items-center gap-3 mb-5 w-full">
+				<div className="relative flex-1">
+					<BrandedSkeletonBlock className="h-12 w-full rounded-lg" />
+				</div>
+				<BrandedSkeletonBlock className="h-12 w-40 shrink-0 rounded-lg" />
+				<BrandedSkeletonBlock className="h-12 w-20 shrink-0 rounded-lg" strong />
+			</div>
+
+			<div className="overflow-x-auto rounded-xl shadow border border-gray-100">
+				<table className="min-w-full bg-white text-sm">
+					<thead>
+						<tr className="bg-teal-800">
+							{[0, 1, 2, 3, 4].map((head) => (
+								<th key={head} className="px-5 py-3 text-left">
+									<div className="h-3 w-28 rounded bg-white/40" />
+								</th>
+							))}
+						</tr>
+					</thead>
+					<tbody>
+						{[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
+							<tr key={row} className={row % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+								<td className="px-5 py-3">
+									<div className="flex items-center gap-2">
+										<BrandedSkeletonBlock className="h-2 w-2 shrink-0 rounded-full" strong />
+										<BrandedSkeletonBlock className="h-4 w-44" strong />
+									</div>
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-52" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-28" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-24" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-6 w-24 rounded-full" />
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	);
+}
+
 function AddDemoModal({ onClose, onAdded }: {
 	onClose: () => void;
 	onAdded: (req: DemoRequest) => void;
@@ -523,6 +582,10 @@ export default function DemoRequestTable() {
 	const loginUrl = conversionResult?.slug
 		? conversionResult.loginUrl || `${typeof window !== "undefined" ? window.location.origin : ""}/login?slug=${encodeURIComponent(conversionResult.slug)}`
 		: "";
+
+	if (loading) {
+		return <DemoRequestsLoadingScreen />;
+	}
 
 	return (
 		<div className="w-full px-8 py-6 relative">

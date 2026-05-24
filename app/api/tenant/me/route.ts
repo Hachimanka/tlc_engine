@@ -15,6 +15,14 @@ export const runtime = "nodejs";
 const normalizeSlug = (value: string | null | undefined) =>
   value?.trim().toLowerCase() || "";
 
+const normalizePlan = (value: string | null | undefined) =>
+  value?.trim().toLowerCase().replace(/[\s_-]+/g, "_") || "";
+
+const canUseFullAnalyticsReports = (plan: string | null | undefined) => {
+  const normalizedPlan = normalizePlan(plan);
+  return normalizedPlan === "premium" || normalizedPlan === "diamond";
+};
+
 export async function GET(req: Request) {
   const result = await loadTenantContext(req);
 
@@ -51,8 +59,10 @@ export async function GET(req: Request) {
         id: context.org.id,
         name: context.org.name,
         slug: context.org.slug,
+        subscriptionPlan: context.org.subscription_plan ?? null,
         institutionType: context.institutionType,
       },
+      canUseFullAnalyticsReports: canUseFullAnalyticsReports(context.org.subscription_plan),
       branding,
       user: {
         id: context.authUser.id,

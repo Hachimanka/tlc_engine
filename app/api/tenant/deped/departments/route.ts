@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeRoleKey } from "@/features/tenant-role-catalog";
 import { loadTenantContext, type TenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkDepartmentLimitBeforeCreate } from "@/lib/tenantSubscriptionLimits";
 
 export const runtime = "nodejs";
 
@@ -191,6 +192,30 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Department name is required." },
       { status: 400 },
+    );
+  }
+
+  try {
+    const limitCheck = await checkDepartmentLimitBeforeCreate({
+      orgId: context.org.id,
+      planName: context.org.subscription_plan,
+    });
+
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.error || "Department limit reached for this subscription." },
+        { status: 403 },
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to verify subscription department limit.",
+      },
+      { status: 500 },
     );
   }
 

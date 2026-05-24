@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isMissingRoleLabelError, loadTenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkDepartmentLimitBeforeCreate } from "@/lib/tenantSubscriptionLimits";
 
 export const runtime = "nodejs";
 
@@ -417,6 +418,18 @@ export async function POST(req: Request) {
         );
       }
     } else {
+      const limitCheck = await checkDepartmentLimitBeforeCreate({
+        orgId: context.org.id,
+        planName: context.org.subscription_plan,
+      });
+
+      if (!limitCheck.allowed) {
+        return jsonError(
+          limitCheck.error || "Department limit reached for this subscription.",
+          403,
+        );
+      }
+
       const [collegeId, chair] = await Promise.all([
         validateCollege(context.org.id, payload.collegeId),
         validateUser(context.org.id, payload.chairUserId),
