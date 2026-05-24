@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import LogoLoadingScreen from "@/components/LandingPage/LogoLoadingScreen";
+import {
+	BasicInstitutionIcon,
+	CheckMarkedIcon,
+	CorporateIcon,
+	HigherEducationIcon,
+	TechnicalIcon,
+} from "@/public/icons";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -181,6 +189,66 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 	);
 }
 
+const institutionCards = [
+	{
+		key: "higher_ed" as const,
+		title: "Higher Education",
+		description: "Universities, colleges, and institutes",
+		iconSvg: HigherEducationIcon,
+	},
+	{
+		key: "deped" as const,
+		title: "Basic Institution",
+		description: "K-12 schools and basic education institutions",
+		iconSvg: BasicInstitutionIcon,
+	},
+	{
+		key: "tesda" as const,
+		title: "Technical",
+		description: "Technical-vocational and skills training",
+		iconSvg: TechnicalIcon,
+	},
+	{
+		key: "training" as const,
+		title: "Corporate",
+		description: "Corporate learning and organizational training",
+		iconSvg: CorporateIcon,
+	},
+];
+
+const onboardingProgressStorageKey = "tlc-onboarding-progress";
+
+const institutionTypeValues = ["higher_ed", "deped", "tesda", "training"] as const;
+
+function isInstitutionType(value: unknown): value is Exclude<InstitutionType, null> {
+	return typeof value === "string" && institutionTypeValues.includes(value as (typeof institutionTypeValues)[number]);
+}
+
+function readStoredOnboardingProgress() {
+	if (typeof window === "undefined") {
+		return null;
+	}
+
+	try {
+		const raw = window.localStorage.getItem(onboardingProgressStorageKey);
+		if (!raw) {
+			return null;
+		}
+
+		const parsed = JSON.parse(raw) as { step?: unknown; institutionType?: unknown };
+		if (typeof parsed.step !== "number") {
+			return null;
+		}
+
+		return {
+			step: parsed.step,
+			institutionType: isInstitutionType(parsed.institutionType) ? parsed.institutionType : null,
+		};
+	} catch {
+		return null;
+	}
+}
+
 // ─── Institution Type Card ────────────────────────────────────────────────────
 function TypeCard({ icon, title, description, selected, onClick }: {
 	icon: string;
@@ -193,27 +261,24 @@ function TypeCard({ icon, title, description, selected, onClick }: {
 		<button
 			type="button"
 			onClick={onClick}
-			className={`w-full text-left rounded-xl border-2 p-4 transition-all duration-150
+			aria-pressed={selected}
+			className={`group relative flex h-full w-full items-start gap-3 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30
 				${selected
-					? "border-teal-600 bg-teal-50 shadow-sm"
-					: "border-gray-100 bg-gray-50/60 hover:border-teal-200 hover:bg-teal-50/40"
+					? "border-teal-500 bg-gradient-to-br from-teal-50 via-white to-teal-50 shadow-[0_12px_30px_rgba(2,147,131,0.12)]"
+					: "border-gray-100 bg-white hover:-translate-y-0.5 hover:border-teal-200 hover:bg-teal-50/40 hover:shadow-md"
 				}`}
 		>
-			<div className="flex items-start gap-3">
-				<span className="text-2xl shrink-0">{icon}</span>
-				<div>
-					<p className={`text-sm font-bold ${selected ? "text-teal-800" : "text-gray-800"}`}>{title}</p>
-					<p className="text-xs text-gray-500 mt-0.5">{description}</p>
-				</div>
-				{selected && (
-					<span className="ml-auto shrink-0">
-						<svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-							<circle cx="12" cy="12" r="10" fill="#0d9488" />
-							<path d="M7 13l3.5 3.5L17 8" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-						</svg>
-					</span>
-				)}
+			<span
+				className="-ml-1 flex h-20 w-20 shrink-0 items-center justify-center [&_svg]:h-14 [&_svg]:w-14"
+				dangerouslySetInnerHTML={{ __html: icon }}
+			/>
+			<div className="min-w-0 flex-1 pt-0.5 pr-12">
+				<p className={`max-w-[9.5rem] text-[13px] font-semibold leading-tight text-balance ${selected ? "text-teal-900" : "text-gray-900"}`}>{title}</p>
+				<p className="mt-1 text-sm leading-5 text-gray-500">{description}</p>
 			</div>
+			{selected && (
+				<span className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center [&_svg]:h-6 [&_svg]:w-6" dangerouslySetInnerHTML={{ __html: CheckMarkedIcon }} />
+			)}
 		</button>
 	);
 }
@@ -326,6 +391,26 @@ export default function TenantOnboardingPage() {
 	const [assessmentType, setAssessmentType] = useState("competency");
 
 	useEffect(() => {
+		const storedProgress = readStoredOnboardingProgress();
+		if (storedProgress) {
+			setStep(storedProgress.step);
+			setInstitutionType(storedProgress.institutionType);
+		}
+	}, []);
+
+	useEffect(() => {
+		try {
+			window.localStorage.setItem(onboardingProgressStorageKey, JSON.stringify({ step, institutionType }));
+		} catch {
+			// Ignore storage failures and keep the flow usable.
+		}
+	}, [institutionType, step]);
+
+	useEffect(() => {
+		setStep(prev => Math.min(prev, steps.length - 1));
+	}, [steps.length]);
+
+	useEffect(() => {
 		const checkAuth = async () => {
 			try {
 				const { data, error: userError } = await supabase.auth.getUser();
@@ -394,6 +479,7 @@ export default function TenantOnboardingPage() {
 	};
 
 	const handlePasswordUpdate = async () => {
+		if (passwordUpdated) return;
 		setPasswordError("");
 		if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
 		if (newPassword !== confirmPassword) { setPasswordError("Passwords do not match."); return; }
@@ -507,28 +593,29 @@ export default function TenantOnboardingPage() {
 		router.replace("/tenant/tenant-admin");
 	};
 
-	if (loading) {
-		return (
-			<TenantLoadingScreen
-				card
-				className="flex min-h-screen items-start justify-center bg-[var(--color-background)] px-4 py-10"
-				label="Loading onboarding"
-				useStoredBranding
-			/>
-		);
-	}
-
 	return (
-		<div className="min-h-screen bg-gray-50 flex flex-col">
-			{/* Top bar */}
-			<header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-end">
-				<span className="text-xs text-gray-400 font-medium">
-					Step {step + 1} of {steps.length}
-				</span>
-			</header>
+			<>
+				<LogoLoadingScreen
+					canDismiss={!loading}
+				/>
+			<div className={`min-h-screen bg-gray-50 flex flex-col transition-opacity duration-300 ${loading ? "opacity-0 pointer-events-none" : "opacity-100"}`} aria-hidden={loading}>
+					{/* Top bar */}
+					<header className="h-[72px] bg-[var(--color-primary)] px-6 md:px-10">
+						<div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4">
+							<a href="/" aria-label="Home" data-tlc-navbar-logo className="flex items-center gap-3">
+								<Image src="/TLCLogo.svg" alt="TLC Engine Logo" width={48} height={48} className="object-contain" />
+							</a>
+							<div className="flex items-center gap-3 text-[var(--color-card)]">
+								<span className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--color-card)]/70 sm:block">Onboarding</span>
+								<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-[var(--color-card)]">
+									Step {step + 1} of {steps.length}
+								</span>
+							</div>
+						</div>
+					</header>
 
-			<div className="flex-1 flex items-start justify-center py-10 px-4">
-				<div className="w-full max-w-2xl">
+					<div className="flex-1 flex items-start justify-center py-10 px-4">
+						<div className="w-full max-w-2xl">
 
 					{/* Progress bar */}
 					<div className="flex gap-1.5 mb-8">
@@ -555,45 +642,34 @@ export default function TenantOnboardingPage() {
 									title="What type of institution are you setting up?"
 									subtitle="This determines your dashboard structure, terminology, and grading system."
 								/>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<TypeCard
-										icon="🎓"
-										title="Higher Education"
-										description="University, College, or Institute — CHED registered"
-										selected={institutionType === "higher_ed"}
-										onClick={() => setInstitutionType("higher_ed")}
-									/>
-									<TypeCard
-										icon="🏫"
-										title="Basic Education (DepEd)"
-										description="Public or Private K-12 school, SHS included"
-										selected={institutionType === "deped"}
-										onClick={() => {
-											setInstitutionType("deped");
-											setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
-										}}
-									/>
-									<TypeCard
-										icon="🔧"
-										title="Technical / Vocational (TESDA)"
-										description="TVET programs, NC assessments, competency-based"
-										selected={institutionType === "tesda"}
-										onClick={() => setInstitutionType("tesda")}
-									/>
-									<TypeCard
-										icon="🏢"
-										title="Training Center / Corporate"
-										description="Seminars, workshops, employee training programs"
-										selected={institutionType === "training"}
-										onClick={() => setInstitutionType("training")}
-									/>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									{institutionCards.map(card => (
+										<TypeCard
+											key={card.key}
+											icon={card.iconSvg}
+											title={card.title}
+											description={card.description}
+											selected={institutionType === card.key}
+											onClick={() => {
+												setInstitutionType(card.key);
+												if (card.key === "deped") {
+													setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
+												}
+											}}
+										/>
+									))}
 								</div>
 								{institutionType && (
 									<div className="mt-4 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 text-xs text-teal-700">
-										{institutionType === "higher_ed" && "✅ You'll set up optional colleges, departments, academic programs, and a semestral calendar."}
-										{institutionType === "deped" && "✅ You'll configure grade levels, sections, SHS tracks, quarterly grading periods, and DepEd grading descriptors."}
-										{institutionType === "tesda" && "✅ You'll set up TESDA qualifications, NC levels, training batches, and competency-based assessment."}
-										{institutionType === "training" && "✅ You'll configure training courses, batch schedules, facilitators, and pass/fail or rated assessment."}
+										<div className="flex items-start gap-2">
+											<span className="mt-0.5 shrink-0 [&_svg]:h-4 [&_svg]:w-4" dangerouslySetInnerHTML={{ __html: CheckMarkedIcon }} />
+											<p>
+												{institutionType === "higher_ed" && "You'll set up optional colleges, departments, academic programs, and a semestral calendar."}
+												{institutionType === "deped" && "You'll configure grade levels, sections, SHS tracks, quarterly grading periods, and DepEd grading descriptors."}
+												{institutionType === "tesda" && "You'll set up TESDA qualifications, NC levels, training batches, and competency-based assessment."}
+												{institutionType === "training" && "You'll configure training courses, batch schedules, facilitators, and pass/fail or rated assessment."}
+											</p>
+										</div>
 									</div>
 								)}
 							</>
@@ -613,10 +689,11 @@ export default function TenantOnboardingPage() {
 												type={showNew ? "text" : "password"}
 												className={inputCls}
 												value={newPassword}
+												disabled={passwordUpdated}
 												onChange={e => setNewPassword(e.target.value)}
 												placeholder="At least 8 characters"
 											/>
-											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => setShowNew(v => !v)}>
+											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed" onClick={() => setShowNew(v => !v)} disabled={passwordUpdated}>
 												{showNew
 													? <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 													: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
@@ -632,10 +709,11 @@ export default function TenantOnboardingPage() {
 												type={showConfirm ? "text" : "password"}
 												className={inputCls}
 												value={confirmPassword}
+												disabled={passwordUpdated}
 												onChange={e => setConfirmPassword(e.target.value)}
 												placeholder="Re-enter your password"
 											/>
-											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => setShowConfirm(v => !v)}>
+											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed" onClick={() => setShowConfirm(v => !v)} disabled={passwordUpdated}>
 												{showConfirm
 													? <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 													: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
@@ -656,11 +734,11 @@ export default function TenantOnboardingPage() {
 										}
 										<button
 											type="button"
-											className="rounded-lg bg-teal-700 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+											className="rounded-lg bg-teal-700 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
 											onClick={handlePasswordUpdate}
 											disabled={passwordSaving || passwordUpdated}
 										>
-											{passwordSaving ? "Saving..." : passwordUpdated ? "Updated ✓" : "Set Password"}
+											{passwordSaving ? "Saving..." : passwordUpdated ? "Password Updated" : "Set Password"}
 										</button>
 									</div>
 								</div>
@@ -1428,14 +1506,15 @@ export default function TenantOnboardingPage() {
 										disabled={saving || !canProceed()}>
 										{saving ? (
 											<><span className="h-4 w-4 animate-pulse rounded bg-white/50" aria-hidden="true" /> Finishing...</>
-										) : "Finish Setup 🎉"}
+										) : "Finish Setup"}
 									</button>
 								)}
 							</div>
 						</div>
 					</div>
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
+			</>
 	);
 }
