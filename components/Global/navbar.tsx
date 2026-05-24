@@ -75,6 +75,16 @@ type TenantAccountPayload = {
   roles?: unknown;
 };
 
+type TenantLoadNotificationPayload = {
+  id?: string;
+  title?: string | null;
+  subject?: string | null;
+  description?: string | null;
+  requestType?: string | null;
+  teacherName?: string | null;
+  submittedAt?: string | null;
+};
+
 const defaultProfile: NavbarProfile = {
   displayName: "User",
   email: "",
@@ -327,6 +337,32 @@ export default function Navbar({
         const mePayload = await meResponse.json().catch(() => ({}));
 
         if (meResponse.ok) {
+          const tenantNotificationsResponse = await fetch("/api/tenant/notifications", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const tenantNotificationsPayload = await tenantNotificationsResponse.json().catch(() => ({}));
+
+          if (tenantNotificationsResponse.ok) {
+            for (const notification of (tenantNotificationsPayload.notifications ?? []) as TenantLoadNotificationPayload[]) {
+              const createdAt = notification.submittedAt || new Date().toISOString();
+              const teacher = notification.teacherName || "Teacher";
+              const requestLabel = [notification.requestType, notification.subject]
+                .filter(Boolean)
+                .join(" - ");
+
+              nextNotifications.push({
+                id: `tenant-load:${notification.id ?? `${teacher}:${createdAt}`}`,
+                title: notification.title || "Pending load request",
+                description: [teacher, requestLabel, notification.description]
+                  .filter(Boolean)
+                  .join(" - "),
+                createdAt,
+                status: "warning",
+                href: "/tenant/deped/manage-load",
+              });
+            }
+          }
+
           if (mePayload.isOrgAdmin) {
             const usersResponse = await fetch("/api/tenant/users?scope=access", {
               headers: { Authorization: `Bearer ${token}` },

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { AppIcon } from "@/public/icons";
+import { supabase } from "@/lib/supabaseClient";
 
 type RequestFormProps = {
 	isOpen: boolean;
@@ -13,14 +14,12 @@ type FormData = {
 	subjectConcerned: string;
 	requestType: string;
 	description: string;
-	otherDetails: string;
 };
 
 const initialFormData: FormData = {
 	subjectConcerned: "",
 	requestType: "",
 	description: "",
-	otherDetails: "",
 };
 
 const subjectOptions = [
@@ -46,6 +45,9 @@ const requestTypeOptions = [
 
 export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 	const [formData, setFormData] = useState(initialFormData);
+	const [submitError, setSubmitError] = useState("");
+	const [submitSuccess, setSubmitSuccess] = useState("");
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -86,13 +88,56 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 
 	const handleCancel = () => {
 		setFormData(initialFormData);
+		setSubmitError("");
+		setSubmitSuccess("");
+		setIsSubmitting(false);
 		onClose();
 	};
 
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
+		setSubmitError("");
+		setSubmitSuccess("");
+
+		if (!formData.subjectConcerned || !formData.requestType || !formData.description.trim()) {
+			setSubmitError("Subject, request type, and description are required.");
+			return;
+		}
+
+		const {
+			data: { session },
+		} = await supabase.auth.getSession();
+
+		if (!session?.access_token) {
+			setSubmitError("Please sign in again to send this request.");
+			return;
+		}
+
+		setIsSubmitting(true);
+		const response = await fetch("/api/tenant/deped/load-requests", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${session.access_token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(formData),
+		});
+		const payload: { error?: string } = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			setSubmitError(payload.error || "Unable to send request.");
+			setIsSubmitting(false);
+			return;
+		}
+
 		setFormData(initialFormData);
-		onClose();
+		setSubmitSuccess("Request sent to your department head.");
+		setIsSubmitting(false);
+		window.dispatchEvent(new Event("tlc-notifications-updated"));
+		window.setTimeout(() => {
+			setSubmitSuccess("");
+			onClose();
+		}, 900);
 	};
 
 	return (
@@ -101,16 +146,19 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 			onClick={handleCancel}
 		>
 			<div
-				className="w-full max-w-2xl overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2"
+				className="w-full max-w-2xl overflow-hidden rounded-[18px] bg-white shadow-level-2"
 				onClick={(event) => event.stopPropagation()}
 			>
 				<form onSubmit={handleSubmit} className="max-h-[90vh] overflow-y-auto">
-					<div className="flex items-start justify-between gap-4 border-b border-[var(--color-default)] px-6 py-5">
+					<div className="flex items-start justify-between gap-4 bg-[var(--color-primary)] px-6 py-5 text-white">
 						<div className="space-y-1">
-							<h2 className="text-[20px] font-semibold text-[var(--color-high-emphasis)]">
+							<p className="text-xs font-semibold uppercase tracking-wide text-white/75">
+								DepEd load request
+							</p>
+							<h2 className="text-[22px] font-semibold leading-tight">
 								Submit Load Request or Concern
 							</h2>
-							<p className="text-sm text-[var(--color-low-emphasis)]">
+							<p className="text-sm text-white/85">
 								Send a load concern or a question about your current teaching assignment.
 							</p>
 						</div>
@@ -119,7 +167,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 							type="button"
 							onClick={handleCancel}
 							aria-label="Close modal"
-							className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-default)]"
+							className="flex h-10 w-10 items-center justify-center rounded-lg text-white/85 transition-colors hover:bg-white/10 hover:text-white"
 						>
 							<AppIcon
 								name="close"
@@ -130,6 +178,17 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 					</div>
 
 					<div className="space-y-5 p-6">
+						{submitError ? (
+							<div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+								{submitError}
+							</div>
+						) : null}
+						{submitSuccess ? (
+							<div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+								{submitSuccess}
+							</div>
+						) : null}
+
 						<div className="space-y-2">
 							<label htmlFor="subjectConcerned" className="text-label-input text-[#364153]">
 								Subject Concerned
@@ -164,21 +223,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 								value={formData.description}
 								onChange={handleChange}
 								placeholder="Type here..."
-								className="text-body-small h-40 w-full resize-none rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1"
-							/>
-						</div>
-
-						<div className="space-y-2">
-							<label htmlFor="otherDetails" className="text-label-input text-[#364153]">
-								Other Details (Optional)
-							</label>
-							<textarea
-								id="otherDetails"
-								name="otherDetails"
-								value={formData.otherDetails}
-								onChange={handleChange}
-								placeholder="Add any extra context here..."
-								className="text-body-small h-28 w-full resize-none rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1"
+								className="text-body-small h-44 w-full resize-none rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1 outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
 							/>
 						</div>
 
@@ -186,15 +231,17 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 							<button
 								type="button"
 								onClick={handleCancel}
+								disabled={isSubmitting}
 								className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
 							>
 								Cancel
 							</button>
 							<button
 								type="submit"
-								className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-light-primary)]"
+								disabled={isSubmitting}
+								className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								Send
+								{isSubmitting ? "Sending..." : "Send"}
 							</button>
 						</div>
 					</div>

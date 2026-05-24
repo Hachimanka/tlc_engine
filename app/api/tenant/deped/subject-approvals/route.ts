@@ -65,6 +65,112 @@ const isDuplicateSubjectError = (error: { code?: string; message?: string }) =>
   error.message?.toLowerCase().includes("duplicate") ||
   error.message?.toLowerCase().includes("unique");
 
+const normalizeSubjectKey = (value: unknown) => normalizeText(value).toLowerCase();
+
+const getYearLevelCodeSuffix = (yearLevel: string) => {
+  const gradeMatch = yearLevel.match(/\d+/);
+
+  if (gradeMatch) {
+    return `G${gradeMatch[0]}`;
+  }
+
+  return yearLevel
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "")
+    .slice(0, 8);
+};
+
+const resolveApprovedSubjectCode = async ({
+  orgId,
+  subjectTitle,
+  subjectCode,
+  yearLevel,
+}: {
+  orgId: string;
+  subjectTitle: string;
+  subjectCode: string;
+  yearLevel: string;
+}) => {
+  const { data, error } = await supabaseAdmin
+    .from("academic_subjects")
+    .select("id, subject_title, subject_code, year_level")
+    .eq("org_id", orgId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to check subject uniqueness.");
+  }
+
+  const subjects = data ?? [];
+  const normalizedTitle = normalizeSubjectKey(subjectTitle);
+  const normalizedCode = normalizeSubjectKey(subjectCode);
+  const normalizedYearLevel = normalizeSubjectKey(yearLevel);
+  const duplicateInSameYearLevel = subjects.find(
+    (subject) =>
+      normalizeSubjectKey(subject.year_level) === normalizedYearLevel &&
+      (normalizeSubjectKey(subject.subject_title) === normalizedTitle ||
+        normalizeSubjectKey(subject.subject_code) === normalizedCode),
+  );
+
+  if (duplicateInSameYearLevel) {
+    throw new Error("An approved subject with this name or code already exists for this year level.");
+  }
+
+  const usedCodes = new Set(subjects.map((subject) => normalizeSubjectKey(subject.subject_code)));
+
+  if (!usedCodes.has(normalizedCode)) {
+    return subjectCode;
+  }
+
+  const suffix = getYearLevelCodeSuffix(yearLevel);
+  const scopedCodeBase = suffix ? `${subjectCode}-${suffix}` : subjectCode;
+  let nextCode = scopedCodeBase;
+  let counter = 2;
+
+  while (usedCodes.has(normalizeSubjectKey(nextCode))) {
+    nextCode = `${scopedCodeBase}-${counter}`;
+    counter += 1;
+  }
+
+  return nextCode;
+};
+
+const buildSubjectInsertPayload = ({
+  request,
+  subjectTitle,
+  subjectCode,
+  department,
+  yearLevel,
+  payload,
+  approvedByOrgUserId,
+  now,
+}: {
+  request: AcademicApprovalRow;
+  subjectTitle: string;
+  subjectCode: string;
+  department: string;
+  yearLevel: string;
+  payload: Record<string, unknown>;
+  approvedByOrgUserId: string;
+  now: string;
+}) => ({
+  org_id: request.org_id,
+  approval_request_id: request.id,
+  subject_title: subjectTitle,
+  subject_code: subjectCode,
+  department,
+  year_level: yearLevel || null,
+  lecture_hours: toNumber(payload.lectureHours),
+  lab_hours: toNumber(payload.labHours, toNumber(payload.classDurationMinutes)),
+  meetings_per_week: toNumber(payload.meetingsPerWeek, 1),
+  units: toNumber(payload.units),
+  description: toText(payload.description) || null,
+  created_by_org_user_id: request.submitted_by_org_user_id,
+  approved_by_org_user_id: approvedByOrgUserId,
+  approved_at: now,
+  created_at: now,
+  updated_at: now,
+});
+
 const mapSubjectApproval = (
   row: AcademicApprovalRow,
   submittersById: Map<string, OrgUserLookup>,
@@ -121,36 +227,60 @@ const createApprovedSubject = async (
   const subjectTitle = toText(payload.subjectTitle, request.title);
   const subjectCode = toText(payload.subjectCode, subjectTitle).toUpperCase();
   const department = toText(payload.department);
+  const yearLevel = toText(payload.yearLevel);
 
   if (!subjectTitle || !subjectCode || !department) {
     throw new Error("Subject approval payload is incomplete.");
   }
 
-  const { error } = await supabaseAdmin.from("academic_subjects").insert([
-    {
-      org_id: request.org_id,
-      approval_request_id: request.id,
-      subject_title: subjectTitle,
-      subject_code: subjectCode,
-      department,
-      year_level: toText(payload.yearLevel) || null,
-      lecture_hours: toNumber(payload.lectureHours),
-      lab_hours: toNumber(payload.labHours, toNumber(payload.classDurationMinutes)),
-      meetings_per_week: toNumber(payload.meetingsPerWeek, 1),
-      units: toNumber(payload.units),
-      description: toText(payload.description) || null,
-      created_by_org_user_id: request.submitted_by_org_user_id,
-      approved_by_org_user_id: approvedByOrgUserId,
-      approved_at: now,
-      created_at: now,
-      updated_at: now,
-    },
-  ]);
+  const approvedSubjectCode = await resolveApprovedSubjectCode({
+    orgId: request.org_id,
+    subjectTitle,
+    subjectCode,
+    yearLevel,
+  });
+
+  const insertPayload = buildSubjectInsertPayload({
+    request,
+    subjectTitle,
+    subjectCode: approvedSubjectCode,
+    department,
+    yearLevel,
+    payload,
+    approvedByOrgUserId,
+    now,
+  });
+
+  let { error } = await supabaseAdmin.from("academic_subjects").insert([insertPayload]);
+
+  if (error && isDuplicateSubjectError(error) && approvedSubjectCode === subjectCode) {
+    const retrySubjectCode = await resolveApprovedSubjectCode({
+      orgId: request.org_id,
+      subjectTitle,
+      subjectCode,
+      yearLevel,
+    });
+
+    if (retrySubjectCode !== approvedSubjectCode) {
+      const retryPayload = buildSubjectInsertPayload({
+        request,
+        subjectTitle,
+        subjectCode: retrySubjectCode,
+        department,
+        yearLevel,
+        payload,
+        approvedByOrgUserId,
+        now,
+      });
+      const retryResult = await supabaseAdmin.from("academic_subjects").insert([retryPayload]);
+      error = retryResult.error;
+    }
+  }
 
   if (error) {
     throw new Error(
       isDuplicateSubjectError(error)
-        ? "An approved subject with this generated code already exists."
+        ? "An approved subject with this name or code already exists."
         : error.message || "Failed to create approved subject.",
     );
   }
