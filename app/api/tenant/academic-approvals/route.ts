@@ -118,11 +118,10 @@ export async function GET(req: Request) {
     workflowSteps,
     requests: mappedRequests
       .filter((request) => request.canView)
-      .map((request) =>
-        Object.fromEntries(
-          Object.entries(request).filter(([key]) => key !== "canView"),
-        ),
-      ),
+      .map(({ canView, ...request }) => {
+        void canView;
+        return request;
+      }),
   });
 }
 

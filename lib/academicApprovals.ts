@@ -300,7 +300,7 @@ const isAssignedDeanForRequest = async (
   const department = await loadDepartmentForRequest(request);
 
   if (!department?.college_id) {
-    return false;
+    return hasDeanReviewerTag(context);
   }
 
   const { data: college, error } = await supabaseAdmin
@@ -314,7 +314,11 @@ const isAssignedDeanForRequest = async (
     throw new Error(error.message || "Failed to load dean reviewer.");
   }
 
-  return college?.dean_user_id === context.orgUser.id;
+  if (college?.dean_user_id) {
+    return college.dean_user_id === context.orgUser.id;
+  }
+
+  return hasDeanReviewerTag(context);
 };
 
 const isSameDepartmentForRequest = async (
