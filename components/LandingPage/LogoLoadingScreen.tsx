@@ -3,16 +3,110 @@
 import { useEffect, useState } from "react";
 
 const LOADER_DURATION_MS = 5000;
+const ANIMATION_CYCLE_MS = 5200;
+const NAVBAR_TRANSITION_MS = 800;
 
 export default function LogoLoadingScreen() {
   const [isVisible, setIsVisible] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
+  const [animationCycle, setAnimationCycle] = useState(0);
+  const [isAnimationReady, setIsAnimationReady] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsVisible(false);
+    const frame = window.requestAnimationFrame(() => {
+      setIsAnimationReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    let isPageLoaded = document.readyState === "complete";
+    let minDurationPassed = false;
+    let removeTimer: number | undefined;
+
+    document.body.classList.add("tlc-page-loading");
+
+    const setNavbarTarget = () => {
+      const targetLogo = document.querySelector<HTMLElement>("[data-tlc-navbar-logo]");
+      const loaderLogo = document.querySelector<HTMLElement>(".tlc-loader-stage");
+
+      if (!targetLogo || !loaderLogo) {
+        return;
+      }
+
+      const targetRect = targetLogo.getBoundingClientRect();
+      const loaderRect = loaderLogo.getBoundingClientRect();
+      const targetCenterX = targetRect.left + targetRect.width / 2;
+      const targetCenterY = targetRect.top + targetRect.height / 2;
+      const loaderCenterX = loaderRect.left + loaderRect.width / 2;
+      const loaderCenterY = loaderRect.top + loaderRect.height / 2;
+
+      loaderLogo.style.setProperty("--tlc-dock-x", `${targetCenterX - loaderCenterX}px`);
+      loaderLogo.style.setProperty("--tlc-dock-y", `${targetCenterY - loaderCenterY}px`);
+    };
+
+    const finishLoader = () => {
+      if (!isPageLoaded || !minDurationPassed) {
+        return;
+      }
+
+      setNavbarTarget();
+      document.body.classList.add("tlc-page-revealing");
+      setIsExiting(true);
+      removeTimer = window.setTimeout(() => {
+        setIsVisible(false);
+        document.body.classList.remove("tlc-page-loading", "tlc-page-revealing");
+      }, NAVBAR_TRANSITION_MS);
+    };
+
+    const handleLoad = () => {
+      isPageLoaded = true;
+      finishLoader();
+    };
+
+    window.addEventListener("load", handleLoad);
+
+    const fadeTimer = window.setTimeout(() => {
+      minDurationPassed = true;
+      finishLoader();
     }, LOADER_DURATION_MS);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.removeEventListener("load", handleLoad);
+
+      window.clearTimeout(fadeTimer);
+
+      if (removeTimer) {
+        window.clearTimeout(removeTimer);
+      }
+
+      document.body.classList.remove("tlc-page-loading", "tlc-page-revealing");
+    };
+  }, []);
+
+  useEffect(() => {
+    const cycleTimer = window.setInterval(() => {
+      if (!isExiting) {
+        setAnimationCycle((cycle) => cycle + 1);
+      }
+    }, ANIMATION_CYCLE_MS);
+
+    return () => window.clearInterval(cycleTimer);
+  }, [isExiting]);
+
+  useEffect(() => {
+    if (document.readyState === "complete") {
+      return;
+    }
+
+    const handleLoad = () => {
+      setAnimationCycle((cycle) => cycle + 1);
+    };
+
+    window.addEventListener("load", handleLoad, { once: true });
+
+    return () => window.removeEventListener("load", handleLoad);
   }, []);
 
   if (!isVisible) {
@@ -20,9 +114,35 @@ export default function LogoLoadingScreen() {
   }
 
   return (
-    <div className="tlc-loader" role="status" aria-label="Loading TLC landing page">
-      <div className="tlc-loader-stage" aria-hidden="true">
-        <div className="tlc-final-logo">
+    <div
+      className={`tlc-loader${isExiting ? " tlc-loader-exiting" : ""}`}
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        left: 0,
+        zIndex: 9999,
+        height: "100vh",
+        overflow: "visible",
+        pointerEvents: "none",
+      }}
+      role="status"
+      aria-label="Loading TLC landing page"
+    >
+      <div
+        className="tlc-loader-bg"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          left: 0,
+          height: "100vh",
+          background: "var(--color-primary)",
+        }}
+      />
+      {isAnimationReady ? (
+        <div className="tlc-loader-stage" aria-hidden="true">
+          <div key={animationCycle} className="tlc-final-logo">
           <svg
             className="tlc-line tlc-line-middle"
             width="441"
@@ -90,33 +210,60 @@ export default function LogoLoadingScreen() {
             <path d="M0 176.379L15.5263 114.895L108.063 22.3584L154.021 68.3162L61.4841 160.853L0 176.379ZM26.7052 121.106L17.3894 158.99L55.2736 149.674L136.631 68.3162L108.063 39.7478L26.7052 121.106Z" fill="white" />
             <path d="M122.335 45.256L131.117 54.0377L50.3177 134.899L41.536 126.142L122.335 45.256ZM8.69482 167.684L26.7053 163.337C24.8422 156.505 19.8738 151.537 13.0422 149.673L8.69482 167.684ZM157.747 64.5894L111.789 18.6316L130.421 0L133.526 0.621054C155.884 3.72631 173.274 21.1158 176.379 43.4736L177 46.5789L157.747 64.5894ZM129.179 18.6316L157.747 47.1999L163.337 41.6105C160.231 27.3263 149.053 16.1473 134.768 13.0421L129.179 18.6316Z" fill="white" />
           </svg>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <style jsx>{`
         .tlc-loader {
           position: fixed;
-          inset: 0;
+          top: 0;
+          right: 0;
+          left: 0;
           z-index: 9999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          background: #f3f3f1;
-          animation: loaderFadeOut 0.5s ease 4.5s forwards;
+          height: 100vh;
+          overflow: visible;
+          pointer-events: none;
+        }
+
+        .tlc-loader-bg {
+          position: absolute;
+          top: 0;
+          right: 0;
+          left: 0;
+          height: 100vh;
+          background: var(--color-primary);
+        }
+
+        .tlc-loader-exiting .tlc-loader-bg {
+          animation: loaderBecomeNavbar 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
 
         .tlc-loader-stage {
-          position: relative;
+          --tlc-dock-x: 0px;
+          --tlc-dock-y: 0px;
+          position: absolute;
+          top: 50%;
+          left: 50%;
           width: min(86vw, 620px);
           aspect-ratio: 620 / 430;
+          transform: translate(-50%, -50%);
+        }
+
+        .tlc-loader-exiting .tlc-loader-stage {
+          animation: logoSlideToNavbar 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
 
         .tlc-final-logo {
           position: absolute;
           inset: 0;
           transform-origin: center;
+          transform: scale(0.26);
           animation: finalLogoBloom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 4s forwards;
+        }
+
+        .tlc-loader-exiting .tlc-final-logo {
+          animation: logoScaleToNavbar 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
 
         .tlc-piece,
@@ -310,23 +457,46 @@ export default function LogoLoadingScreen() {
         @keyframes finalLogoBloom {
           0% {
             filter: drop-shadow(0 0 0 rgba(109, 211, 198, 0));
-            transform: scale(1);
+            transform: scale(0.26);
           }
 
           70% {
             filter: drop-shadow(0 18px 26px rgba(0, 107, 95, 0.1))
               drop-shadow(0 0 18px rgba(109, 211, 198, 0.22));
-            transform: scale(1.045);
+            transform: scale(0.29);
           }
 
           100% {
             filter: drop-shadow(0 16px 22px rgba(0, 107, 95, 0.08))
               drop-shadow(0 0 12px rgba(109, 211, 198, 0.16));
-            transform: scale(1.035);
+            transform: scale(0.28);
           }
         }
 
-        /* Loader exit: the fixed white screen clears after the finished logo holds briefly. */
+        /* Final transition: the loader background shrinks into the navbar height. */
+        @keyframes loaderBecomeNavbar {
+          to {
+            height: 72px;
+          }
+        }
+
+        /* Final transition: the animated logo slides directly to the real navbar logo slot. */
+        @keyframes logoSlideToNavbar {
+          to {
+            transform: translate(
+              calc(-50% + var(--tlc-dock-x)),
+              calc(-50% + var(--tlc-dock-y))
+            );
+          }
+        }
+
+        @keyframes logoScaleToNavbar {
+          to {
+            filter: none;
+            transform: scale(0.078);
+          }
+        }
+
         @keyframes loaderFadeOut {
           to {
             opacity: 0;
@@ -341,7 +511,7 @@ export default function LogoLoadingScreen() {
           }
 
           .tlc-final-logo {
-            transform: translateY(-2%);
+            transform: translateY(-2%) scale(0.26);
           }
         }
 
@@ -370,6 +540,27 @@ export default function LogoLoadingScreen() {
           .tlc-piece {
             opacity: 1;
           }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        /* The real navbar and page stay mounted but hidden while the loader acts as the navbar. */
+        body.tlc-page-loading main > :not(.tlc-loader) {
+          opacity: 0;
+        }
+
+        body.tlc-page-revealing main > nav {
+          opacity: 0;
+        }
+
+        body.tlc-page-revealing main > :not(.tlc-loader):not(nav) {
+          opacity: 1;
+          transition: opacity 0.4s ease 0.35s;
+        }
+
+        body:not(.tlc-page-loading) main > :not(.tlc-loader) {
+          opacity: 1;
+          transition: opacity 0.2s ease;
         }
       `}</style>
     </div>
