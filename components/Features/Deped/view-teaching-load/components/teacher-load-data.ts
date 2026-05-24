@@ -1,5 +1,5 @@
 export type TeacherLoadRow = {
-	id: number;
+	id: number | string;
 	subjectTitle: string;
 	subjectCode: string;
 	schedule: string;
