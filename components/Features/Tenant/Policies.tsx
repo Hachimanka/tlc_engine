@@ -212,12 +212,12 @@ const approvalWorkflowOptions: {
     label: "Dean -> VPAA",
     description: "Current default workflow for existing tenants.",
   },
-  {
-    value: "vpaa_dean",
-    label: "VPAA -> Dean",
-    description:
-      "VPAA reviews first, then the assigned college dean approves or rejects.",
-  },
+  // {
+  //   value: "vpaa_dean",
+  //   label: "VPAA -> Dean",
+  //   description:
+  //     "VPAA reviews first, then the assigned college dean approves or rejects.",
+  // },
   {
     value: "chairman_only",
     label: "Chairman only",
@@ -312,7 +312,7 @@ const normalizeApprovalWorkflow = (
     value === "chairman_dean" ||
     value === "chairman_dean_vpaa"
   ) {
-    return value;
+    // return value;
   }
 
   return "dean_vpaa";
