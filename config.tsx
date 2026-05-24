@@ -8,7 +8,8 @@ export type TenantAdminView =
   | "manage-users"
   | "departments"
   | "employees"
-  | "branding";
+  | "branding"
+  | "analytics-reports";
 
 const getTenantAdminLabels = (institutionType?: InstitutionType) => {
   if (institutionType === "higher_ed") {
@@ -32,18 +33,18 @@ const getTenantAdminLabels = (institutionType?: InstitutionType) => {
 
 const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView[] => {
   if (institutionType === "higher_ed") {
-    return ["accounts", "manage-users", "departments", "policies", "branding"];
+    return ["accounts", "manage-users", "departments", "policies", "analytics-reports", "branding"];
   }
 
   if (institutionType === "deped") {
-    return ["employees", "accounts", "manage-users", "policies", "branding"];
+    return ["employees", "accounts", "manage-users", "policies", "analytics-reports", "branding"];
   }
 
   if (institutionType === "tesda" || institutionType === "training") {
-    return ["accounts", "employees", "manage-users", "policies", "branding"];
+    return ["accounts", "employees", "manage-users", "policies", "analytics-reports", "branding"];
   }
 
-  return ["accounts", "manage-users", "employees", "policies", "branding"];
+  return ["accounts", "manage-users", "employees", "policies", "analytics-reports", "branding"];
 };
 
 export const getDefaultTenantAdminView = (institutionType?: InstitutionType): TenantAdminView => {
@@ -57,6 +58,7 @@ export const getDefaultTenantAdminView = (institutionType?: InstitutionType): Te
 export const NavItems = (
   activeView: TenantAdminView = "policies",
   institutionType?: InstitutionType,
+  canUseFullAnalyticsReports = false,
 ) => {
   const labels = getTenantAdminLabels(institutionType);
   const order = getTenantAdminOrder(institutionType);
@@ -105,6 +107,15 @@ export const NavItems = (
       hiddenForInstitutionTypes: ["higher_ed"],
     },
     {
+      name: "Analytics & Reports",
+      href: "/tenant/tenant-admin",
+      view: "analytics-reports" as TenantAdminView,
+      icon: <AppIcon name="analytics" className="w-5 h-5" />,
+      active: activeView === "analytics-reports",
+      position: "top",
+      requiresFullAnalyticsReports: true,
+    },
+    {
       name: "Branding",
       href: "/tenant/tenant-admin",
       view: "branding" as TenantAdminView,
@@ -117,6 +128,14 @@ export const NavItems = (
   return items
     .filter((item) => {
       if (!("institutionTypes" in item)) {
+        if (
+          "requiresFullAnalyticsReports" in item &&
+          item.requiresFullAnalyticsReports &&
+          !canUseFullAnalyticsReports
+        ) {
+          return false;
+        }
+
         if ("hiddenForInstitutionTypes" in item) {
           return !(
             institutionType &&

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   CheckCircle,
   Clock,
@@ -28,6 +34,7 @@ type ApprovalStatus =
 
 type AcademicApprovalWorkflow =
   | "dean_vpaa"
+  | "vpaa_dean"
   | "chairman_only"
   | "chairman_dean"
   | "chairman_dean_vpaa";
@@ -52,7 +59,11 @@ type ApprovalRequest = {
 
 type Decision = "approve" | "return" | "reject";
 
-const categories: { key: ApprovalRequestType | "history"; label: string; empty: string }[] = [
+const categories: {
+  key: ApprovalRequestType | "history";
+  label: string;
+  empty: string;
+}[] = [
   {
     key: "subject",
     label: "Subject Approvals",
@@ -61,17 +72,20 @@ const categories: { key: ApprovalRequestType | "history"; label: string; empty: 
   {
     key: "teaching_load",
     label: "Teaching Load Approvals",
-    empty: "Teaching load approval requests will appear here once load modules submit them.",
+    empty:
+      "Teaching load approval requests will appear here once load modules submit them.",
   },
   {
     key: "overload_exception",
     label: "Overload Exceptions",
-    empty: "Overload exception requests will appear here once load modules submit them.",
+    empty:
+      "Overload exception requests will appear here once load modules submit them.",
   },
   {
     key: "adjustment_request",
     label: "Adjustment Requests",
-    empty: "Adjustment requests will appear here once request modules submit them.",
+    empty:
+      "Adjustment requests will appear here once request modules submit them.",
   },
   {
     key: "history",
@@ -80,7 +94,11 @@ const categories: { key: ApprovalRequestType | "history"; label: string; empty: 
   },
 ];
 
-const closedStatuses = new Set<ApprovalStatus>(["approved", "returned", "rejected"]);
+const closedStatuses = new Set<ApprovalStatus>([
+  "approved",
+  "returned",
+  "rejected",
+]);
 
 const statusLabel: Record<ApprovalStatus, string> = {
   pending_chairman: "Pending Chairman",
@@ -118,11 +136,15 @@ const pendingStatMeta: Record<
   },
 };
 
-const decisionMeta: Record<Decision, { label: string; icon: ReactNode; buttonClass: string }> = {
+const decisionMeta: Record<
+  Decision,
+  { label: string; icon: ReactNode; buttonClass: string }
+> = {
   approve: {
     label: "Approve",
     icon: <CheckCircle className="h-4 w-4" aria-hidden="true" />,
-    buttonClass: "bg-[var(--color-primary)] text-white hover:bg-[var(--color-light-primary)]",
+    buttonClass:
+      "bg-[var(--color-primary)] text-white hover:bg-[var(--color-light-primary)]",
   },
   return: {
     label: "Return",
@@ -174,7 +196,23 @@ const getSubjectDetails = (payload: unknown) => {
   ].filter(([, value]) => value);
 };
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+const getRequestMessage = (payload: unknown) => {
+  const request = asRecord(payload);
+  return {
+    description: toText(request.description),
+    otherDetails: toText(request.otherDetails),
+  };
+};
+
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+}) {
   return (
     <div className="rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 shadow-level-1">
       <div className="flex items-center justify-between gap-3">
@@ -182,7 +220,9 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
             {label}
           </p>
-          <p className="mt-1 text-2xl font-bold text-[var(--color-high-emphasis)]">{value}</p>
+          <p className="mt-1 text-2xl font-bold text-[var(--color-high-emphasis)]">
+            {value}
+          </p>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-default)] text-[var(--color-primary)]">
           {icon}
@@ -192,14 +232,92 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
   );
 }
 
+function AcademicApprovalsLoadingScreen() {
+  return (
+    <div className="animate-pulse space-y-5" role="status" aria-label="Loading academic approval dashboard">
+      <span className="sr-only">Loading academic approval dashboard</span>
+
+      <div className="flex flex-col gap-2">
+        <BrandedSkeletonBlock className="h-8 w-80 max-w-full" strong />
+        <BrandedSkeletonBlock className="h-4 w-[420px] max-w-full" />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((card) => (
+          <div
+            key={card}
+            className="rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 shadow-level-1"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <BrandedSkeletonBlock className="h-3 w-28" />
+                <BrandedSkeletonBlock className="mt-3 h-7 w-12" strong />
+              </div>
+              <BrandedSkeletonBlock className="h-10 w-10 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {["w-40", "w-48", "w-44", "w-44", "w-36"].map((width) => (
+          <BrandedSkeletonBlock
+            key={width}
+            className={`h-10 rounded-lg ${width}`}
+          />
+        ))}
+      </div>
+
+      <section className="rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+        <div className="border-b border-[var(--color-default)] px-5 py-4">
+          <BrandedSkeletonBlock className="h-6 w-48" strong />
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          {[0, 1, 2].map((item) => (
+            <div
+              key={item}
+              className="space-y-4 rounded-lg border border-[var(--color-default)] px-4 py-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <BrandedSkeletonBlock className="h-5 w-56" strong />
+                <BrandedSkeletonBlock className="h-5 w-24 rounded-full" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2, 3, 4, 5].map((line) => (
+                  <div key={line} className="space-y-2">
+                    <BrandedSkeletonBlock className="h-3 w-20" />
+                    <BrandedSkeletonBlock className="h-4 w-32" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <BrandedSkeletonBlock className="h-3 w-40" />
+                <BrandedSkeletonBlock className="h-3 w-36" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function AcademicApprovalsDashboard() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
-  const [workflowSteps, setWorkflowSteps] = useState<ApprovalStatus[]>(["pending_dean", "pending_vpaa"]);
-  const [activeTab, setActiveTab] = useState<ApprovalRequestType | "history">("subject");
+  const [workflowSteps, setWorkflowSteps] = useState<ApprovalStatus[]>([
+    "pending_dean",
+    "pending_vpaa",
+  ]);
+  const [activeTab, setActiveTab] = useState<ApprovalRequestType | "history">(
+    "subject",
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [actionRequest, setActionRequest] = useState<ApprovalRequest | null>(null);
+  const [actionRequest, setActionRequest] = useState<ApprovalRequest | null>(
+    null,
+  );
   const [decision, setDecision] = useState<Decision>("approve");
   const [remarks, setRemarks] = useState("");
   const [actionError, setActionError] = useState("");
@@ -224,9 +342,8 @@ export default function AcademicApprovalsDashboard() {
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload: { requests?: ApprovalRequest[]; error?: string } = await response
-        .json()
-        .catch(() => ({}));
+      const payload: { requests?: ApprovalRequest[]; error?: string } =
+        await response.json().catch(() => ({}));
       const nextPayload = payload as {
         requests?: ApprovalRequest[];
         workflow?: AcademicApprovalWorkflow;
@@ -259,7 +376,8 @@ export default function AcademicApprovalsDashboard() {
   const filteredRequests = useMemo(() => {
     if (activeTab === "history") {
       return requests.filter(
-        (request) => closedStatuses.has(request.status) || request.hasReviewHistory,
+        (request) =>
+          closedStatuses.has(request.status) || request.hasReviewHistory,
       );
     }
 
@@ -273,11 +391,19 @@ export default function AcademicApprovalsDashboard() {
 
   const stats = useMemo(
     () => ({
-      chairman: requests.filter((request) => request.status === "pending_chairman").length,
-      dean: requests.filter((request) => request.status === "pending_dean").length,
-      vpaa: requests.filter((request) => request.status === "pending_vpaa").length,
-      approved: requests.filter((request) => request.status === "approved").length,
-      exceptions: requests.filter((request) => request.status === "returned" || request.status === "rejected").length,
+      chairman: requests.filter(
+        (request) => request.status === "pending_chairman",
+      ).length,
+      dean: requests.filter((request) => request.status === "pending_dean")
+        .length,
+      vpaa: requests.filter((request) => request.status === "pending_vpaa")
+        .length,
+      approved: requests.filter((request) => request.status === "approved")
+        .length,
+      exceptions: requests.filter(
+        (request) =>
+          request.status === "returned" || request.status === "rejected",
+      ).length,
     }),
     [requests],
   );
@@ -285,7 +411,10 @@ export default function AcademicApprovalsDashboard() {
   const statCards = useMemo(
     () => [
       ...workflowSteps
-        .filter((status): status is keyof typeof pendingStatMeta => status in pendingStatMeta)
+        .filter(
+          (status): status is keyof typeof pendingStatMeta =>
+            status in pendingStatMeta,
+        )
         .map((status) => ({
           key: status,
           label: pendingStatMeta[status].label,
@@ -308,7 +437,10 @@ export default function AcademicApprovalsDashboard() {
     [requests, stats.approved, stats.exceptions, workflowSteps],
   );
 
-  const openDecisionModal = (request: ApprovalRequest, nextDecision: Decision) => {
+  const openDecisionModal = (
+    request: ApprovalRequest,
+    nextDecision: Decision,
+  ) => {
     setActionRequest(request);
     setDecision(nextDecision);
     setRemarks("");
@@ -348,18 +480,22 @@ export default function AcademicApprovalsDashboard() {
         return;
       }
 
-      const response = await fetch(`/api/tenant/academic-approvals/${actionRequest.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `/api/tenant/academic-approvals/${actionRequest.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            decision,
+            remarks,
+          }),
         },
-        body: JSON.stringify({
-          decision,
-          remarks,
-        }),
-      });
-      const payload: { request?: ApprovalRequest; error?: string } = await response.json().catch(() => ({}));
+      );
+      const payload: { request?: ApprovalRequest; error?: string } =
+        await response.json().catch(() => ({}));
 
       if (!response.ok) {
         setActionError(payload.error || "Unable to save decision.");
@@ -367,18 +503,25 @@ export default function AcademicApprovalsDashboard() {
       }
 
       const nextStatus = payload.request?.status;
-      const nextStatusText = nextStatus ? statusLabel[nextStatus] : "the next step";
-      const nextMessage = decision === "approve"
-        ? nextStatus === "approved"
-          ? "Approved. The request was saved to Approval History."
-          : `Approved. This request moved to ${nextStatusText}.`
-        : decision === "return"
-        ? "Returned. The request was saved to Approval History."
-        : "Rejected. The request was saved to Approval History.";
+      const nextStatusText = nextStatus
+        ? statusLabel[nextStatus]
+        : "the next step";
+      const nextMessage =
+        decision === "approve"
+          ? nextStatus === "approved"
+            ? "Approved. The request was saved to Approval History."
+            : `Approved. This request moved to ${nextStatusText}.`
+          : decision === "return"
+            ? "Returned. The request was saved to Approval History."
+            : "Rejected. The request was saved to Approval History.";
 
       closeDecisionModal();
       setSuccessMessage(nextMessage);
-      setActiveTab(nextStatus && closedStatuses.has(nextStatus) ? "history" : actionRequest.requestType);
+      setActiveTab(
+        nextStatus && closedStatuses.has(nextStatus)
+          ? "history"
+          : actionRequest.requestType,
+      );
       await loadApprovals();
     } catch {
       setActionError("Unable to save decision.");
@@ -387,7 +530,12 @@ export default function AcademicApprovalsDashboard() {
     }
   };
 
-  const activeCategory = categories.find((category) => category.key === activeTab) ?? categories[0];
+  const activeCategory =
+    categories.find((category) => category.key === activeTab) ?? categories[0];
+
+  if (loading) {
+    return <AcademicApprovalsLoadingScreen />;
+  }
 
   return (
     <div className="space-y-5">
@@ -402,7 +550,12 @@ export default function AcademicApprovalsDashboard() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {statCards.map((card) => (
-          <StatCard key={card.key} label={card.label} value={card.value} icon={card.icon} />
+          <StatCard
+            key={card.key}
+            label={card.label}
+            value={card.value}
+            icon={card.icon}
+          />
         ))}
       </div>
 
@@ -444,10 +597,17 @@ export default function AcademicApprovalsDashboard() {
 
         <div className="divide-y divide-[var(--color-default)]">
           {loading ? (
-            <div className="space-y-4 px-5 py-5" role="status" aria-label="Loading approval requests">
+            <div
+              className="space-y-4 px-5 py-5"
+              role="status"
+              aria-label="Loading approval requests"
+            >
               <span className="sr-only">Loading approval requests</span>
               {[0, 1, 2].map((item) => (
-                <div key={item} className="animate-pulse space-y-3 rounded-lg border border-[var(--color-default)] px-4 py-4">
+                <div
+                  key={item}
+                  className="animate-pulse space-y-3 rounded-lg border border-[var(--color-default)] px-4 py-4"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <BrandedSkeletonBlock className="h-4 w-48" />
                     <BrandedSkeletonBlock className="h-5 w-20 rounded-full" />
@@ -461,7 +621,9 @@ export default function AcademicApprovalsDashboard() {
               ))}
             </div>
           ) : filteredRequests.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-[var(--color-low-emphasis)]">{activeCategory.empty}</p>
+            <p className="px-5 py-8 text-sm text-[var(--color-low-emphasis)]">
+              {activeCategory.empty}
+            </p>
           ) : (
             filteredRequests.map((request) => {
               const details = getSubjectDetails(request.payload);
@@ -474,7 +636,9 @@ export default function AcademicApprovalsDashboard() {
                         <h3 className="text-base font-bold text-[var(--color-high-emphasis)]">
                           {request.title}
                         </h3>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass[request.status]}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass[request.status]}`}
+                        >
                           {statusLabel[request.status]}
                         </span>
                       </div>
@@ -485,33 +649,81 @@ export default function AcademicApprovalsDashboard() {
                             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
                               {label}
                             </p>
-                            <p className="text-[var(--color-high-emphasis)]">{value}</p>
+                            <p className="text-[var(--color-high-emphasis)]">
+                              {value}
+                            </p>
                           </div>
                         ))}
                       </div>
 
+                      {(() => {
+                        const message = getRequestMessage(request.payload);
+
+                        return message.description || message.otherDetails ? (
+                          <div className="space-y-3 rounded-lg border border-[var(--color-default)] bg-[var(--color-background)] p-4 text-sm">
+                            {message.description ? (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                                  Faculty Message
+                                </p>
+                                <p className="mt-1 text-[var(--color-high-emphasis)]">
+                                  {message.description}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {message.otherDetails ? (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-low-emphasis)]">
+                                  Additional Details
+                                </p>
+                                <p className="mt-1 text-[var(--color-high-emphasis)]">
+                                  {message.otherDetails}
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null;
+                      })()}
+
                       <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-low-emphasis)]">
-                        <span>Submitted: {formatDate(request.submittedAt)}</span>
-                        <span>By: {request.submittedBy?.name || "Unknown submitter"}</span>
-                        {request.chairmanRemarks ? <span>Chairman remarks: {request.chairmanRemarks}</span> : null}
-                        {request.deanRemarks ? <span>Dean remarks: {request.deanRemarks}</span> : null}
-                        {request.vpaaRemarks ? <span>VPAA remarks: {request.vpaaRemarks}</span> : null}
+                        <span>
+                          Submitted: {formatDate(request.submittedAt)}
+                        </span>
+                        <span>
+                          By: {request.submittedBy?.name || "Unknown submitter"}
+                        </span>
+                        {request.chairmanRemarks ? (
+                          <span>
+                            Chairman remarks: {request.chairmanRemarks}
+                          </span>
+                        ) : null}
+                        {request.deanRemarks ? (
+                          <span>Dean remarks: {request.deanRemarks}</span>
+                        ) : null}
+                        {request.vpaaRemarks ? (
+                          <span>VPAA remarks: {request.vpaaRemarks}</span>
+                        ) : null}
                       </div>
                     </div>
 
                     {request.canAct ? (
                       <div className="flex flex-wrap gap-2 lg:justify-end">
-                        {(Object.keys(decisionMeta) as Decision[]).map((nextDecision) => (
-                          <button
-                            key={nextDecision}
-                            type="button"
-                            onClick={() => openDecisionModal(request, nextDecision)}
-                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${decisionMeta[nextDecision].buttonClass}`}
-                          >
-                            {decisionMeta[nextDecision].icon}
-                            {decisionMeta[nextDecision].label}
-                          </button>
-                        ))}
+                        {(Object.keys(decisionMeta) as Decision[]).map(
+                          (nextDecision) => (
+                            <button
+                              key={nextDecision}
+                              type="button"
+                              onClick={() =>
+                                openDecisionModal(request, nextDecision)
+                              }
+                              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${decisionMeta[nextDecision].buttonClass}`}
+                            >
+                              {decisionMeta[nextDecision].icon}
+                              {decisionMeta[nextDecision].label}
+                            </button>
+                          ),
+                        )}
                       </div>
                     ) : null}
                   </div>
@@ -548,8 +760,18 @@ export default function AcademicApprovalsDashboard() {
             </div>
 
             <div className="space-y-3 px-6 py-5">
-              <label htmlFor="approval-remarks" className="text-sm font-semibold text-[var(--color-high-emphasis)]">
-                Remarks {decision === "approve" ? <span className="text-[var(--color-low-emphasis)]">(optional)</span> : <span className="text-red-500">*</span>}
+              <label
+                htmlFor="approval-remarks"
+                className="text-sm font-semibold text-[var(--color-high-emphasis)]"
+              >
+                Remarks{" "}
+                {decision === "approve" ? (
+                  <span className="text-[var(--color-low-emphasis)]">
+                    (optional)
+                  </span>
+                ) : (
+                  <span className="text-red-500">*</span>
+                )}
               </label>
               <textarea
                 id="approval-remarks"

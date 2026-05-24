@@ -15,7 +15,8 @@ export default function Navbar() {
         <a
           href="/"
           aria-label="Home"
-          className="-ml-15 flex items-center gap-3"
+          data-tlc-navbar-logo
+          className="flex items-center gap-3"
         >
           <Image
             src="/TLCLogo.svg"

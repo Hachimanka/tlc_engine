@@ -22,6 +22,8 @@ type FacultyLoadAssignmentRow = {
       id: string;
       room_name: string;
       building: string;
+      section?: string | null;
+      year_level?: string | null;
     } | null;
   } | null;
 };
@@ -64,6 +66,16 @@ const normalizeSection = (value: string) => {
   return parts.at(-1) ?? cleaned;
 };
 
+const getDisplaySection = (assignmentSection: string, roomSection?: string | null) => {
+  const normalizedAssignmentSection = normalizeSection(assignmentSection);
+
+  if (normalizedAssignmentSection && normalizedAssignmentSection.toLowerCase() !== "n/a") {
+    return normalizedAssignmentSection;
+  }
+
+  return normalizeSection(roomSection ?? "") || normalizedAssignmentSection || "N/A";
+};
+
 const uniqueJoin = (values: string[], separator = ", ") =>
   Array.from(new Set(values.filter(Boolean))).join(separator);
 
@@ -85,7 +97,7 @@ const mapAssignment = (row: FacultyLoadAssignmentRow) => {
       assignment.end_time,
     )}`,
     room: assignment.room?.room_name ?? "",
-    section: normalizeSection(assignment.section),
+    section: getDisplaySection(assignment.section, assignment.room?.section),
     students: 0,
     units: Number(assignment.subject.units ?? 0),
   };
@@ -157,7 +169,9 @@ export async function GET(req: Request) {
           room:academic_rooms!academic_room_assignments_room_id_fkey(
             id,
             room_name,
-            building
+            building,
+            section,
+            year_level
           )
         )
       `,

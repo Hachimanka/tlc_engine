@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { recordSuperAdminActivity } from "@/lib/superadminActivityClient";
@@ -46,25 +45,6 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 		onLogin();
 	};
 
-	if (loading) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="flex flex-col items-center gap-4">
-					<div className="w-20 h-20 flex items-center justify-center rounded-xl bg-teal-100 shadow animate-bounce" style={{ animationDuration: '0.7s' }}>
-						<Image
-							src="/navbar/tlclogo.png"
-							alt="TLC Logo"
-							width={56}
-							height={56}
-							className="w-14 h-14 object-contain"
-						/>
-					</div>
-					<div className="text-teal-700 font-semibold text-lg">Logging in...</div>
-				</div>
-			</div>
-		);
-	}
-
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-gray-50">
 			<form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md flex flex-col gap-6">
@@ -95,9 +75,17 @@ export default function SuperAdminLoginPage({ onLogin }: { onLogin: () => void }
 				</div>
 				<button
 					type="submit"
-					className="bg-teal-700 text-white rounded px-6 py-2 font-medium shadow hover:bg-teal-800 transition"
+					disabled={loading}
+					className="flex items-center justify-center gap-2 rounded bg-teal-700 px-6 py-2 font-medium text-white shadow transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-80"
 				>
-					Login
+					{loading ? (
+						<>
+							<span className="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent" aria-hidden="true" />
+							Signing in...
+						</>
+					) : (
+						"Login"
+					)}
 				</button>
 			</form>
 		</div>

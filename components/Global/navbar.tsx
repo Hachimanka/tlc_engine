@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  readSuperAdminNotificationPreferences,
+  SUPERADMIN_NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+} from "@/lib/superadminNotificationPreferences";
 import { supabase } from "@/lib/supabaseClient";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import { ICON_SVGS } from "@/public/icons";
@@ -22,11 +26,126 @@ type NavbarProfile = {
   avatarUrl: string;
 };
 
+type NavbarNotification = {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  status: "success" | "failed" | "warning" | "info";
+  href?: string;
+  superAdminSection?: string;
+};
+
+type ActivityLogPayload = {
+  id?: string;
+  action?: string;
+  target?: string | null;
+  target_type?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+type AcademicApprovalPayload = {
+  id?: string;
+  subjectCode?: string | null;
+  subjectTitle?: string | null;
+  status?: string | null;
+  requestType?: string | null;
+  submittedBy?: { name?: string | null } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+  canAct?: boolean;
+};
+
+type DemoRequestPayload = {
+  id?: string;
+  full_name?: string | null;
+  email?: string | null;
+  institution_name?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+type TenantAccountPayload = {
+  id?: string;
+  full_name?: string | null;
+  email?: string | null;
+  role_label?: string | null;
+  created_at?: string | null;
+  roles?: unknown;
+};
+
 const defaultProfile: NavbarProfile = {
   displayName: "User",
   email: "",
   roleName: "",
   avatarUrl: "",
+};
+
+const READ_NOTIFICATION_KEY_PREFIX = "tlc:navbar-notifications:read:";
+
+const normalizeNotificationStatus = (status: unknown): NavbarNotification["status"] => {
+  if (status === "failed" || status === "warning" || status === "info" || status === "success") {
+    return status;
+  }
+
+  return "info";
+};
+
+const formatNotificationTime = (value: string) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const notificationStatusClass: Record<NavbarNotification["status"], string> = {
+  success: "bg-emerald-500",
+  failed: "bg-red-500",
+  warning: "bg-amber-500",
+  info: "bg-sky-500",
+};
+
+const getSuperAdminSectionForActivity = (targetType: string, action: string) => {
+  if (targetType.includes("demo") || action.includes("demo")) return "demorequests";
+  if (targetType.includes("organization") || action.includes("organization")) return "organizations";
+  if (targetType.includes("subscription") || action.includes("subscription") || action.includes("plan")) return "subscription";
+  if (targetType.includes("analytics") || action.includes("analytics")) return "analytics";
+  if (targetType.includes("setting") || action.includes("setting")) return "settings";
+  return "activitylogs";
+};
+
+const getNotificationTimeBucket = (value: string) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  date.setSeconds(0, 0);
+  return date.toISOString();
+};
+
+const uniqueNotificationsById = (items: NavbarNotification[]) => {
+  const seenIds = new Set<string>();
+  const uniqueItems: NavbarNotification[] = [];
+
+  for (const item of items) {
+    if (seenIds.has(item.id)) continue;
+
+    seenIds.add(item.id);
+    uniqueItems.push(item);
+  }
+
+  return uniqueItems;
 };
 
 export default function Navbar({
@@ -39,6 +158,12 @@ export default function Navbar({
   const router = useRouter();
   const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<NavbarNotification[]>([]);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
+  const [notificationStorageKey, setNotificationStorageKey] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -51,6 +176,7 @@ export default function Navbar({
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
   const profile = {
     ...defaultProfile,
@@ -62,6 +188,9 @@ export default function Navbar({
   const hasTenantBrand = Boolean(organizationName || logoUrl);
   const tenantBrandName = organizationName || logoAlt || "Institution Workspace";
   const normalizedOrganizationSlug = organizationSlug?.trim();
+  const unreadNotificationCount = notifications.filter(
+    (notification) => !readNotificationIds.includes(notification.id),
+  ).length;
 
   const clearAvatarObjectUrl = () => {
     if (avatarObjectUrlRef.current) {
@@ -97,6 +226,234 @@ export default function Navbar({
       router.replace(resolveLogoutRedirect());
     } catch {
       setIsLoggingOut(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    setIsLoadingNotifications(true);
+    setNotificationError("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      const token = session?.access_token;
+      const user = session?.user;
+
+      if (!token || !user) {
+        setNotifications([]);
+        setIsLoadingNotifications(false);
+        return;
+      }
+
+      const userKey = user.id || user.email || profile.email || "anonymous";
+      const storageKey = `${READ_NOTIFICATION_KEY_PREFIX}${userKey}`;
+      setNotificationStorageKey(storageKey);
+
+      try {
+        const storedIds = JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+        setReadNotificationIds(Array.isArray(storedIds) ? storedIds.filter((id): id is string => typeof id === "string") : []);
+      } catch {
+        setReadNotificationIds([]);
+      }
+
+      const nextNotifications: NavbarNotification[] = [];
+      const role = (user.user_metadata as { role?: string } | undefined)?.role;
+
+      if (role === "superadmin" || pathname?.startsWith("/superadmin")) {
+        const preferences = readSuperAdminNotificationPreferences();
+
+        if (preferences.demoRequests) {
+          const { data: demoRequests } = await supabase
+            .from("demo_requests")
+            .select("id, full_name, email, institution_name, status, created_at")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(10);
+
+          for (const request of (demoRequests ?? []) as DemoRequestPayload[]) {
+            const createdAt = request.created_at || new Date().toISOString();
+            nextNotifications.push({
+              id: `demo-request:${request.id ?? `${request.email ?? "demo"}:${createdAt}`}`,
+              title: "New demo request",
+              description: `${request.institution_name || "Unknown institution"}${request.full_name ? ` from ${request.full_name}` : ""}`,
+              createdAt,
+              status: "warning",
+              superAdminSection: "demorequests",
+            });
+          }
+        }
+
+        const response = await fetch("/api/superadmin/activity-logs?limit=10", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          for (const log of (payload.logs ?? []) as ActivityLogPayload[]) {
+            const targetType = log.target_type?.toLowerCase() ?? "";
+            const action = log.action?.toLowerCase() ?? "";
+            const status = normalizeNotificationStatus(log.status);
+            const isOrganizationEvent =
+              targetType.includes("organization") || action.includes("organization");
+            const isSubscriptionEvent =
+              targetType.includes("subscription") || action.includes("subscription") || action.includes("plan");
+            const isLoginEvent = targetType.includes("session") || action.includes("logged in");
+            const isSystemAlert = status === "failed" || status === "warning";
+
+            if (isOrganizationEvent && !preferences.newOrganizations) continue;
+            if (isSubscriptionEvent && !preferences.subscriptions) continue;
+            if (isLoginEvent && !preferences.loginAlerts) continue;
+            if (isSystemAlert && !preferences.systemAlerts) continue;
+
+            const createdAt = log.created_at || new Date().toISOString();
+            const superAdminSection = getSuperAdminSectionForActivity(targetType, action);
+            const notificationId = isLoginEvent
+              ? `activity:login:${getNotificationTimeBucket(createdAt)}`
+              : `activity:${log.id ?? `${log.action ?? "activity"}:${createdAt}`}`;
+            nextNotifications.push({
+              id: notificationId,
+              title: log.action || "Super admin activity",
+              description: [log.target, log.target_type].filter(Boolean).join(" • ") || "Recent platform activity",
+              createdAt,
+              status,
+              superAdminSection,
+            });
+          }
+        }
+      } else {
+        const meResponse = await fetch("/api/tenant/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const mePayload = await meResponse.json().catch(() => ({}));
+
+        if (meResponse.ok) {
+          if (mePayload.isOrgAdmin) {
+            const usersResponse = await fetch("/api/tenant/users?scope=access", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const usersPayload = await usersResponse.json().catch(() => ({}));
+
+            if (usersResponse.ok) {
+              const accountRows = ((usersPayload.users ?? []) as TenantAccountPayload[])
+                .filter((account) => {
+                  const role = Array.isArray(account.roles) ? account.roles[0] : account.roles;
+                  const roleKey =
+                    role && typeof role === "object" && "key" in role
+                      ? String(role.key ?? "")
+                      : "";
+                  return roleKey !== "org_admin";
+                })
+                .slice(0, 8);
+
+              for (const account of accountRows) {
+                const createdAt = account.created_at || new Date().toISOString();
+                nextNotifications.push({
+                  id: `tenant-account:${account.id ?? `${account.email ?? "account"}:${createdAt}`}`,
+                  title: "New account created",
+                  description: `${account.full_name || account.email || "Account"}${account.role_label ? ` • ${account.role_label}` : ""}`,
+                  createdAt,
+                  status: "success",
+                  href: "/tenant/tenant-admin",
+                });
+              }
+            }
+          }
+
+          if (
+            mePayload.org?.institutionType === "higher_ed" &&
+            !mePayload.isOrgAdmin &&
+            (mePayload.enabledFeatureKeys ?? []).includes("higher-dean-vpaa-approvals")
+          ) {
+            const approvalsResponse = await fetch("/api/tenant/academic-approvals", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const approvalsPayload = await approvalsResponse.json().catch(() => ({}));
+
+            if (approvalsResponse.ok) {
+              const pendingApprovals = ((approvalsPayload.requests ?? []) as AcademicApprovalPayload[])
+                .filter((request) => {
+                  const status = request.status?.toLowerCase() ?? "";
+                  return status && !["approved", "rejected", "cancelled"].includes(status);
+                })
+                .slice(0, 8);
+
+              for (const request of pendingApprovals) {
+                const title = request.canAct ? "Approval needs your review" : "Academic approval pending";
+                const subject = [request.subjectCode, request.subjectTitle].filter(Boolean).join(" - ");
+                const createdAt = request.updatedAt || request.createdAt || new Date().toISOString();
+
+                nextNotifications.push({
+                  id: `approval:${request.id ?? `${subject}:${createdAt}`}`,
+                  title,
+                  description: subject || request.requestType || "Academic approval request",
+                  createdAt,
+                  status: request.canAct ? "warning" : "info",
+                  href: "/tenant/college/dean",
+                });
+              }
+            }
+          }
+        }
+      }
+
+      setNotifications(
+        uniqueNotificationsById(nextNotifications).sort((left, right) => {
+          const leftTime = new Date(left.createdAt).getTime();
+          const rightTime = new Date(right.createdAt).getTime();
+
+          return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+        }),
+      );
+    } catch {
+      setNotificationError("Unable to load notifications.");
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  const toggleNotifications = () => {
+    setShowMenu(false);
+    setShowNotifications((current) => {
+      const next = !current;
+
+      if (next) {
+        void loadNotifications();
+      }
+
+      return next;
+    });
+  };
+
+  const markAllNotificationsRead = () => {
+    const nextIds = Array.from(new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)]));
+    setReadNotificationIds(nextIds);
+
+    if (notificationStorageKey) {
+      window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds));
+    }
+  };
+
+  const handleNotificationClick = (notification: NavbarNotification) => {
+    const nextIds = Array.from(new Set([...readNotificationIds, notification.id]));
+    setReadNotificationIds(nextIds);
+
+    if (notificationStorageKey) {
+      window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds));
+    }
+
+    if (notification.href) {
+      setShowNotifications(false);
+      router.push(notification.href);
+      return;
+    }
+
+    if (notification.superAdminSection) {
+      setShowNotifications(false);
+      window.dispatchEvent(
+        new CustomEvent("tlc-superadmin-navigate", {
+          detail: { section: notification.superAdminSection },
+        }),
+      );
     }
   };
 
@@ -247,14 +604,41 @@ export default function Navbar({
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
+
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
     }
 
-    if (showMenu) {
+    if (showMenu || showNotifications) {
       document.addEventListener("mousedown", handleClick);
     }
 
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showMenu]);
+  }, [showMenu, showNotifications]);
+
+  useEffect(() => {
+    const handlePreferencesUpdated = () => {
+      void loadNotifications();
+    };
+
+    window.addEventListener(
+      SUPERADMIN_NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+      handlePreferencesUpdated,
+    );
+
+    return () =>
+      window.removeEventListener(
+        SUPERADMIN_NOTIFICATION_PREFERENCES_UPDATED_EVENT,
+        handlePreferencesUpdated,
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
     <>
@@ -264,13 +648,17 @@ export default function Navbar({
           <div className="flex h-12 min-w-0 max-w-[min(360px,calc(100vw-11rem))] items-center gap-3 py-1.5 text-white">
             {logoUrl ? (
               <span
+                data-tlc-navbar-logo
                 className="h-9 w-9 shrink-0 rounded-md bg-white bg-contain bg-center bg-no-repeat"
                 style={{ backgroundImage: `url("${logoUrl}")` }}
                 role="img"
                 aria-label={logoAlt}
               />
             ) : (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-white">
+              <span
+                data-tlc-navbar-logo
+                className="flex h-9 w-9 shrink-0 items-center justify-center text-white"
+              >
                 <span
                   className="themed-svg-icon flex h-5 w-5 items-center justify-center"
                   dangerouslySetInnerHTML={{ __html: ICON_SVGS.settings }}
@@ -287,19 +675,122 @@ export default function Navbar({
             </div>
           </div>
         ) : (
-          <Image src="/navbar/tlclogo.png" alt="Logo" width={40} height={40} />
+          <span data-tlc-navbar-logo className="flex h-10 w-10 items-center justify-center">
+            <Image src="/navbar/tlclogo.png" alt="Logo" width={40} height={40} />
+          </span>
         )}
       </div>
 
       <div className="flex items-center gap-4 mr-16">
-        <div className="relative flex items-center justify-center">
-          <Image
-            src="/navbar/Notification.png"
-            alt="Notification"
-            width={24}
-            height={24}
-          />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+        <div className="relative flex items-center justify-center" ref={notificationRef}>
+          <button
+            type="button"
+            onClick={toggleNotifications}
+            className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white text-[var(--color-primary)] shadow-sm transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/70"
+            aria-label="Open notifications"
+            aria-expanded={showNotifications}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10.27 21a2 2 0 0 0 3.46 0"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M18 8a6 6 0 0 0-12 0c0 4.5-1.41 5.96-2.74 7.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {unreadNotificationCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-bold leading-none text-white ring-2 ring-[var(--color-primary)]">
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+              </span>
+            ) : null}
+          </button>
+
+          {showNotifications ? (
+            <div className="absolute right-0 top-11 z-50 w-[360px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg animate-fade-in">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-bold text-gray-900">Notifications</h2>
+                  <p className="text-xs text-gray-500">
+                    {unreadNotificationCount > 0
+                      ? `${unreadNotificationCount} unread`
+                      : "All caught up"}
+                  </p>
+                </div>
+                {unreadNotificationCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={markAllNotificationsRead}
+                    className="rounded-md px-2 py-1 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+                  >
+                    Mark all read
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="max-h-[360px] overflow-y-auto">
+                {isLoadingNotifications ? (
+                  <div className="px-4 py-6 text-sm text-gray-500">Loading notifications...</div>
+                ) : notificationError ? (
+                  <div className="px-4 py-6 text-sm text-red-600">{notificationError}</div>
+                ) : notifications.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-gray-500">No notifications</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {notifications.map((notification) => {
+                      const isUnread = !readNotificationIds.includes(notification.id);
+
+                      return (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`flex w-full gap-3 px-4 py-3 text-left transition hover:bg-gray-50 ${
+                            isUnread ? "bg-[#ecf8f6]/60" : "bg-white"
+                          }`}
+                        >
+                          <span
+                            className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${notificationStatusClass[notification.status]}`}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-3">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {notification.title}
+                              </span>
+                              {isUnread ? (
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                              ) : null}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-gray-600">
+                              {notification.description}
+                            </span>
+                            <span className="mt-1 block text-[11px] font-medium text-gray-400">
+                              {formatNotificationTime(notification.createdAt)}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="h-8 w-px bg-gray-300 mx-2" />
