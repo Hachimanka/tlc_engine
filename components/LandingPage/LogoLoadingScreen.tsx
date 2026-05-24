@@ -1,16 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const LOADER_DURATION_MS = 5000;
 const ANIMATION_CYCLE_MS = 5200;
 const NAVBAR_TRANSITION_MS = 800;
 
-export default function LogoLoadingScreen() {
+type LogoLoadingScreenProps = {
+  canDismiss?: boolean;
+  onDismissed?: () => void;
+};
+
+export default function LogoLoadingScreen({ canDismiss = true, onDismissed }: LogoLoadingScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
   const [animationCycle, setAnimationCycle] = useState(0);
   const [isAnimationReady, setIsAnimationReady] = useState(false);
+  const canDismissRef = useRef(canDismiss);
+  const onDismissedRef = useRef(onDismissed);
+  const finishLoaderRef = useRef<(() => void) | null>(null);
+  const isExitingRef = useRef(false);
+
+  useEffect(() => {
+    canDismissRef.current = canDismiss;
+    onDismissedRef.current = onDismissed;
+    finishLoaderRef.current?.();
+  }, [canDismiss, onDismissed]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -47,18 +62,22 @@ export default function LogoLoadingScreen() {
     };
 
     const finishLoader = () => {
-      if (!isPageLoaded || !minDurationPassed) {
+      if (!isPageLoaded || !minDurationPassed || !canDismissRef.current || isExitingRef.current) {
         return;
       }
 
+      isExitingRef.current = true;
       setNavbarTarget();
       document.body.classList.add("tlc-page-revealing");
       setIsExiting(true);
       removeTimer = window.setTimeout(() => {
         setIsVisible(false);
         document.body.classList.remove("tlc-page-loading", "tlc-page-revealing");
+        onDismissedRef.current?.();
       }, NAVBAR_TRANSITION_MS);
     };
+
+    finishLoaderRef.current = finishLoader;
 
     const handleLoad = () => {
       isPageLoaded = true;
@@ -73,6 +92,7 @@ export default function LogoLoadingScreen() {
     }, LOADER_DURATION_MS);
 
     return () => {
+      finishLoaderRef.current = null;
       window.removeEventListener("load", handleLoad);
 
       window.clearTimeout(fadeTimer);
