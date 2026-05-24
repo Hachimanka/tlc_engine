@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
+import TenantLogoLoader from "@/components/Global/TenantLogoLoader";
 import type { TenantBranding } from "@/lib/tenantBranding";
 import {
   clearStoredTenantBranding,
@@ -57,7 +58,11 @@ function LoginSkeletonCard({
       return;
     }
 
-    setStoredBranding(readStoredTenantBranding());
+    const frame = window.requestAnimationFrame(() => {
+      setStoredBranding(readStoredTenantBranding());
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [branding, useStoredBranding]);
 
   const activeBranding = branding ?? storedBranding;
@@ -294,7 +299,19 @@ function LoginContent() {
   };
 
   if (loading) {
-    return <LoginSkeletonCard branding={branding} label="Signing in" />;
+    return (
+      <TenantBrandScope
+        branding={branding}
+        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+        <TenantLogoLoader
+          branding={branding}
+          logoUrl={branding?.logoUrl}
+          logoAlt={branding?.logoAlt}
+          isDataReady={false}
+        />
+      </TenantBrandScope>
+    );
   }
 
   return (

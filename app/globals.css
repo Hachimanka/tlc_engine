@@ -266,6 +266,101 @@
   animation: tenant-logo-step-bounce 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+.tenant-logo-loader {
+  position: fixed;
+  inset: 0 auto auto 0;
+  right: 0;
+  z-index: 10000;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.tenant-logo-loader-bg {
+  position: absolute;
+  inset: 0 auto auto 0;
+  right: 0;
+  height: 100vh;
+  background: var(--color-primary);
+}
+
+.tenant-logo-loader-stage {
+  --tenant-loader-dock-x: 0px;
+  --tenant-loader-dock-y: 0px;
+  --tenant-loader-dock-scale: 0.32;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  height: clamp(92px, 18vw, 132px);
+  width: clamp(92px, 18vw, 132px);
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.tenant-logo-loader-mark {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 18px 32px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  animation: tenantLogoLoaderBounce 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: center;
+}
+
+.tenant-logo-loader-image {
+  display: block;
+  max-height: 74%;
+  max-width: 74%;
+  object-fit: contain;
+}
+
+.tenant-logo-loader-fallback {
+  display: flex;
+  height: 46%;
+  width: 46%;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+.tenant-logo-loader-fallback svg {
+  height: 100%;
+  width: 100%;
+}
+
+.tenant-logo-loader-exiting {
+  pointer-events: auto;
+}
+
+.tenant-logo-loader-exiting .tenant-logo-loader-bg {
+  animation: tenantLoaderBecomeNavbar var(--tenant-loader-transition-ms) var(--tenant-loader-easing) forwards;
+}
+
+.tenant-logo-loader-exiting .tenant-logo-loader-stage {
+  animation: tenantLogoSlideToNavbar var(--tenant-loader-transition-ms) var(--tenant-loader-easing) forwards;
+}
+
+.tenant-logo-loader-exiting .tenant-logo-loader-mark {
+  animation: tenantLogoScaleToNavbar var(--tenant-loader-transition-ms) var(--tenant-loader-easing) forwards;
+  box-shadow: none;
+}
+
+body.tenant-logo-loader-active {
+  overflow: hidden;
+}
+
+body.tenant-logo-loader-revealing [data-tlc-navbar-logo] {
+  opacity: 0;
+}
+
 @keyframes spin {
   to {
     transform: rotate(1turn);
@@ -306,6 +401,39 @@
   }
 }
 
+@keyframes tenantLogoLoaderBounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: translateY(-15px) scale(1.025);
+  }
+}
+
+@keyframes tenantLoaderBecomeNavbar {
+  to {
+    height: var(--tenant-loader-navbar-height);
+  }
+}
+
+@keyframes tenantLogoSlideToNavbar {
+  to {
+    transform: translate(
+      calc(-50% + var(--tenant-loader-dock-x)),
+      calc(-50% + var(--tenant-loader-dock-y))
+    );
+  }
+}
+
+@keyframes tenantLogoScaleToNavbar {
+  to {
+    border-radius: 6px;
+    transform: scale(var(--tenant-loader-dock-scale));
+  }
+}
+
 @keyframes image-glow {
   0% {
     opacity: 0;
@@ -319,6 +447,22 @@
 
   to {
     opacity: 0.4;
+  }
+}
+
+@media (max-width: 640px) {
+  .tenant-logo-loader-stage {
+    height: clamp(84px, 26vw, 112px);
+    width: clamp(84px, 26vw, 112px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tenant-logo-loader-mark,
+  .tenant-logo-loader-exiting .tenant-logo-loader-bg,
+  .tenant-logo-loader-exiting .tenant-logo-loader-stage,
+  .tenant-logo-loader-exiting .tenant-logo-loader-mark {
+    animation-duration: 0.2s;
   }
 }
 
