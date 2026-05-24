@@ -92,6 +92,7 @@ const scheduleDays = [
 const scheduleStart = 7 * 60;
 const scheduleEnd = 21 * 60;
 const scheduleRowHeight = 68;
+const scheduleBlockInset = 4;
 
 const statusLabels: Record<RoomStatus, string> = {
   available: "Available",
@@ -250,6 +251,7 @@ function RoomScheduleGrid({
                   const clampedEnd = Math.min(scheduleEnd, Math.max(end, clampedStart + 15));
                   const top = ((clampedStart - scheduleStart) / 60) * scheduleRowHeight;
                   const height = ((clampedEnd - clampedStart) / 60) * scheduleRowHeight;
+                  const insetHeight = Math.max(height - scheduleBlockInset * 2, 42);
                   const subjectCode = assignment.subject?.code ?? "Subject";
                   const usageTag = getRoomScheduleTag(assignment.room?.type ?? room.type);
 
@@ -257,7 +259,7 @@ function RoomScheduleGrid({
                     <div
                       key={assignment.id}
                       className="group absolute left-2 right-2 flex min-h-10 flex-col items-center justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-2 py-1 text-center text-white shadow-sm"
-                      style={{ top, height: Math.max(height - 6, 42) }}
+                      style={{ top: top + scheduleBlockInset, height: insetHeight }}
                       title={`${subjectCode} ${assignment.section} ${assignment.startTime}-${assignment.endTime}`}
                     >
                       <button
