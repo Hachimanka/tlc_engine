@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import StyledSelect from "@/components/Global/StyledSelect";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import {
+	BasicInstitutionIcon,
+	CheckMarkedIcon,
+	CorporateIcon,
+	HigherEducationIcon,
+	TechnicalIcon,
+} from "@/public/icons";
 import { isRecoverableSupabaseSessionError } from "@/lib/supabaseAuthErrors";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -181,6 +188,33 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 	);
 }
 
+const institutionCards = [
+	{
+		key: "higher_ed" as const,
+		title: "Higher Education",
+		description: "Universities, colleges, and institutes",
+		iconSvg: HigherEducationIcon,
+	},
+	{
+		key: "deped" as const,
+		title: "Basic Institution",
+		description: "K-12 schools and basic education institutions",
+		iconSvg: BasicInstitutionIcon,
+	},
+	{
+		key: "tesda" as const,
+		title: "Technical",
+		description: "Technical-vocational and skills training",
+		iconSvg: TechnicalIcon,
+	},
+	{
+		key: "training" as const,
+		title: "Corporate",
+		description: "Corporate learning and organizational training",
+		iconSvg: CorporateIcon,
+	},
+];
+
 // ─── Institution Type Card ────────────────────────────────────────────────────
 function TypeCard({ icon, title, description, selected, onClick }: {
 	icon: string;
@@ -193,27 +227,24 @@ function TypeCard({ icon, title, description, selected, onClick }: {
 		<button
 			type="button"
 			onClick={onClick}
-			className={`w-full text-left rounded-xl border-2 p-4 transition-all duration-150
+			aria-pressed={selected}
+			className={`group relative flex h-full w-full items-start gap-3 overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30
 				${selected
-					? "border-teal-600 bg-teal-50 shadow-sm"
-					: "border-gray-100 bg-gray-50/60 hover:border-teal-200 hover:bg-teal-50/40"
+					? "border-teal-500 bg-gradient-to-br from-teal-50 via-white to-teal-50 shadow-[0_12px_30px_rgba(2,147,131,0.12)]"
+					: "border-gray-100 bg-white hover:-translate-y-0.5 hover:border-teal-200 hover:bg-teal-50/40 hover:shadow-md"
 				}`}
 		>
-			<div className="flex items-start gap-3">
-				<span className="text-2xl shrink-0">{icon}</span>
-				<div>
-					<p className={`text-sm font-bold ${selected ? "text-teal-800" : "text-gray-800"}`}>{title}</p>
-					<p className="text-xs text-gray-500 mt-0.5">{description}</p>
-				</div>
-				{selected && (
-					<span className="ml-auto shrink-0">
-						<svg width="18" height="18" fill="none" viewBox="0 0 24 24">
-							<circle cx="12" cy="12" r="10" fill="#0d9488" />
-							<path d="M7 13l3.5 3.5L17 8" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-						</svg>
-					</span>
-				)}
+			<span
+				className="-ml-1 flex h-20 w-20 shrink-0 items-center justify-center [&_svg]:h-14 [&_svg]:w-14"
+				dangerouslySetInnerHTML={{ __html: icon }}
+			/>
+			<div className="min-w-0 flex-1 pt-0.5 pr-12">
+				<p className={`max-w-[9.5rem] text-[13px] font-semibold leading-tight text-balance ${selected ? "text-teal-900" : "text-gray-900"}`}>{title}</p>
+				<p className="mt-1 text-sm leading-5 text-gray-500">{description}</p>
 			</div>
+			{selected && (
+				<span className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center [&_svg]:h-6 [&_svg]:w-6" dangerouslySetInnerHTML={{ __html: CheckMarkedIcon }} />
+			)}
 		</button>
 	);
 }
@@ -555,45 +586,34 @@ export default function TenantOnboardingPage() {
 									title="What type of institution are you setting up?"
 									subtitle="This determines your dashboard structure, terminology, and grading system."
 								/>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<TypeCard
-										icon="🎓"
-										title="Higher Education"
-										description="University, College, or Institute — CHED registered"
-										selected={institutionType === "higher_ed"}
-										onClick={() => setInstitutionType("higher_ed")}
-									/>
-									<TypeCard
-										icon="🏫"
-										title="Basic Education (DepEd)"
-										description="Public or Private K-12 school, SHS included"
-										selected={institutionType === "deped"}
-										onClick={() => {
-											setInstitutionType("deped");
-											setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
-										}}
-									/>
-									<TypeCard
-										icon="🔧"
-										title="Technical / Vocational (TESDA)"
-										description="TVET programs, NC assessments, competency-based"
-										selected={institutionType === "tesda"}
-										onClick={() => setInstitutionType("tesda")}
-									/>
-									<TypeCard
-										icon="🏢"
-										title="Training Center / Corporate"
-										description="Seminars, workshops, employee training programs"
-										selected={institutionType === "training"}
-										onClick={() => setInstitutionType("training")}
-									/>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									{institutionCards.map(card => (
+										<TypeCard
+											key={card.key}
+											icon={card.iconSvg}
+											title={card.title}
+											description={card.description}
+											selected={institutionType === card.key}
+											onClick={() => {
+												setInstitutionType(card.key);
+												if (card.key === "deped") {
+													setAcademicForm(prev => (prev.structure === "semestral" ? { ...prev, structure: "quarterly" } : prev));
+												}
+											}}
+										/>
+									))}
 								</div>
 								{institutionType && (
 									<div className="mt-4 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 text-xs text-teal-700">
-										{institutionType === "higher_ed" && "✅ You'll set up optional colleges, departments, academic programs, and a semestral calendar."}
-										{institutionType === "deped" && "✅ You'll configure grade levels, sections, SHS tracks, quarterly grading periods, and DepEd grading descriptors."}
-										{institutionType === "tesda" && "✅ You'll set up TESDA qualifications, NC levels, training batches, and competency-based assessment."}
-										{institutionType === "training" && "✅ You'll configure training courses, batch schedules, facilitators, and pass/fail or rated assessment."}
+										<div className="flex items-start gap-2">
+											<span className="mt-0.5 shrink-0 [&_svg]:h-4 [&_svg]:w-4" dangerouslySetInnerHTML={{ __html: CheckMarkedIcon }} />
+											<p>
+												{institutionType === "higher_ed" && "You'll set up optional colleges, departments, academic programs, and a semestral calendar."}
+												{institutionType === "deped" && "You'll configure grade levels, sections, SHS tracks, quarterly grading periods, and DepEd grading descriptors."}
+												{institutionType === "tesda" && "You'll set up TESDA qualifications, NC levels, training batches, and competency-based assessment."}
+												{institutionType === "training" && "You'll configure training courses, batch schedules, facilitators, and pass/fail or rated assessment."}
+											</p>
+										</div>
 									</div>
 								)}
 							</>
