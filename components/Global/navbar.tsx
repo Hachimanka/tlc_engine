@@ -22,6 +22,33 @@ type NavbarProfile = {
   avatarUrl: string;
 };
 
+type TenantNotification = {
+  id: string;
+  title: string;
+  subject: string;
+  description: string;
+  requestType: string;
+  teacherName: string;
+  submittedAt: string;
+};
+
+type NotificationsPayload = {
+  notifications?: TenantNotification[];
+  unreadCount?: number;
+  error?: string;
+};
+
+const parseStoredReadNotificationIds = (value: string | null) => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
 const defaultProfile: NavbarProfile = {
   displayName: "User",
   email: "",
@@ -41,6 +68,11 @@ export default function Navbar({
   const [showMenu, setShowMenu] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<TenantNotification[]>([]);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationError, setNotificationError] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileOverride, setProfileOverride] = useState<Partial<NavbarProfile>>({});
   const [draftName, setDraftName] = useState("");
@@ -62,6 +94,65 @@ export default function Navbar({
   const hasTenantBrand = Boolean(organizationName || logoUrl);
   const tenantBrandName = organizationName || logoAlt || "Institution Workspace";
   const normalizedOrganizationSlug = organizationSlug?.trim();
+  const notificationReadStorageKey = `tlc:read-notifications:${
+    profile.email || profile.displayName || "current-user"
+  }`;
+
+  const getStoredReadNotificationIds = () =>
+    parseStoredReadNotificationIds(window.localStorage.getItem(notificationReadStorageKey));
+
+  const saveReadNotificationIds = (ids: string[]) => {
+    window.localStorage.setItem(notificationReadStorageKey, JSON.stringify(ids));
+  };
+
+  const loadNotifications = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return [];
+    }
+
+    const response = await fetch("/api/tenant/notifications", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const payload: NotificationsPayload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setNotificationError(payload.error || "Unable to load notifications.");
+      return [];
+    }
+
+    const nextNotifications = payload.notifications ?? [];
+    const storedReadIds = getStoredReadNotificationIds();
+    const storedReadIdSet = new Set(storedReadIds);
+
+    setNotifications(nextNotifications);
+    setReadNotificationIds(storedReadIds);
+    setUnreadCount(nextNotifications.filter((notification) => !storedReadIdSet.has(notification.id)).length);
+    setNotificationError("");
+    return nextNotifications;
+  };
+
+  const markNotificationsAsRead = (nextNotifications: TenantNotification[]) => {
+    if (nextNotifications.length === 0) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const storedReadIds = getStoredReadNotificationIds();
+    const nextReadIds = Array.from(
+      new Set([...storedReadIds, ...nextNotifications.map((notification) => notification.id)]),
+    );
+
+    saveReadNotificationIds(nextReadIds);
+    setReadNotificationIds(nextReadIds);
+    setUnreadCount(0);
+  };
 
   const clearAvatarObjectUrl = () => {
     if (avatarObjectUrlRef.current) {
@@ -243,6 +334,31 @@ export default function Navbar({
   }, []);
 
   useEffect(() => {
+    setReadNotificationIds(getStoredReadNotificationIds());
+    void loadNotifications();
+
+    const handleNotificationsUpdated = () => {
+      void loadNotifications();
+    };
+    const interval = window.setInterval(() => {
+      void loadNotifications();
+    }, 30000);
+
+    window.addEventListener("tlc-notifications-updated", handleNotificationsUpdated);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("tlc-notifications-updated", handleNotificationsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      markNotificationsAsRead(notifications);
+    }
+  }, [isNotificationsOpen, notifications]);
+
+  useEffect(() => {
     function handleClick(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
@@ -293,13 +409,86 @@ export default function Navbar({
 
       <div className="flex items-center gap-4 mr-16">
         <div className="relative flex items-center justify-center">
-          <Image
-            src="/navbar/Notification.png"
-            alt="Notification"
-            width={24}
-            height={24}
-          />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+          <button
+            type="button"
+            onClick={() => {
+              const nextOpen = !isNotificationsOpen;
+              setIsNotificationsOpen(nextOpen);
+              if (nextOpen) {
+                markNotificationsAsRead(notifications);
+              }
+              void loadNotifications();
+            }}
+            className="relative rounded-full focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-[var(--color-primary)]"
+            aria-label="Open notifications"
+          >
+            <Image
+              src="/navbar/Notification.png"
+              alt=""
+              width={24}
+              height={24}
+            />
+            {unreadCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            ) : null}
+          </button>
+
+          {isNotificationsOpen ? (
+            <div className="absolute right-0 top-10 z-50 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
+              <div className="border-b border-gray-100 px-4 py-3">
+                <p className="text-sm font-semibold text-gray-900">Notifications</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Pending teacher load requests
+                </p>
+              </div>
+              <div className="max-h-96 overflow-auto">
+                {notificationError ? (
+                  <div className="px-4 py-4 text-sm text-red-600">{notificationError}</div>
+                ) : notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-gray-500">
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.map((notification) => {
+                    const isRead = readNotificationIds.includes(notification.id);
+
+                    return (
+                      <article
+                        key={notification.id}
+                        className="border-b border-gray-100 px-4 py-3 last:border-b-0"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">
+                              {notification.teacherName}
+                            </p>
+                            <p className="mt-0.5 text-xs font-medium text-[var(--color-primary)]">
+                              {notification.requestType} - {notification.subject || "Load request"}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              isRead ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-600"
+                            }`}
+                          >
+                            {isRead ? "Read" : "New"}
+                          </span>
+                        </div>
+                        <p className="mt-2 line-clamp-3 text-xs leading-5 text-gray-600">
+                          {notification.description}
+                        </p>
+                        <p className="mt-2 text-[10px] font-medium text-gray-400">
+                          {new Date(notification.submittedAt).toLocaleString()}
+                        </p>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="h-8 w-px bg-gray-300 mx-2" />
