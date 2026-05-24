@@ -32,6 +32,7 @@ type LogoPalette = {
 
 type BrandingProps = {
   onBrandingUpdated?: (branding: TenantBranding) => void;
+  showInitialSkeleton?: boolean;
 };
 
 type BrandingPayload = {
@@ -327,7 +328,10 @@ const buildDefaultDraft = (orgName = "Institution") => ({
   logoAlt: orgName,
 });
 
-export default function Branding({ onBrandingUpdated }: BrandingProps) {
+export default function Branding({
+  onBrandingUpdated,
+  showInitialSkeleton = false,
+}: BrandingProps) {
   const [orgName, setOrgName] = useState("Institution");
   const [draft, setDraft] = useState<TenantBranding>(() => buildDefaultDraft());
   const [savedSnapshot, setSavedSnapshot] = useState("");
@@ -566,7 +570,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return <BrandingSkeleton />;
   }
 

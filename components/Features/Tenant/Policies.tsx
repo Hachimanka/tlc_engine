@@ -839,7 +839,11 @@ const Section = ({
   </section>
 );
 
-export default function Policies() {
+type PoliciesProps = {
+  showInitialSkeleton?: boolean;
+};
+
+export default function Policies({ showInitialSkeleton = false }: PoliciesProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("calendar");
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
   const [onboardingConfig, setOnboardingConfig] = useState<
@@ -1116,7 +1120,7 @@ export default function Policies() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return <PoliciesSkeleton />;
   }
 
