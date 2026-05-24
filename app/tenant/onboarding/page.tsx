@@ -425,6 +425,7 @@ export default function TenantOnboardingPage() {
 	};
 
 	const handlePasswordUpdate = async () => {
+		if (passwordUpdated) return;
 		setPasswordError("");
 		if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
 		if (newPassword !== confirmPassword) { setPasswordError("Passwords do not match."); return; }
@@ -633,10 +634,11 @@ export default function TenantOnboardingPage() {
 												type={showNew ? "text" : "password"}
 												className={inputCls}
 												value={newPassword}
+												disabled={passwordUpdated}
 												onChange={e => setNewPassword(e.target.value)}
 												placeholder="At least 8 characters"
 											/>
-											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => setShowNew(v => !v)}>
+											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed" onClick={() => setShowNew(v => !v)} disabled={passwordUpdated}>
 												{showNew
 													? <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 													: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
@@ -652,10 +654,11 @@ export default function TenantOnboardingPage() {
 												type={showConfirm ? "text" : "password"}
 												className={inputCls}
 												value={confirmPassword}
+												disabled={passwordUpdated}
 												onChange={e => setConfirmPassword(e.target.value)}
 												placeholder="Re-enter your password"
 											/>
-											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" onClick={() => setShowConfirm(v => !v)}>
+											<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 disabled:cursor-not-allowed" onClick={() => setShowConfirm(v => !v)} disabled={passwordUpdated}>
 												{showConfirm
 													? <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
 													: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
@@ -676,11 +679,11 @@ export default function TenantOnboardingPage() {
 										}
 										<button
 											type="button"
-											className="rounded-lg bg-teal-700 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+											className="rounded-lg bg-teal-700 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
 											onClick={handlePasswordUpdate}
 											disabled={passwordSaving || passwordUpdated}
 										>
-											{passwordSaving ? "Saving..." : passwordUpdated ? "Updated ✓" : "Set Password"}
+											{passwordSaving ? "Saving..." : passwordUpdated ? "Password Updated" : "Set Password"}
 										</button>
 									</div>
 								</div>
