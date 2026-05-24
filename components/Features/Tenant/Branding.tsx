@@ -204,8 +204,11 @@ const deriveBrandingFromLogo = async (file: File): Promise<LogoPalette> => {
     : lightenHex(primary, 0.18);
 
   const defaultColor = lightenHex(primary, 0.68);
-  const backgroundColor = lightenHex(primary, 0.86);
-  const cardColor = lightenHex(primary, 0.92);
+  const backgroundColor =
+    secondaryCandidate && colorDistance(primary, secondaryCandidate) > 40
+      ? lightenHex(secondaryCandidate, 0.85)
+      : DEFAULT_TENANT_BRANDING.backgroundColor;
+  const cardColor = DEFAULT_TENANT_BRANDING.cardColor;
 
   return {
     primaryColor: primary,
@@ -829,4 +832,7 @@ export default function Branding({ onBrandingUpdated }: BrandingProps) {
       </section>
     </TenantBrandScope>
   );
+
+
+
 }
