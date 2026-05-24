@@ -21,6 +21,7 @@ export type ApprovalStatus =
 
 export type AcademicApprovalWorkflow =
   | "dean_vpaa"
+  | "vpaa_dean"
   | "chairman_only"
   | "chairman_dean"
   | "chairman_dean_vpaa";
@@ -72,6 +73,7 @@ export const ACTIVE_SUBJECT_APPROVAL_STATUSES: ApprovalStatus[] = [
 
 export const approvalWorkflowLabels: Record<AcademicApprovalWorkflow, string> = {
   dean_vpaa: "Dean -> VPAA",
+  vpaa_dean: "VPAA -> Dean",
   chairman_only: "Chairman only",
   chairman_dean: "Chairman -> Dean",
   chairman_dean_vpaa: "Chairman -> Dean -> VPAA",
@@ -178,6 +180,7 @@ export const normalizeAcademicApprovalWorkflow = (
 ): AcademicApprovalWorkflow => {
   if (
     value === "dean_vpaa" ||
+    value === "vpaa_dean" ||
     value === "chairman_only" ||
     value === "chairman_dean" ||
     value === "chairman_dean_vpaa"
@@ -200,6 +203,7 @@ export const getAcademicApprovalWorkflow = (
 
 const workflowSteps: Record<AcademicApprovalWorkflow, ApprovalStatus[]> = {
   dean_vpaa: ["pending_dean", "pending_vpaa"],
+  vpaa_dean: ["pending_vpaa", "pending_dean"],
   chairman_only: ["pending_chairman"],
   chairman_dean: ["pending_chairman", "pending_dean"],
   chairman_dean_vpaa: ["pending_chairman", "pending_dean", "pending_vpaa"],
@@ -211,7 +215,7 @@ export const getApprovalWorkflowSteps = (
 
 export const getInitialApprovalStatus = (
   workflow: AcademicApprovalWorkflow,
-): ApprovalStatus => getApprovalWorkflowSteps(workflow)[0] ?? "pending_dean";
+): ApprovalStatus => getApprovalWorkflowSteps(workflow)[0] ?? "pending_vpaa";
 
 export const getNextApprovalStatus = (
   workflow: AcademicApprovalWorkflow,
@@ -389,11 +393,11 @@ export const canReviewApprovalRequest = async (
       return true;
     }
 
-    return hasChairmanReviewerTag(context) && isSameDepartmentForRequest(context, request);
+    return hasChairmanReviewerTag(context) && (await isSameDepartmentForRequest(context, request));
   }
 
   if (request.status === "pending_dean") {
-    return isAssignedDeanForRequest(context, request);
+    return await isAssignedDeanForRequest(context, request);
   }
 
   if (request.status === "pending_vpaa") {

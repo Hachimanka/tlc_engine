@@ -23,7 +23,13 @@ type AcademicApprovalWorkflow =
   | "chairman_only"
   | "chairman_dean"
   | "chairman_dean_vpaa";
-type TabKey = "calendar" | "teachingLoad" | "workload" | "curriculum" | "grading" | "approvals";
+type TabKey =
+  | "calendar"
+  | "teachingLoad"
+  | "workload"
+  | "curriculum"
+  | "grading"
+  | "approvals";
 
 type CalendarTerm = {
   id: string;
@@ -89,7 +95,11 @@ type PolicyState = {
 
 function PoliciesSkeleton() {
   return (
-    <div className="space-y-5" role="status" aria-label="Loading academic policies">
+    <div
+      className="space-y-5"
+      role="status"
+      aria-label="Loading academic policies"
+    >
       <span className="sr-only">Loading academic policies</span>
       <div className="flex animate-pulse flex-wrap items-start justify-between gap-4">
         <div className="space-y-3">
@@ -105,7 +115,10 @@ function PoliciesSkeleton() {
 
       <div className="grid animate-pulse gap-3 md:grid-cols-4">
         {[0, 1, 2, 3].map((index) => (
-          <div key={index} className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
+          <div
+            key={index}
+            className="rounded-lg bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+          >
             <BrandedSkeletonBlock className="h-3 w-24" />
             <BrandedSkeletonBlock className="mt-3 h-6 w-20" />
           </div>
@@ -185,7 +198,9 @@ const tabConfig: {
 ];
 
 const visibleTabsForInstitution = (institutionType: InstitutionType) =>
-  tabConfig.filter((tab) => institutionType === "higher_ed" || tab.key !== "approvals");
+  tabConfig.filter(
+    (tab) => institutionType === "higher_ed" || tab.key !== "approvals",
+  );
 
 const approvalWorkflowOptions: {
   value: AcademicApprovalWorkflow;
@@ -198,6 +213,12 @@ const approvalWorkflowOptions: {
     description: "Current default workflow for existing tenants.",
   },
   {
+    value: "vpaa_dean",
+    label: "VPAA -> Dean",
+    description:
+      "VPAA reviews first, then the assigned college dean approves or rejects.",
+  },
+  {
     value: "chairman_only",
     label: "Chairman only",
     description: "The assigned department chairman gives the final approval.",
@@ -205,12 +226,14 @@ const approvalWorkflowOptions: {
   {
     value: "chairman_dean",
     label: "Chairman -> Dean",
-    description: "Department chairman reviews first, then the assigned college dean gives final approval.",
+    description:
+      "Department chairman reviews first, then the assigned college dean gives final approval.",
   },
   {
     value: "chairman_dean_vpaa",
     label: "Chairman -> Dean -> VPAA",
-    description: "Department chairman, college dean, then VPAA approval are all required.",
+    description:
+      "Department chairman, college dean, then VPAA approval are all required.",
   },
 ];
 
@@ -267,16 +290,24 @@ const toBool = (value: unknown, fallback: boolean) => {
 };
 
 const normalizeInstitutionType = (value: unknown): InstitutionType => {
-  if (value === "higher_ed" || value === "deped" || value === "tesda" || value === "training") {
+  if (
+    value === "higher_ed" ||
+    value === "deped" ||
+    value === "tesda" ||
+    value === "training"
+  ) {
     return value;
   }
 
   return null;
 };
 
-const normalizeApprovalWorkflow = (value: unknown): AcademicApprovalWorkflow => {
+const normalizeApprovalWorkflow = (
+  value: unknown,
+): AcademicApprovalWorkflow => {
   if (
     value === "dean_vpaa" ||
+    value === "vpaa_dean" ||
     value === "chairman_only" ||
     value === "chairman_dean" ||
     value === "chairman_dean_vpaa"
@@ -287,17 +318,28 @@ const normalizeApprovalWorkflow = (value: unknown): AcademicApprovalWorkflow => 
   return "dean_vpaa";
 };
 
-const normalizeStructure = (value: unknown, institutionType: InstitutionType) => {
+const normalizeStructure = (
+  value: unknown,
+  institutionType: InstitutionType,
+) => {
   const structure = toText(value).toLowerCase();
 
   if (structure === "trimestral") {
-    return { type: "Trimester", names: ["First Trimester", "Second Trimester", "Third Trimester"] };
+    return {
+      type: "Trimester",
+      names: ["First Trimester", "Second Trimester", "Third Trimester"],
+    };
   }
 
   if (structure === "quarterly" || institutionType === "deped") {
     return {
       type: "Quarterly",
-      names: ["First Quarter", "Second Quarter", "Third Quarter", "Fourth Quarter"],
+      names: [
+        "First Quarter",
+        "Second Quarter",
+        "Third Quarter",
+        "Fourth Quarter",
+      ],
     };
   }
 
@@ -312,7 +354,10 @@ const buildCalendarTerms = (
     return [
       {
         id: "batch-1",
-        name: toText(academic.batchName, toText(academic.label, "Active Batch")),
+        name: toText(
+          academic.batchName,
+          toText(academic.label, "Active Batch"),
+        ),
         startDate: toText(academic.batchStart),
         endDate: toText(academic.batchEnd),
       },
@@ -333,7 +378,9 @@ const buildCalendarTerms = (
   });
 };
 
-const getTeachingDefaults = (institutionType: InstitutionType): PolicyState["teachingLoad"] => {
+const getTeachingDefaults = (
+  institutionType: InstitutionType,
+): PolicyState["teachingLoad"] => {
   if (institutionType === "deped") {
     return {
       computationType: "Hours",
@@ -366,7 +413,9 @@ const getTeachingDefaults = (institutionType: InstitutionType): PolicyState["tea
   };
 };
 
-const getWorkloadDefaults = (institutionType: InstitutionType): PolicyState["workload"] => {
+const getWorkloadDefaults = (
+  institutionType: InstitutionType,
+): PolicyState["workload"] => {
   if (institutionType === "deped") {
     return {
       fullTimeHours: "40",
@@ -409,7 +458,10 @@ const buildCurriculumItems = (
           id: `grade-${key}`,
           label,
           category: "Grade level",
-          detail: key === "shs" ? "Senior High curriculum enabled" : "Enabled in setup",
+          detail:
+            key === "shs"
+              ? "Senior High curriculum enabled"
+              : "Enabled in setup",
           hoursPerWeek: "",
         });
       }
@@ -464,7 +516,10 @@ const buildCurriculumItems = (
         id: `program-${toText(program.code, String(index + 1))}`,
         label: toText(program.name),
         category: "Program",
-        detail: [toText(program.code), toText(program.duration) ? `${toText(program.duration)} years` : ""]
+        detail: [
+          toText(program.code),
+          toText(program.duration) ? `${toText(program.duration)} years` : "",
+        ]
           .filter(Boolean)
           .join(" - "),
         hoursPerWeek: "",
@@ -492,7 +547,9 @@ const buildCurriculumItems = (
         id: `qualification-${index + 1}`,
         label: toText(qualification.name),
         category: toText(qualification.ncLevel, "Qualification"),
-        detail: [toText(qualification.duration), toText(qualification.sector)].filter(Boolean).join(" - "),
+        detail: [toText(qualification.duration), toText(qualification.sector)]
+          .filter(Boolean)
+          .join(" - "),
         hoursPerWeek: "",
       }));
   }
@@ -516,7 +573,9 @@ const mergeCurriculumItems = (
   setupItems: CurriculumItem[],
   storedItems: Record<string, unknown>[],
 ) => {
-  const storedById = new Map(storedItems.map((item) => [toText(item.id), item]));
+  const storedById = new Map(
+    storedItems.map((item) => [toText(item.id), item]),
+  );
 
   return setupItems.map((item) => {
     const storedItem = storedById.get(item.id);
@@ -528,7 +587,10 @@ const mergeCurriculumItems = (
   });
 };
 
-const defaultGradingComponents = (institutionType: InstitutionType, grading: Record<string, unknown>) => {
+const defaultGradingComponents = (
+  institutionType: InstitutionType,
+  grading: Record<string, unknown>,
+) => {
   const configured = asRecordArray(grading.components)
     .filter((component) => toText(component.name))
     .map((component, index) => ({
@@ -545,7 +607,11 @@ const defaultGradingComponents = (institutionType: InstitutionType, grading: Rec
     return [
       { id: "written-works", name: "Written Works", weight: "25" },
       { id: "performance-tasks", name: "Performance Tasks", weight: "50" },
-      { id: "quarterly-assessment", name: "Quarterly Assessment", weight: "25" },
+      {
+        id: "quarterly-assessment",
+        name: "Quarterly Assessment",
+        weight: "25",
+      },
     ];
   }
 
@@ -581,8 +647,14 @@ const buildPolicyState = (
   const setupCurriculumItems = buildCurriculumItems(institutionType, config);
   const storedCurriculumItems = asRecordArray(storedCurriculum.items);
   const defaultGrading = {
-    passing: toText(grading.passing, institutionType === "higher_ed" ? "75" : "75"),
-    scale: toText(grading.scale, institutionType === "higher_ed" ? "gwa" : "percentage"),
+    passing: toText(
+      grading.passing,
+      institutionType === "higher_ed" ? "75" : "75",
+    ),
+    scale: toText(
+      grading.scale,
+      institutionType === "higher_ed" ? "gwa" : "percentage",
+    ),
     assessmentType: toText(
       grading.assessmentType,
       institutionType === "tesda" ? "competency" : "percentage",
@@ -594,7 +666,10 @@ const buildPolicyState = (
     calendar: {
       label: toText(storedCalendar.label, defaultCalendar.label),
       type: toText(storedCalendar.type, defaultCalendar.type),
-      gradeDeadline: toText(storedCalendar.gradeDeadline, defaultCalendar.gradeDeadline),
+      gradeDeadline: toText(
+        storedCalendar.gradeDeadline,
+        defaultCalendar.gradeDeadline,
+      ),
       terms:
         asRecordArray(storedCalendar.terms).length > 0
           ? asRecordArray(storedCalendar.terms).map((term, index) => ({
@@ -606,19 +681,43 @@ const buildPolicyState = (
           : defaultCalendar.terms,
     },
     teachingLoad: {
-      computationType: toText(storedTeachingLoad.computationType, defaultTeachingLoad.computationType),
+      computationType: toText(
+        storedTeachingLoad.computationType,
+        defaultTeachingLoad.computationType,
+      ),
       maximum: toText(storedTeachingLoad.maximum, defaultTeachingLoad.maximum),
       minimum: toText(storedTeachingLoad.minimum, defaultTeachingLoad.minimum),
       unit: toText(storedTeachingLoad.unit, defaultTeachingLoad.unit),
-      allowOverload: toBool(storedTeachingLoad.allowOverload, defaultTeachingLoad.allowOverload),
-      overload: toText(storedTeachingLoad.overload, defaultTeachingLoad.overload),
+      allowOverload: toBool(
+        storedTeachingLoad.allowOverload,
+        defaultTeachingLoad.allowOverload,
+      ),
+      overload: toText(
+        storedTeachingLoad.overload,
+        defaultTeachingLoad.overload,
+      ),
     },
     workload: {
-      fullTimeHours: toText(storedWorkload.fullTimeHours, defaultWorkload.fullTimeHours),
-      partTimeHours: toText(storedWorkload.partTimeHours, defaultWorkload.partTimeHours),
-      teachingTime: toText(storedWorkload.teachingTime, defaultWorkload.teachingTime),
-      nonTeachingTime: toText(storedWorkload.nonTeachingTime, defaultWorkload.nonTeachingTime),
-      minutesPerSubject: toText(storedWorkload.minutesPerSubject, defaultWorkload.minutesPerSubject),
+      fullTimeHours: toText(
+        storedWorkload.fullTimeHours,
+        defaultWorkload.fullTimeHours,
+      ),
+      partTimeHours: toText(
+        storedWorkload.partTimeHours,
+        defaultWorkload.partTimeHours,
+      ),
+      teachingTime: toText(
+        storedWorkload.teachingTime,
+        defaultWorkload.teachingTime,
+      ),
+      nonTeachingTime: toText(
+        storedWorkload.nonTeachingTime,
+        defaultWorkload.nonTeachingTime,
+      ),
+      minutesPerSubject: toText(
+        storedWorkload.minutesPerSubject,
+        defaultWorkload.minutesPerSubject,
+      ),
       workStart: toText(storedWorkload.workStart, defaultWorkload.workStart),
       workEnd: toText(storedWorkload.workEnd, defaultWorkload.workEnd),
     },
@@ -626,7 +725,9 @@ const buildPolicyState = (
       mappingMode: toText(storedCurriculum.mappingMode, "Synced with setup"),
       prerequisiteMode: toText(
         storedCurriculum.prerequisiteMode,
-        institutionType === "tesda" || institutionType === "training" ? "Advisory" : "Strict",
+        institutionType === "tesda" || institutionType === "training"
+          ? "Advisory"
+          : "Strict",
       ),
       notes: toText(storedCurriculum.notes),
       items: mergeCurriculumItems(setupCurriculumItems, storedCurriculumItems),
@@ -634,7 +735,10 @@ const buildPolicyState = (
     grading: {
       passing: toText(storedGrading.passing, defaultGrading.passing),
       scale: toText(storedGrading.scale, defaultGrading.scale),
-      assessmentType: toText(storedGrading.assessmentType, defaultGrading.assessmentType),
+      assessmentType: toText(
+        storedGrading.assessmentType,
+        defaultGrading.assessmentType,
+      ),
       components:
         asRecordArray(storedGrading.components).length > 0
           ? asRecordArray(storedGrading.components).map((component, index) => ({
@@ -683,7 +787,11 @@ const InputField = ({
         onChange={(event) => onChange(event.target.value)}
         className="h-full min-w-0 flex-1 bg-transparent text-sm text-[var(--color-high-emphasis)] outline-none"
       />
-      {suffix ? <span className="ml-2 text-xs text-[var(--color-low-emphasis)]">{suffix}</span> : null}
+      {suffix ? (
+        <span className="ml-2 text-xs text-[var(--color-low-emphasis)]">
+          {suffix}
+        </span>
+      ) : null}
     </div>
   </label>
 );
@@ -720,8 +828,12 @@ const Section = ({
 }) => (
   <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
     <div className="mb-5">
-      <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">{title}</h2>
-      <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">{description}</p>
+      <h2 className="text-lg font-bold text-[var(--color-high-emphasis)]">
+        {title}
+      </h2>
+      <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
+        {description}
+      </p>
     </div>
     {children}
   </section>
@@ -730,7 +842,9 @@ const Section = ({
 export default function Policies() {
   const [activeTab, setActiveTab] = useState<TabKey>("calendar");
   const [institutionType, setInstitutionType] = useState<InstitutionType>(null);
-  const [onboardingConfig, setOnboardingConfig] = useState<Record<string, unknown>>({});
+  const [onboardingConfig, setOnboardingConfig] = useState<
+    Record<string, unknown>
+  >({});
   const [policies, setPolicies] = useState<PolicyState | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -738,11 +852,22 @@ export default function Policies() {
   const [loadError, setLoadError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
-  const hasSetup = Boolean(institutionType && Object.keys(onboardingConfig).length > 0);
-  const isDirty = Boolean(policies && JSON.stringify(policies) !== savedSnapshot);
-  const policyTitle = institutionType ? policyTitles[institutionType] : "Policies";
-  const institutionLabel = institutionType ? institutionLabels[institutionType] : "Institution not set";
-  const setupItemCount = useMemo(() => countConfiguredValues(onboardingConfig), [onboardingConfig]);
+  const hasSetup = Boolean(
+    institutionType && Object.keys(onboardingConfig).length > 0,
+  );
+  const isDirty = Boolean(
+    policies && JSON.stringify(policies) !== savedSnapshot,
+  );
+  const policyTitle = institutionType
+    ? policyTitles[institutionType]
+    : "Policies";
+  const institutionLabel = institutionType
+    ? institutionLabels[institutionType]
+    : "Institution not set";
+  const setupItemCount = useMemo(
+    () => countConfiguredValues(onboardingConfig),
+    [onboardingConfig],
+  );
   const visibleTabs = useMemo(
     () => visibleTabsForInstitution(institutionType),
     [institutionType],
@@ -768,7 +893,9 @@ export default function Policies() {
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload = (await response.json().catch(() => ({}))) as PolicyPayload;
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as PolicyPayload;
 
       if (!response.ok) {
         setLoadError(payload.error || "Failed to load policies.");
@@ -776,9 +903,15 @@ export default function Policies() {
         return;
       }
 
-      const nextInstitutionType = normalizeInstitutionType(payload.institutionType);
+      const nextInstitutionType = normalizeInstitutionType(
+        payload.institutionType,
+      );
       const nextConfig = asRecord(payload.onboardingConfig);
-      const nextPolicies = buildPolicyState(nextInstitutionType, nextConfig, payload.policies);
+      const nextPolicies = buildPolicyState(
+        nextInstitutionType,
+        nextConfig,
+        payload.policies,
+      );
 
       setInstitutionType(nextInstitutionType);
       setOnboardingConfig(nextConfig);
@@ -786,7 +919,9 @@ export default function Policies() {
       setSavedSnapshot(JSON.stringify(nextPolicies));
       setIsLoading(false);
     } catch {
-      setLoadError("Unable to load policies. Please check your connection and try again.");
+      setLoadError(
+        "Unable to load policies. Please check your connection and try again.",
+      );
       setIsLoading(false);
     }
   }, []);
@@ -798,42 +933,56 @@ export default function Policies() {
 
   const updateCalendar = (updates: Partial<PolicyState["calendar"]>) => {
     setPolicies((current) =>
-      current ? { ...current, calendar: { ...current.calendar, ...updates } } : current,
+      current
+        ? { ...current, calendar: { ...current.calendar, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
 
-  const updateTeachingLoad = (updates: Partial<PolicyState["teachingLoad"]>) => {
+  const updateTeachingLoad = (
+    updates: Partial<PolicyState["teachingLoad"]>,
+  ) => {
     setPolicies((current) =>
-      current ? { ...current, teachingLoad: { ...current.teachingLoad, ...updates } } : current,
+      current
+        ? { ...current, teachingLoad: { ...current.teachingLoad, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
 
   const updateWorkload = (updates: Partial<PolicyState["workload"]>) => {
     setPolicies((current) =>
-      current ? { ...current, workload: { ...current.workload, ...updates } } : current,
+      current
+        ? { ...current, workload: { ...current.workload, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
 
   const updateCurriculum = (updates: Partial<PolicyState["curriculum"]>) => {
     setPolicies((current) =>
-      current ? { ...current, curriculum: { ...current.curriculum, ...updates } } : current,
+      current
+        ? { ...current, curriculum: { ...current.curriculum, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
 
   const updateGrading = (updates: Partial<PolicyState["grading"]>) => {
     setPolicies((current) =>
-      current ? { ...current, grading: { ...current.grading, ...updates } } : current,
+      current
+        ? { ...current, grading: { ...current.grading, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
 
   const updateApprovals = (updates: Partial<PolicyState["approvals"]>) => {
     setPolicies((current) =>
-      current ? { ...current, approvals: { ...current.approvals, ...updates } } : current,
+      current
+        ? { ...current, approvals: { ...current.approvals, ...updates } }
+        : current,
     );
     setSaveMessage("");
   };
@@ -865,7 +1014,9 @@ export default function Policies() {
         },
         body: JSON.stringify({ policies }),
       });
-      const payload = (await response.json().catch(() => ({}))) as PolicyPayload;
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as PolicyPayload;
 
       if (!response.ok) {
         setLoadError(payload.error || "Failed to save policies.");
@@ -873,9 +1024,15 @@ export default function Policies() {
         return;
       }
 
-      const nextInstitutionType = normalizeInstitutionType(payload.institutionType);
+      const nextInstitutionType = normalizeInstitutionType(
+        payload.institutionType,
+      );
       const nextConfig = asRecord(payload.onboardingConfig);
-      const nextPolicies = buildPolicyState(nextInstitutionType, nextConfig, payload.policies);
+      const nextPolicies = buildPolicyState(
+        nextInstitutionType,
+        nextConfig,
+        payload.policies,
+      );
 
       setInstitutionType(nextInstitutionType);
       setOnboardingConfig(nextConfig);
@@ -884,7 +1041,9 @@ export default function Policies() {
       setSaveMessage("Policies saved.");
       setIsSaving(false);
     } catch {
-      setLoadError("Unable to save policies. Please check your connection and try again.");
+      setLoadError(
+        "Unable to save policies. Please check your connection and try again.",
+      );
       setIsSaving(false);
     }
   };
@@ -951,7 +1110,9 @@ export default function Policies() {
     }
 
     updateGrading({
-      components: policies.grading.components.filter((component) => component.id !== componentId),
+      components: policies.grading.components.filter(
+        (component) => component.id !== componentId,
+      ),
     });
   };
 
@@ -963,7 +1124,10 @@ export default function Policies() {
     return (
       <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
         <div className="max-w-md text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 text-red-500" aria-hidden="true" />
+          <AlertTriangle
+            className="mx-auto h-8 w-8 text-red-500"
+            aria-hidden="true"
+          />
           <h1 className="mt-3 text-lg font-bold text-[var(--color-high-emphasis)]">
             Policies unavailable
           </h1>
@@ -985,7 +1149,10 @@ export default function Policies() {
     return null;
   }
 
-  const activeTabConfig = visibleTabs.find((tab) => tab.key === activeTab) ?? visibleTabs[0] ?? tabConfig[0];
+  const activeTabConfig =
+    visibleTabs.find((tab) => tab.key === activeTab) ??
+    visibleTabs[0] ??
+    tabConfig[0];
   const ActiveIcon = activeTabConfig.icon ?? ClipboardList;
 
   return (
@@ -998,7 +1165,8 @@ export default function Policies() {
           </div>
           <h1 className="mt-3 text-2xl font-bold text-black">{policyTitle}</h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-low-emphasis)]">
-            Rules are aligned with the institution setup saved during onboarding.
+            Rules are aligned with the institution setup saved during
+            onboarding.
           </p>
         </div>
 
@@ -1030,7 +1198,10 @@ export default function Policies() {
             className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-light-primary)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? (
-              <span className="h-4 w-4 animate-pulse rounded bg-white/50" aria-hidden="true" />
+              <span
+                className="h-4 w-4 animate-pulse rounded bg-white/50"
+                aria-hidden="true"
+              />
             ) : (
               <Save className="h-4 w-4" aria-hidden="true" />
             )}
@@ -1041,9 +1212,9 @@ export default function Policies() {
 
       {!hasSetup ? (
         <div className="rounded-lg border border-[#fedf89] bg-[#fffaeb] px-4 py-3 text-sm text-[#b54708]">
-          Institution setup is incomplete. Policies can still be reviewed, but calendar,
-          grading, and curriculum defaults will become more accurate after onboarding is
-          finished.
+          Institution setup is incomplete. Policies can still be reviewed, but
+          calendar, grading, and curriculum defaults will become more accurate
+          after onboarding is finished.
         </div>
       ) : null}
 
@@ -1115,7 +1286,10 @@ export default function Policies() {
 
       <div className="rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-4 py-3">
         <div className="flex items-start gap-3">
-          <ActiveIcon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+          <ActiveIcon
+            className="mt-0.5 h-5 w-5 shrink-0 text-[var(--color-primary)]"
+            aria-hidden="true"
+          />
           <div>
             <h2 className="text-sm font-bold text-[var(--color-high-emphasis)]">
               {activeTabConfig.label}
@@ -1173,7 +1347,8 @@ export default function Policies() {
           </div>
 
           <div className="mt-5 rounded-lg border border-[#d0d5dd] bg-[#f8fafc] px-4 py-3 text-sm text-[var(--color-low-emphasis)]">
-            Assigned department chairmen and college deans review their workflow steps. VPAA reviewers need Academic Approvals feature access.
+            Assigned department chairmen and college deans review their workflow
+            steps. VPAA reviewers need Academic Approvals feature access.
           </div>
         </Section>
       ) : null}
@@ -1185,7 +1360,11 @@ export default function Policies() {
         >
           <div className="grid gap-4 lg:grid-cols-3">
             <InputField
-              label={institutionType === "tesda" || institutionType === "training" ? "Batch / term label" : "Academic year label"}
+              label={
+                institutionType === "tesda" || institutionType === "training"
+                  ? "Batch / term label"
+                  : "Academic year label"
+              }
               value={policies.calendar.label}
               onChange={(value) => updateCalendar({ label: value })}
             />
@@ -1223,7 +1402,9 @@ export default function Policies() {
                     <td className="px-4 py-3">
                       <input
                         value={term.name}
-                        onChange={(event) => updateTerm(term.id, { name: event.target.value })}
+                        onChange={(event) =>
+                          updateTerm(term.id, { name: event.target.value })
+                        }
                         className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
                       />
                     </td>
@@ -1231,7 +1412,9 @@ export default function Policies() {
                       <input
                         type="date"
                         value={term.startDate}
-                        onChange={(event) => updateTerm(term.id, { startDate: event.target.value })}
+                        onChange={(event) =>
+                          updateTerm(term.id, { startDate: event.target.value })
+                        }
                         className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
                       />
                     </td>
@@ -1239,7 +1422,9 @@ export default function Policies() {
                       <input
                         type="date"
                         value={term.endDate}
-                        onChange={(event) => updateTerm(term.id, { endDate: event.target.value })}
+                        onChange={(event) =>
+                          updateTerm(term.id, { endDate: event.target.value })
+                        }
                         className="h-10 w-full rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
                       />
                     </td>
@@ -1261,7 +1446,9 @@ export default function Policies() {
               label="Computation type"
               value={policies.teachingLoad.computationType}
               options={["Units", "Hours", "Competency hours"]}
-              onChange={(value) => updateTeachingLoad({ computationType: value })}
+              onChange={(value) =>
+                updateTeachingLoad({ computationType: value })
+              }
             />
             <InputField
               label="Maximum load"
@@ -1299,7 +1486,9 @@ export default function Policies() {
                 role="switch"
                 aria-checked={policies.teachingLoad.allowOverload}
                 onClick={() =>
-                  updateTeachingLoad({ allowOverload: !policies.teachingLoad.allowOverload })
+                  updateTeachingLoad({
+                    allowOverload: !policies.teachingLoad.allowOverload,
+                  })
                 }
                 className={
                   policies.teachingLoad.allowOverload
@@ -1348,7 +1537,9 @@ export default function Policies() {
             <InputField
               label="Teaching time"
               type="number"
-              suffix={institutionType === "higher_ed" ? "units/week" : "hours/day"}
+              suffix={
+                institutionType === "higher_ed" ? "units/week" : "hours/day"
+              }
               value={policies.workload.teachingTime}
               onChange={(value) => updateWorkload({ teachingTime: value })}
             />
@@ -1400,7 +1591,9 @@ export default function Policies() {
               label="Prerequisite checks"
               value={policies.curriculum.prerequisiteMode}
               options={["Strict", "Advisory", "Disabled"]}
-              onChange={(value) => updateCurriculum({ prerequisiteMode: value })}
+              onChange={(value) =>
+                updateCurriculum({ prerequisiteMode: value })
+              }
             />
           </div>
 
@@ -1408,7 +1601,9 @@ export default function Policies() {
             Policy notes
             <textarea
               value={policies.curriculum.notes}
-              onChange={(event) => updateCurriculum({ notes: event.target.value })}
+              onChange={(event) =>
+                updateCurriculum({ notes: event.target.value })
+              }
               rows={3}
               className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
               placeholder="Add curriculum-specific policy notes..."
@@ -1447,7 +1642,9 @@ export default function Policies() {
                           type="number"
                           min="0"
                           value={item.hoursPerWeek}
-                          onChange={(event) => updateCurriculumItem(item.id, event.target.value)}
+                          onChange={(event) =>
+                            updateCurriculumItem(item.id, event.target.value)
+                          }
                           className="h-10 w-32 rounded-md border border-[#d0d5dd] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
                           placeholder="0"
                         />
@@ -1493,7 +1690,8 @@ export default function Policies() {
                 Assessment Components
               </h3>
               <p className="mt-1 text-sm text-[var(--color-low-emphasis)]">
-                Component weights should total 100 when percentage grading is used.
+                Component weights should total 100 when percentage grading is
+                used.
               </p>
             </div>
             <button
@@ -1514,14 +1712,18 @@ export default function Policies() {
                 <InputField
                   label="Component"
                   value={component.name}
-                  onChange={(value) => updateGradingComponent(component.id, { name: value })}
+                  onChange={(value) =>
+                    updateGradingComponent(component.id, { name: value })
+                  }
                 />
                 <InputField
                   label="Weight"
                   type="number"
                   suffix="%"
                   value={component.weight}
-                  onChange={(value) => updateGradingComponent(component.id, { weight: value })}
+                  onChange={(value) =>
+                    updateGradingComponent(component.id, { weight: value })
+                  }
                 />
                 <button
                   type="button"
