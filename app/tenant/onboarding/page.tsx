@@ -1448,7 +1448,7 @@ export default function TenantOnboardingPage() {
 										disabled={saving || !canProceed()}>
 										{saving ? (
 											<><span className="h-4 w-4 animate-pulse rounded bg-white/50" aria-hidden="true" /> Finishing...</>
-										) : "Finish Setup 🎉"}
+										) : "Finish Setup"}
 									</button>
 								)}
 							</div>
