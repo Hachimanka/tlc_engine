@@ -1,10 +1,13 @@
-  "use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import TeachingScheduleGrid from "@/components/Features/TeachingScheduleGrid";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import { supabase } from "@/lib/supabaseClient";
-import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data-college";
+import {
+  teacherLoadRows,
+  type TeacherLoadRow,
+} from "./teacher-load-data-college";
 
 const collegeScheduleTimeSlots = [
   "7:30-8:30",
@@ -52,14 +55,20 @@ function TeachingLoadSkeleton() {
       <div className="overflow-hidden rounded-lg border border-[var(--color-primary)] bg-white">
         <div className="grid grid-cols-8 bg-[var(--color-primary)]">
           {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="border-r border-white/20 px-3 py-4 last:border-r-0">
+            <div
+              key={index}
+              className="border-r border-white/20 px-3 py-4 last:border-r-0"
+            >
               <BrandedSkeletonBlock className="mx-auto h-3 w-16 bg-white/30" />
             </div>
           ))}
         </div>
         <div className="grid grid-cols-8">
           {Array.from({ length: 40 }).map((_, index) => (
-            <div key={index} className="h-16 border-b border-r border-[var(--color-default)] p-2">
+            <div
+              key={index}
+              className="h-16 border-b border-r border-[var(--color-default)] p-2"
+            >
               {index === 9 || index === 27 ? (
                 <BrandedSkeletonBlock className="h-10 rounded-md" strong />
               ) : null}
@@ -71,8 +80,12 @@ function TeachingLoadSkeleton() {
   );
 }
 
-export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTableProps) {
-  const [rows, setRows] = useState<TeacherLoadRow[]>(providedRows ?? teacherLoadRows);
+export default function TeachingLoadTable({
+  rows: providedRows,
+}: TeachingLoadTableProps) {
+  const [rows, setRows] = useState<TeacherLoadRow[]>(
+    providedRows ?? teacherLoadRows,
+  );
   const [isLoading, setIsLoading] = useState(!providedRows);
   const [loadError, setLoadError] = useState("");
 
@@ -100,7 +113,9 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload: TeachingLoadPayload = await response.json().catch(() => ({}));
+      const payload: TeachingLoadPayload = await response
+        .json()
+        .catch(() => ({}));
 
       if (!response.ok) {
         setLoadError(payload.error || "Unable to load teaching load.");
@@ -109,7 +124,9 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
 
       setRows(payload.rows ?? []);
     } catch {
-      setLoadError("Unable to load teaching load. Please check your connection and try again.");
+      setLoadError(
+        "Unable to load teaching load. Please check your connection and try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -168,26 +185,26 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
                 </tr>
               ) : (
                 rows.map((row) => (
-                <tr key={row.id} className="bg-white">
-                  <td className="px-4 py-3 text-[12px] font-semibold text-[var(--color-high-emphasis)]">
-                    {row.subjectTitle}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-                    {row.subjectCode}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-                    {row.schedule}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-                    {row.room}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-                    {row.section}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
-                    {row.students}
-                  </td>
-                </tr>
+                  <tr key={row.id} className="bg-white">
+                    <td className="px-4 py-3 text-[12px] font-semibold text-[var(--color-high-emphasis)]">
+                      {row.subjectTitle}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+                      {row.subjectCode}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+                      {row.schedule}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+                      {row.room}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+                      {row.section}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--color-high-emphasis)]">
+                      {row.students}
+                    </td>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -195,7 +212,10 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
         </div>
       </div>
 
-      <TeachingScheduleGrid rows={rows} timeSlots={rows.length === 0 ? collegeScheduleTimeSlots : undefined} />
+      <TeachingScheduleGrid
+        rows={rows}
+        timeSlots={rows.length === 0 ? collegeScheduleTimeSlots : undefined}
+      />
     </div>
   );
 }
