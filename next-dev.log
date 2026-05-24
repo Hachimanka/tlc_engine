@@ -1,0 +1,18 @@
+
+> tlc_engine@0.1.0 predev
+> node scripts/predev-check.mjs
+
+
+> tlc_engine@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.7:3000
+- Environments: .env
+✓ Ready in 464ms
+Creating turbopack project {
+  dir: 'C:\\Users\\michael\\Documents\\GitHub\\tlc_engine',
+  testMode: true
+}
+
