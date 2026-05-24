@@ -3,16 +3,75 @@
 import { useEffect, useState } from "react";
 
 const LOADER_DURATION_MS = 5000;
+const ANIMATION_CYCLE_MS = 5200;
+const LOADER_FADE_MS = 500;
 
 export default function LogoLoadingScreen() {
   const [isVisible, setIsVisible] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
+  const [animationCycle, setAnimationCycle] = useState(0);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsVisible(false);
+    let isPageLoaded = document.readyState === "complete";
+    let minDurationPassed = false;
+    let removeTimer: number | undefined;
+
+    const finishLoader = () => {
+      if (!isPageLoaded || !minDurationPassed) {
+        return;
+      }
+
+      setIsExiting(true);
+      removeTimer = window.setTimeout(() => {
+        setIsVisible(false);
+      }, LOADER_FADE_MS);
+    };
+
+    const handleLoad = () => {
+      isPageLoaded = true;
+      finishLoader();
+    };
+
+    window.addEventListener("load", handleLoad);
+
+    const fadeTimer = window.setTimeout(() => {
+      minDurationPassed = true;
+      finishLoader();
     }, LOADER_DURATION_MS);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.removeEventListener("load", handleLoad);
+
+      window.clearTimeout(fadeTimer);
+
+      if (removeTimer) {
+        window.clearTimeout(removeTimer);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const cycleTimer = window.setInterval(() => {
+      if (!isExiting) {
+        setAnimationCycle((cycle) => cycle + 1);
+      }
+    }, ANIMATION_CYCLE_MS);
+
+    return () => window.clearInterval(cycleTimer);
+  }, [isExiting]);
+
+  useEffect(() => {
+    if (document.readyState === "complete") {
+      return;
+    }
+
+    const handleLoad = () => {
+      setAnimationCycle((cycle) => cycle + 1);
+    };
+
+    window.addEventListener("load", handleLoad, { once: true });
+
+    return () => window.removeEventListener("load", handleLoad);
   }, []);
 
   if (!isVisible) {
@@ -20,9 +79,13 @@ export default function LogoLoadingScreen() {
   }
 
   return (
-    <div className="tlc-loader" role="status" aria-label="Loading TLC landing page">
+    <div
+      className={`tlc-loader${isExiting ? " tlc-loader-exiting" : ""}`}
+      role="status"
+      aria-label="Loading TLC landing page"
+    >
       <div className="tlc-loader-stage" aria-hidden="true">
-        <div className="tlc-final-logo">
+        <div key={animationCycle} className="tlc-final-logo">
           <svg
             className="tlc-line tlc-line-middle"
             width="441"
@@ -103,7 +166,10 @@ export default function LogoLoadingScreen() {
           justify-content: center;
           overflow: hidden;
           background: #f3f3f1;
-          animation: loaderFadeOut 0.5s ease 4.5s forwards;
+        }
+
+        .tlc-loader-exiting {
+          animation: loaderFadeOut 0.5s ease forwards;
         }
 
         .tlc-loader-stage {
@@ -116,6 +182,7 @@ export default function LogoLoadingScreen() {
           position: absolute;
           inset: 0;
           transform-origin: center;
+          transform: scale(0.26);
           animation: finalLogoBloom 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 4s forwards;
         }
 
@@ -310,19 +377,19 @@ export default function LogoLoadingScreen() {
         @keyframes finalLogoBloom {
           0% {
             filter: drop-shadow(0 0 0 rgba(109, 211, 198, 0));
-            transform: scale(1);
+            transform: scale(0.26);
           }
 
           70% {
             filter: drop-shadow(0 18px 26px rgba(0, 107, 95, 0.1))
               drop-shadow(0 0 18px rgba(109, 211, 198, 0.22));
-            transform: scale(1.045);
+            transform: scale(0.29);
           }
 
           100% {
             filter: drop-shadow(0 16px 22px rgba(0, 107, 95, 0.08))
               drop-shadow(0 0 12px rgba(109, 211, 198, 0.16));
-            transform: scale(1.035);
+            transform: scale(0.28);
           }
         }
 
@@ -341,7 +408,7 @@ export default function LogoLoadingScreen() {
           }
 
           .tlc-final-logo {
-            transform: translateY(-2%);
+            transform: translateY(-2%) scale(0.26);
           }
         }
 
