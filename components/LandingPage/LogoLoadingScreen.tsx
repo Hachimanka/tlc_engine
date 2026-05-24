@@ -10,6 +10,15 @@ export default function LogoLoadingScreen() {
   const [isVisible, setIsVisible] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
   const [animationCycle, setAnimationCycle] = useState(0);
+  const [isAnimationReady, setIsAnimationReady] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsAnimationReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     let isPageLoaded = document.readyState === "complete";
@@ -107,12 +116,33 @@ export default function LogoLoadingScreen() {
   return (
     <div
       className={`tlc-loader${isExiting ? " tlc-loader-exiting" : ""}`}
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        left: 0,
+        zIndex: 9999,
+        height: "100vh",
+        overflow: "visible",
+        pointerEvents: "none",
+      }}
       role="status"
       aria-label="Loading TLC landing page"
     >
-      <div className="tlc-loader-bg" />
-      <div className="tlc-loader-stage" aria-hidden="true">
-        <div key={animationCycle} className="tlc-final-logo">
+      <div
+        className="tlc-loader-bg"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          left: 0,
+          height: "100vh",
+          background: "var(--color-primary)",
+        }}
+      />
+      {isAnimationReady ? (
+        <div className="tlc-loader-stage" aria-hidden="true">
+          <div key={animationCycle} className="tlc-final-logo">
           <svg
             className="tlc-line tlc-line-middle"
             width="441"
@@ -180,8 +210,9 @@ export default function LogoLoadingScreen() {
             <path d="M0 176.379L15.5263 114.895L108.063 22.3584L154.021 68.3162L61.4841 160.853L0 176.379ZM26.7052 121.106L17.3894 158.99L55.2736 149.674L136.631 68.3162L108.063 39.7478L26.7052 121.106Z" fill="white" />
             <path d="M122.335 45.256L131.117 54.0377L50.3177 134.899L41.536 126.142L122.335 45.256ZM8.69482 167.684L26.7053 163.337C24.8422 156.505 19.8738 151.537 13.0422 149.673L8.69482 167.684ZM157.747 64.5894L111.789 18.6316L130.421 0L133.526 0.621054C155.884 3.72631 173.274 21.1158 176.379 43.4736L177 46.5789L157.747 64.5894ZM129.179 18.6316L157.747 47.1999L163.337 41.6105C160.231 27.3263 149.053 16.1473 134.768 13.0421L129.179 18.6316Z" fill="white" />
           </svg>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <style jsx>{`
         .tlc-loader {
