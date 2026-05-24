@@ -22,7 +22,7 @@ declare
     'Basic grade computation',
     'Subject management',
     'Room management',
-    'Academic approvals',
+    'Academic approvals',2
     'Attendance tracking',
     'Custom branding',
     'TESDA workspace modules'

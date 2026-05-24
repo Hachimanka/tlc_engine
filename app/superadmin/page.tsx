@@ -7,6 +7,7 @@ import AnalyticsDashboard from "@/components/superadmin/analytics";
 import Dashboard from "@/components/superadmin/dashboard";
 import DemoRequestTable from "@/components/superadmin/demorequest";
 import Navbar from "@/components/Global/navbar";
+import LogoLoadingScreen from "@/components/LandingPage/LogoLoadingScreen";
 import OrganizationTable from "@/components/superadmin/organization";
 import Sidebar from "@/components/superadmin/sidebar";
 import SuperAdminSettings from "@/components/superadmin/settings";
@@ -104,14 +105,6 @@ export default function SuperAdminPage() {
     };
   }, []);
 
-  if (checkingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Checking session...</div>
-      </div>
-    );
-  }
-
   let ContentComponent = null;
   if (activeKey === "dashboard") ContentComponent = <Dashboard onNavigate={setActiveKey} />;
   else if (activeKey === "organizations") ContentComponent = <OrganizationTable />;
@@ -123,6 +116,9 @@ export default function SuperAdminPage() {
   else ContentComponent = <div className="p-8 text-gray-400">Coming soon...</div>;
 
   return (
+    <>
+      <LogoLoadingScreen />
+      {checkingAuth ? null : (
     <div className="flex h-screen flex-col overflow-hidden">
       <Navbar
         profile={{
@@ -156,5 +152,7 @@ export default function SuperAdminPage() {
         <div className="flex-1 overflow-y-auto bg-gray-50">{ContentComponent}</div>
       </div>
     </div>
+      )}
+    </>
   );
 }
