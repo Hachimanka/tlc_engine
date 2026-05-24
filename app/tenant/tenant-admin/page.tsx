@@ -115,7 +115,11 @@ function UpgradeRequiredPanel({ subscriptionPlan }: { subscriptionPlan?: string 
   );
 }
 
-function AnalyticsReportsPanel() {
+function AnalyticsReportsPanel({
+  showInitialSkeleton = false,
+}: {
+  showInitialSkeleton?: boolean;
+}) {
   const [users, setUsers] = useState<AnalyticsUserPayload[]>([]);
   const [features, setFeatures] = useState<AnalyticsFeaturePayload[]>([]);
   const [departments, setDepartments] = useState<AnalyticsDepartmentPayload[]>([]);
@@ -199,7 +203,7 @@ function AnalyticsReportsPanel() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return (
       <TenantLoadingScreen
         branding={null}
@@ -328,6 +332,7 @@ export default function TenantPage() {
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
+  const [tabSkeletonView, setTabSkeletonView] = useState<TenantAdminView | null>(null);
   const [authError, setAuthError] = useState("");
   const [showTenantLoader, setShowTenantLoader] = useState(true);
   const [showDashboard, setShowDashboard] = useState(false);
@@ -370,14 +375,25 @@ export default function TenantPage() {
   };
 
   const content = {
-    accounts: <Accounts />,
-    policies: <Policies />,
-    "manage-users": <TenantRolePermissionsPanel />,
-    departments: <Departments />,
-    employees: <Employee />,
-    branding: <Branding onBrandingUpdated={handleBrandingUpdated} />,
+    accounts: <Accounts showInitialSkeleton={tabSkeletonView === "accounts"} />,
+    policies: <Policies showInitialSkeleton={tabSkeletonView === "policies"} />,
+    "manage-users": (
+      <TenantRolePermissionsPanel
+        showInitialSkeleton={tabSkeletonView === "manage-users"}
+      />
+    ),
+    departments: <Departments showInitialSkeleton={tabSkeletonView === "departments"} />,
+    employees: <Employee showInitialSkeleton={tabSkeletonView === "employees"} />,
+    branding: (
+      <Branding
+        onBrandingUpdated={handleBrandingUpdated}
+        showInitialSkeleton={tabSkeletonView === "branding"}
+      />
+    ),
     "analytics-reports": canUseFullAnalyticsReports ? (
-      <AnalyticsReportsPanel />
+      <AnalyticsReportsPanel
+        showInitialSkeleton={tabSkeletonView === "analytics-reports"}
+      />
     ) : (
       <UpgradeRequiredPanel subscriptionPlan={subscriptionPlan} />
     ),
@@ -543,6 +559,7 @@ export default function TenantPage() {
     ];
     const shouldUseSectionLoader = !viewsWithLocalLoaders.includes(key as TenantAdminView);
 
+    setTabSkeletonView(shouldUseSectionLoader ? null : (key as TenantAdminView));
     setContentLoading(shouldUseSectionLoader);
     setActiveView(key as TenantAdminView);
   };

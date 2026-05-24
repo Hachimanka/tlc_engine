@@ -443,7 +443,11 @@ function EditAccountForm({
   );
 }
 
-export default function Accounts() {
+type AccountsProps = {
+  showInitialSkeleton?: boolean;
+};
+
+export default function Accounts({ showInitialSkeleton = false }: AccountsProps) {
   const [users, setUsers] = useState<AccountUser[]>([]);
   const [roles, setRoles] = useState<AccountRole[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
@@ -910,7 +914,7 @@ export default function Accounts() {
       </section>
 
       <section className="overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-        {isLoading ? (
+        {isLoading && showInitialSkeleton ? (
           <AccountsTableSkeleton />
         ) : filteredUsers.length === 0 ? (
           <div className="px-6 py-12 text-center text-sm text-[var(--color-low-emphasis)]">

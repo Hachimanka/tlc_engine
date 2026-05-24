@@ -81,7 +81,13 @@ function AccessSkeleton() {
   );
 }
 
-export default function TenantRolePermissionsPanel() {
+type TenantRolePermissionsPanelProps = {
+  showInitialSkeleton?: boolean;
+};
+
+export default function TenantRolePermissionsPanel({
+  showInitialSkeleton = false,
+}: TenantRolePermissionsPanelProps) {
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -196,7 +202,11 @@ export default function TenantRolePermissionsPanel() {
   }, []);
 
   useEffect(() => {
-    loadAccessData();
+    const frame = window.requestAnimationFrame(() => {
+      void loadAccessData();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [loadAccessData]);
 
   const handleSelectUser = (user: TenantUser) => {
@@ -326,7 +336,7 @@ export default function TenantRolePermissionsPanel() {
 
       <section className="grid min-h-0 flex-1 gap-5 overflow-hidden xl:grid-cols-[minmax(0,1fr)_440px]">
         <div className="min-h-0 overflow-hidden rounded-lg bg-white shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          {isLoading ? (
+          {isLoading && showInitialSkeleton ? (
             <div className="p-5">
               <AccessSkeleton />
             </div>
