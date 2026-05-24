@@ -9,7 +9,8 @@ import {
 } from "@/lib/tenantBranding";
 import { ICON_SVGS } from "@/public/icons";
 
-const TENANT_NAVBAR_TRANSITION_MS = 800;
+const TENANT_NAVBAR_TRANSITION_MS = 1400;
+const TENANT_MIN_BOUNCE_MS = 900;
 const TENANT_NAVBAR_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 type TenantLogoLoaderProps = {
@@ -32,6 +33,7 @@ export default function TenantLogoLoader({
   const [isExiting, setIsExiting] = useState(false);
   const [showImageLogo, setShowImageLogo] = useState(Boolean(logoUrl || branding?.logoUrl));
   const stageRef = useRef<HTMLDivElement>(null);
+  const mountedAtRef = useRef(0);
   const completedRef = useRef(false);
   const onAnimationCompleteRef = useRef(onAnimationComplete);
   const activeLogoUrl = logoUrl || branding?.logoUrl || DEFAULT_TENANT_LOGO_URL;
@@ -45,6 +47,7 @@ export default function TenantLogoLoader({
   }, [activeLogoUrl]);
 
   useEffect(() => {
+    mountedAtRef.current = Date.now();
     document.body.classList.add("tenant-logo-loader-active");
 
     return () => {
@@ -104,10 +107,19 @@ export default function TenantLogoLoader({
       }, TENANT_NAVBAR_TRANSITION_MS);
     };
 
-    const frame = window.requestAnimationFrame(startExit);
+    const elapsedMs = Date.now() - mountedAtRef.current;
+    const waitMs = Math.max(TENANT_MIN_BOUNCE_MS - elapsedMs, 0);
+    let frame: number | undefined;
+    const startTimer = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(startExit);
+    }, waitMs);
 
     return () => {
-      window.cancelAnimationFrame(frame);
+      window.clearTimeout(startTimer);
+
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
 
       if (finishTimer) {
         window.clearTimeout(finishTimer);
