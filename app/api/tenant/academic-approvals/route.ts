@@ -117,6 +117,9 @@ export async function GET(req: Request) {
     workflowSteps,
     requests: mappedRequests
       .filter((request) => request.canView)
-      .map(({ canView: _canView, ...request }) => request),
+      .map(({ canView, ...request }) => {
+        void canView;
+        return request;
+      }),
   });
 }
