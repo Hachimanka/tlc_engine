@@ -291,18 +291,160 @@ function RecentActivityRow({ activity }: { activity: SuperadminOverviewActivityI
 
 function AnalyticsSkeleton() {
   return (
-    <div className="w-full px-8 py-6">
-      <div className="mb-6 animate-pulse">
-        <BrandedSkeletonBlock className="h-14 rounded-lg" />
+    <div className="w-full px-8 py-6 animate-pulse" role="status" aria-label="Loading analytics">
+      <span className="sr-only">Loading analytics</span>
+
+      <div className="mb-6 flex items-center justify-between border-b border-teal-200 pb-2">
+        <div>
+          <BrandedSkeletonBlock className="h-8 w-40" strong />
+          <BrandedSkeletonBlock className="mt-2 h-3 w-[520px] max-w-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+            {[0, 1, 2].map((item) => (
+              <BrandedSkeletonBlock key={item} className="h-8 w-16 rounded-md" />
+            ))}
+          </div>
+          <BrandedSkeletonBlock className="h-9 w-24 rounded-lg" />
+        </div>
       </div>
-      <div className="mb-6 grid animate-pulse grid-cols-2 gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <BrandedSkeletonBlock key={index} className="h-36 rounded-lg" />
+
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          "bg-teal-50 text-teal-600",
+          "bg-blue-50 text-blue-600",
+          "bg-fuchsia-50 text-fuchsia-600",
+          "bg-emerald-50 text-emerald-600",
+        ].map((color, index) => (
+          <div key={color} className="flex min-w-[180px] flex-1 flex-col gap-3 rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
+                {index === 0 ? <UsersRound size={20} /> : index === 1 ? <Activity size={20} /> : index === 2 ? <Building2 size={20} /> : <DollarSign size={20} />}
+              </span>
+              <BrandedSkeletonBlock className="h-6 w-20 rounded-full" />
+            </div>
+            <div>
+              <BrandedSkeletonBlock className="h-7 w-24" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-32" />
+            </div>
+          </div>
         ))}
       </div>
-      <div className="grid animate-pulse grid-cols-1 gap-4 lg:grid-cols-3">
-        <BrandedSkeletonBlock className="h-64 rounded-lg" />
-        <BrandedSkeletonBlock className="h-64 rounded-lg lg:col-span-2" />
+
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex flex-col rounded-lg border border-gray-100 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <BrandedSkeletonBlock className="h-4 w-36" strong />
+            <BrandedSkeletonBlock className="mt-2 h-3 w-48" />
+          </div>
+          <div className="flex-1 px-5 py-4">
+            <div className="flex h-36 w-full items-end gap-2">
+              {["h-10", "h-20", "h-14", "h-28", "h-16", "h-8", "h-12"].map((height, index) => (
+                <div key={index} className="flex flex-1 flex-col items-center gap-1">
+                  <BrandedSkeletonBlock className="h-3 w-6" />
+                  <BrandedSkeletonBlock className={`w-full rounded-t-lg ${height}`} strong={index === 3} />
+                  <BrandedSkeletonBlock className="h-3 w-7" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col rounded-lg border border-gray-100 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <BrandedSkeletonBlock className="h-4 w-36" strong />
+            <BrandedSkeletonBlock className="mt-2 h-3 w-56" />
+          </div>
+          <div className="flex-1 px-5 py-4">
+            <div className="mb-3 flex items-center gap-4">
+              <BrandedSkeletonBlock className="h-3 w-20" />
+              <BrandedSkeletonBlock className="h-3 w-28" />
+            </div>
+            <div className="flex h-36 w-full items-end gap-3">
+              {["h-20", "h-12", "h-28", "h-16", "h-24", "h-10"].map((height, index) => (
+                <div key={index} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="flex h-28 w-full items-end gap-0.5">
+                    <BrandedSkeletonBlock className={`flex-1 rounded-t-md ${height}`} strong />
+                    <BrandedSkeletonBlock className={`flex-1 rounded-t-md ${index % 2 === 0 ? "h-16" : "h-8"}`} />
+                  </div>
+                  <BrandedSkeletonBlock className="h-3 w-8" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex flex-col rounded-lg border border-gray-100 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <BrandedSkeletonBlock className="h-4 w-32" strong />
+            <BrandedSkeletonBlock className="mt-2 h-3 w-36" />
+          </div>
+          <div className="flex items-center gap-6 px-5 py-4">
+            <BrandedSkeletonBlock className="h-[140px] w-[140px] rounded-full" strong />
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="flex items-center gap-2">
+                  <BrandedSkeletonBlock className="h-2.5 w-2.5 rounded-full" />
+                  <BrandedSkeletonBlock className="h-3 flex-1" />
+                  <BrandedSkeletonBlock className="h-3 w-8" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col rounded-lg border border-gray-100 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <BrandedSkeletonBlock className="h-4 w-36" strong />
+            <BrandedSkeletonBlock className="mt-2 h-3 w-44" />
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex w-full flex-col gap-2">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="flex items-center gap-3">
+                  <BrandedSkeletonBlock className="h-3 w-24" />
+                  <div className="h-6 flex-1 overflow-hidden rounded-full bg-gray-100">
+                    <BrandedSkeletonBlock className={item === 0 ? "h-full w-4/5 rounded-full" : "h-full w-1/2 rounded-full"} strong />
+                  </div>
+                  <BrandedSkeletonBlock className="h-3 w-10" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center gap-6 border-t border-gray-100 pt-3">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="text-center">
+                  <BrandedSkeletonBlock className="mx-auto h-6 w-12" strong />
+                  <BrandedSkeletonBlock className="mt-2 h-3 w-24" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[0, 1].map((card) => (
+          <div key={card} className="flex flex-col rounded-lg border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-32" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-40" />
+            </div>
+            <div className="flex flex-col gap-2 px-5 py-4">
+              {[0, 1, 2, 3].map((row) => (
+                <div key={row} className="flex items-center gap-3 border-b border-gray-50 py-2 last:border-0">
+                  <BrandedSkeletonBlock className="h-8 w-8 rounded-lg" strong />
+                  <div className="min-w-0 flex-1">
+                    <BrandedSkeletonBlock className="h-4 w-44" />
+                    <BrandedSkeletonBlock className="mt-2 h-3 w-28" />
+                  </div>
+                  <BrandedSkeletonBlock className="h-3 w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

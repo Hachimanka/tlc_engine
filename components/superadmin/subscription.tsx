@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -111,6 +112,255 @@ function CheckIcon({ className }: { className: string }) {
 }
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
+function SubscriptionLoadingScreen() {
+	const skeletonPlans = [
+		{
+			name: "Starter",
+			price: "Free",
+			description: "Perfect for small institutions just getting started.",
+			tenantLabel: "3 tenants",
+			users: "3",
+			departments: "1",
+			features: [
+				"Up to 3 users",
+				"1 department only",
+				"User account management",
+				"Roles & feature access",
+				"Basic grade computation",
+				"Subject management",
+				"Room management",
+				"Academic approvals",
+				"Attendance tracking",
+				"Custom branding",
+				"TESDA workspace modules",
+			],
+			color: "gray",
+		},
+		{
+			name: "Basic",
+			price: "$90",
+			description: "Great for growing schools needing more tools.",
+			tenantLabel: "20 tenants",
+			users: "3",
+			departments: "3",
+			features: [
+				"Up to 3 users",
+				"Up to 3 departments",
+				"User account management",
+				"Roles & feature access",
+				"Basic grade computation",
+				"Subject management",
+				"Room management",
+				"Academic approvals",
+				"Attendance tracking",
+				"Custom branding",
+				"TESDA workspace modules",
+			],
+			color: "teal",
+		},
+		{
+			name: "Premium",
+			price: "$199",
+			description: "Ideal for mid-size institutions with advanced needs.",
+			tenantLabel: "60 tenants",
+			users: "50",
+			departments: "10",
+			features: [
+				"Up to 50 users",
+				"Up to 10 departments",
+				"User account management",
+				"Roles & feature access",
+				"Basic grade computation",
+				"Subject management",
+				"Room management",
+				"Academic approvals",
+				"Attendance tracking",
+				"Full analytics & reports",
+				"Custom branding",
+				"TESDA workspace modules",
+			],
+			badge: "Most Popular",
+			color: "fuchsia",
+		},
+		{
+			name: "Diamond",
+			price: "$499",
+			description: "Unlimited power for large universities & networks.",
+			tenantLabel: "Unlimited",
+			users: "∞",
+			departments: "∞",
+			features: [
+				"Unlimited users",
+				"Unlimited departments",
+				"User account management",
+				"Roles & feature access",
+				"Basic grade computation",
+				"Subject management",
+				"Room management",
+				"Academic approvals",
+				"Attendance tracking",
+				"Full analytics & reports",
+				"Custom branding",
+				"TESDA workspace modules",
+			],
+			badge: "Enterprise",
+			color: "sky",
+		},
+	];
+
+	return (
+		<div className="w-full px-8 py-6" role="status" aria-label="Loading subscription plans">
+			<span className="sr-only">Loading subscription plans</span>
+
+			<div className="border-b border-teal-200 mb-8">
+				<h1 className="text-2xl font-bold text-teal-800 pb-2">SUBSCRIPTIONS</h1>
+			</div>
+
+			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+				{skeletonPlans.map(plan => {
+					const c = colorMap[plan.color] || colorMap.teal;
+
+					return (
+						<div key={plan.name} className={`relative rounded-2xl shadow-md flex flex-col ${c.card}`}>
+							{plan.badge && (
+								<div className={`absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 rounded-full text-xs font-bold shadow ${c.badge}`}>
+									{plan.badge}
+								</div>
+							)}
+
+							<div className={`px-5 pt-6 pb-4 border-b ${c.border}`}>
+								<div className="flex items-center justify-between mb-3">
+									<span className={`text-base font-bold ${c.header}`}>{plan.name}</span>
+									<span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${c.tag}`}>
+										{plan.tenantLabel}
+									</span>
+								</div>
+								<div className="flex items-end gap-1 mb-2">
+									<span className={`text-4xl font-extrabold tracking-tight ${c.price}`}>{plan.price}</span>
+									{plan.price !== "Free" && <span className="text-gray-400 text-sm mb-1">/mo</span>}
+								</div>
+								<p className="text-gray-500 text-xs leading-relaxed">{plan.description}</p>
+							</div>
+
+							<div className={`flex divide-x ${c.border} border-b`}>
+								<div className="flex-1 px-4 py-2.5 text-center">
+									<div className={`text-sm font-bold ${c.price}`}>{plan.users}</div>
+									<div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Users</div>
+								</div>
+								<div className="flex-1 px-4 py-2.5 text-center">
+									<div className={`text-sm font-bold ${c.price}`}>{plan.departments}</div>
+									<div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Departments</div>
+								</div>
+							</div>
+
+							<div className="px-5 py-4 flex-1">
+								<p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Includes</p>
+								<ul className="flex flex-col gap-1.5">
+									{plan.features.map(feature => (
+										<li key={feature} className="flex items-start gap-2 text-sm text-gray-700">
+											<CheckIcon className={`${c.check} shrink-0 mt-0.5`} />
+											{feature}
+										</li>
+									))}
+								</ul>
+							</div>
+
+							<div className="px-5 pb-5 flex gap-2 mt-auto">
+								<button className="flex-1 border border-gray-200 text-gray-600 rounded-lg px-3 py-2 text-sm font-medium" disabled>
+									Edit
+								</button>
+								<button className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm ${c.btn}`} disabled>
+									View Tenants
+								</button>
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function SubscriptionSkeletonLoadingScreen() {
+	const skeletonPlans = [
+		{ color: "gray", badge: false, features: 11 },
+		{ color: "teal", badge: false, features: 11 },
+		{ color: "fuchsia", badge: true, features: 12 },
+		{ color: "sky", badge: true, features: 12 },
+	];
+
+	return (
+		<div className="w-full px-8 py-6 animate-pulse" role="status" aria-label="Loading subscription plans">
+			<span className="sr-only">Loading subscription plans</span>
+
+			<div className="border-b border-teal-200 mb-8">
+				<BrandedSkeletonBlock className="h-8 w-56 mb-2" strong />
+			</div>
+
+			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+				{skeletonPlans.map(plan => {
+					const c = colorMap[plan.color] || colorMap.teal;
+
+					return (
+						<div key={plan.color} className={`relative rounded-2xl shadow-md flex flex-col ${c.card}`}>
+							{plan.badge && (
+								<div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full shadow ${c.badge}`}>
+									<BrandedSkeletonBlock className="h-3 w-24" strong />
+								</div>
+							)}
+
+							<div className={`px-5 pt-6 pb-4 border-b ${c.border}`}>
+								<div className="flex items-center justify-between mb-3">
+									<BrandedSkeletonBlock className="h-5 w-24" strong />
+									<span className={`px-2.5 py-1 rounded-full border ${c.tag}`}>
+										<BrandedSkeletonBlock className="h-3 w-16" />
+									</span>
+								</div>
+								<div className="flex items-end gap-1 mb-3">
+									<BrandedSkeletonBlock className="h-10 w-24" strong />
+									<BrandedSkeletonBlock className="mb-1 h-4 w-8" />
+								</div>
+								<div className="space-y-2">
+									<BrandedSkeletonBlock className="h-3 w-full" />
+									<BrandedSkeletonBlock className="h-3 w-4/5" />
+								</div>
+							</div>
+
+							<div className={`flex divide-x ${c.border} border-b`}>
+								<div className="flex-1 px-4 py-2.5 text-center">
+									<BrandedSkeletonBlock className="mx-auto h-4 w-8" strong />
+									<BrandedSkeletonBlock className="mx-auto mt-2 h-3 w-20" />
+								</div>
+								<div className="flex-1 px-4 py-2.5 text-center">
+									<BrandedSkeletonBlock className="mx-auto h-4 w-8" strong />
+									<BrandedSkeletonBlock className="mx-auto mt-2 h-3 w-20" />
+								</div>
+							</div>
+
+							<div className="px-5 py-4 flex-1">
+								<BrandedSkeletonBlock className="mb-3 h-3 w-20" />
+								<ul className="flex flex-col gap-1.5">
+									{Array.from({ length: plan.features }).map((_, index) => (
+										<li key={index} className="flex items-start gap-2">
+											<BrandedSkeletonBlock className="mt-0.5 h-[15px] w-[15px] shrink-0 rounded-full" />
+											<BrandedSkeletonBlock className={index % 3 === 0 ? "h-4 w-36" : "h-4 w-44"} />
+										</li>
+									))}
+								</ul>
+							</div>
+
+							<div className="px-5 pb-5 flex gap-2 mt-auto">
+								<BrandedSkeletonBlock className="h-11 flex-1 rounded-lg" />
+								<BrandedSkeletonBlock className="h-11 flex-1 rounded-lg" strong />
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
 function EditModal({ plan, onClose, onSaved }: {
 	plan: Plan;
 	onClose: () => void;
@@ -182,7 +432,7 @@ function EditModal({ plan, onClose, onSaved }: {
 					</div>
 					<div className="grid grid-cols-3 gap-4">
 						{field("Max Tenants", "tenants", "number")}
-						{field("Instructors", "instructors", "number")}
+						{field("Users", "instructors", "number")}
 						{field("Departments", "departments", "number")}
 					</div>
 					{field("Description", "description")}
@@ -405,7 +655,7 @@ export default function SubscriptionCards() {
 		setEditingPlan(null);
 	};
 
-	if (loading) return <div className="text-center py-20 text-gray-500">Loading plans...</div>;
+	if (loading) return <SubscriptionSkeletonLoadingScreen />;
 	if (error) return <div className="text-center py-20 text-red-500">{error}</div>;
 
 	return (
@@ -451,7 +701,7 @@ export default function SubscriptionCards() {
 									<div className={`text-sm font-bold ${c.price}`}>
 										{isUnlimited(plan.instructors) ? "∞" : plan.instructors}
 									</div>
-									<div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Instructors</div>
+									<div className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Users</div>
 								</div>
 								<div className="flex-1 px-4 py-2.5 text-center">
 									<div className={`text-sm font-bold ${c.price}`}>

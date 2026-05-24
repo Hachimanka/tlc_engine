@@ -1,4 +1,5 @@
 import React, { useEffect, useState, type ChangeEvent } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -142,6 +143,132 @@ function SaveButton({ onClick, saving, success, label = "Save Changes" }: {
 	);
 }
 
+function SettingsLoadingScreen() {
+	return (
+		<div className="w-full px-8 py-6 animate-pulse" role="status" aria-label="Loading settings">
+			<span className="sr-only">Loading settings</span>
+
+			<div className="border-b border-teal-200 mb-6">
+				<BrandedSkeletonBlock className="h-8 w-40 mb-2" strong />
+			</div>
+
+			<div className="flex gap-6">
+				<div className="w-52 shrink-0">
+					<nav className="flex flex-col gap-1 sticky top-6">
+						{[0, 1, 2, 3, 4].map((item) => (
+							<div key={item} className="flex items-center gap-3 rounded-xl px-4 py-2.5">
+								<BrandedSkeletonBlock className="h-5 w-5 rounded" />
+								<BrandedSkeletonBlock className={item === 4 ? "h-4 w-24" : "h-4 w-28"} />
+							</div>
+						))}
+					</nav>
+				</div>
+
+				<div className="min-w-0 flex-1">
+					<div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+						<div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-6 py-4">
+							<BrandedSkeletonBlock className="h-5 w-5 rounded" />
+							<BrandedSkeletonBlock className="h-4 w-48" strong />
+						</div>
+						<div className="px-6 py-5">
+							<div className="flex flex-col gap-4">
+								<div className="flex flex-col gap-4 border-b border-gray-100 pb-4 sm:flex-row sm:items-center">
+									<BrandedSkeletonBlock className="h-16 w-16 shrink-0 rounded-full" strong />
+									<div className="min-w-0 flex-1">
+										<BrandedSkeletonBlock className="h-4 w-40" strong />
+										<BrandedSkeletonBlock className="mt-2 h-3 w-56" />
+										<BrandedSkeletonBlock className="mt-2 h-5 w-24 rounded-full" />
+									</div>
+									<BrandedSkeletonBlock className="h-9 w-28 rounded-lg" strong />
+								</div>
+
+								<div className="grid grid-cols-2 gap-4">
+									{[0, 1].map((field) => (
+										<div key={field} className="flex flex-col gap-2">
+											<BrandedSkeletonBlock className="h-3 w-24" />
+											<BrandedSkeletonBlock className="h-11 w-full rounded-lg" />
+											{field === 1 ? <BrandedSkeletonBlock className="h-3 w-44" /> : null}
+										</div>
+									))}
+								</div>
+
+								<div className="flex flex-col gap-2">
+									<BrandedSkeletonBlock className="h-3 w-28" />
+									<BrandedSkeletonBlock className="h-11 w-full rounded-lg" />
+									<BrandedSkeletonBlock className="h-3 w-56" />
+								</div>
+
+								<div className="flex justify-end pt-2">
+									<BrandedSkeletonBlock className="h-11 w-36 rounded-lg" strong />
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+						{[0, 1].map((card) => (
+							<div key={card} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+								<div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-6 py-4">
+									<BrandedSkeletonBlock className="h-5 w-5 rounded" />
+									<BrandedSkeletonBlock className="h-4 w-36" strong />
+								</div>
+								<div className="space-y-4 px-6 py-5">
+									{[0, 1, 2].map((row) => (
+										<div key={row} className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0">
+											<div>
+												<BrandedSkeletonBlock className="h-4 w-44" />
+												<BrandedSkeletonBlock className="mt-2 h-3 w-64" />
+											</div>
+											<BrandedSkeletonBlock className="h-6 w-11 rounded-full" strong />
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function SuperAdminsTableSkeleton() {
+	return (
+		<div className="overflow-x-auto rounded-xl border border-gray-100">
+			<table className="w-full min-w-[720px] text-left text-sm">
+				<thead className="bg-gray-50">
+					<tr>
+						{[0, 1, 2, 3].map((head) => (
+							<th key={head} className="px-4 py-3">
+								<BrandedSkeletonBlock className="h-3 w-24" />
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody className="divide-y divide-gray-100">
+					{[0, 1, 2].map((row) => (
+						<tr key={row} className="bg-white">
+							<td className="px-4 py-3">
+								<BrandedSkeletonBlock className="h-4 w-40" strong />
+								<BrandedSkeletonBlock className="mt-2 h-3 w-56" />
+							</td>
+							<td className="px-4 py-3">
+								<BrandedSkeletonBlock className="h-5 w-20 rounded-full" />
+							</td>
+							<td className="px-4 py-3">
+								<BrandedSkeletonBlock className="h-4 w-32" />
+							</td>
+							<td className="px-4 py-3">
+								<BrandedSkeletonBlock className="h-4 w-32" />
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
+
 function formatRelativeTime(value: string) {
 	const timestamp = new Date(value).getTime();
 
@@ -191,6 +318,7 @@ function formatDateTime(value: string | null) {
 
 export default function SuperAdminSettings() {
 	const [activeSection, setActiveSection] = useState<Section>("profile");
+	const [profileLoading, setProfileLoading] = useState(true);
 
 	// Profile
 	const [name, setName] = useState("Super Admin");
@@ -252,6 +380,7 @@ export default function SuperAdminSettings() {
 
 	useEffect(() => {
 		const loadProfile = async () => {
+			setProfileLoading(true);
 			setProfileError("");
 
 			try {
@@ -282,6 +411,8 @@ export default function SuperAdminSettings() {
 				setAvatarUrl(payload.avatarUrl || "");
 			} catch {
 				setProfileError("Unable to load profile. Please check your connection.");
+			} finally {
+				setProfileLoading(false);
 			}
 		};
 
@@ -543,6 +674,10 @@ export default function SuperAdminSettings() {
 			.join("")
 			.slice(0, 2)
 			.toUpperCase() || "SA";
+
+	if (profileLoading) {
+		return <SettingsLoadingScreen />;
+	}
 
 	return (
 		<div className="w-full px-8 py-6">
@@ -909,9 +1044,7 @@ export default function SuperAdminSettings() {
 								) : null}
 
 								{adminsLoading ? (
-									<p className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-500">
-										Loading super admin accounts...
-									</p>
+									<SuperAdminsTableSkeleton />
 								) : superAdmins.length === 0 ? (
 									<p className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-400">
 										No super admin accounts found.

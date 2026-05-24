@@ -192,6 +192,77 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
   );
 }
 
+function AcademicApprovalsLoadingScreen() {
+  return (
+    <div className="animate-pulse space-y-5" role="status" aria-label="Loading academic approval dashboard">
+      <span className="sr-only">Loading academic approval dashboard</span>
+
+      <div className="flex flex-col gap-2">
+        <BrandedSkeletonBlock className="h-8 w-80 max-w-full" strong />
+        <BrandedSkeletonBlock className="h-4 w-[420px] max-w-full" />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((card) => (
+          <div
+            key={card}
+            className="rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 shadow-level-1"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <BrandedSkeletonBlock className="h-3 w-28" />
+                <BrandedSkeletonBlock className="mt-3 h-7 w-12" strong />
+              </div>
+              <BrandedSkeletonBlock className="h-10 w-10 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {["w-40", "w-48", "w-44", "w-44", "w-36"].map((width) => (
+          <BrandedSkeletonBlock
+            key={width}
+            className={`h-10 rounded-lg ${width}`}
+          />
+        ))}
+      </div>
+
+      <section className="rounded-lg border border-[var(--color-default)] bg-white shadow-level-1">
+        <div className="border-b border-[var(--color-default)] px-5 py-4">
+          <BrandedSkeletonBlock className="h-6 w-48" strong />
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          {[0, 1, 2].map((item) => (
+            <div
+              key={item}
+              className="space-y-4 rounded-lg border border-[var(--color-default)] px-4 py-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <BrandedSkeletonBlock className="h-5 w-56" strong />
+                <BrandedSkeletonBlock className="h-5 w-24 rounded-full" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[0, 1, 2, 3, 4, 5].map((line) => (
+                  <div key={line} className="space-y-2">
+                    <BrandedSkeletonBlock className="h-3 w-20" />
+                    <BrandedSkeletonBlock className="h-4 w-32" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <BrandedSkeletonBlock className="h-3 w-40" />
+                <BrandedSkeletonBlock className="h-3 w-36" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function AcademicApprovalsDashboard() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [workflowSteps, setWorkflowSteps] = useState<ApprovalStatus[]>(["pending_dean", "pending_vpaa"]);
@@ -388,6 +459,10 @@ export default function AcademicApprovalsDashboard() {
   };
 
   const activeCategory = categories.find((category) => category.key === activeTab) ?? categories[0];
+
+  if (loading) {
+    return <AcademicApprovalsLoadingScreen />;
+  }
 
   return (
     <div className="space-y-5">

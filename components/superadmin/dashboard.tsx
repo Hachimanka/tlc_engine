@@ -262,20 +262,463 @@ function HealthCheckRow({ check }: { check: SuperadminOverviewHealthCheck }) {
 }
 
 function DashboardSkeleton() {
+  const skeletonMetrics = [
+    {
+      label: "Organizations",
+      helper: "added this week",
+      trend: "+",
+      icon: Building2,
+      iconClass: "bg-teal-50 text-teal-700",
+    },
+    {
+      label: "Active Tenants",
+      helper: "tenant activation",
+      trend: "suspended",
+      icon: ShieldCheck,
+      iconClass: "bg-sky-50 text-sky-700",
+    },
+    {
+      label: "Total Users",
+      helper: "active tenant users",
+      trend: "+",
+      icon: UsersRound,
+      iconClass: "bg-violet-50 text-violet-700",
+    },
+    {
+      label: "Demo Requests",
+      helper: "pending review",
+      trend: "converted",
+      icon: Inbox,
+      iconClass: "bg-amber-50 text-amber-700",
+    },
+    {
+      label: "Health Checks",
+      helper: "Database, auth, and email config",
+      trend: "Ready",
+      icon: Gauge,
+      iconClass: "bg-rose-50 text-rose-700",
+    },
+  ];
+
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1400px] space-y-6">
-        <div className="animate-pulse">
-          <BrandedSkeletonBlock className="h-20 rounded-lg" />
+        <header className="flex flex-col gap-4 border-b border-teal-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+              <Zap size={14} />
+              Live overview
+            </div>
+            <h1 className="text-2xl font-bold text-gray-950">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-500">Real platform activity, tenant health, and operating priorities.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm">
+              <CalendarDays size={15} />
+              {formatGeneratedMonth()}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+              <RefreshCw size={15} />
+              Refresh
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white shadow-sm">
+              <BarChart3 size={15} />
+              View Analytics
+            </span>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {skeletonMetrics.map((metric) => {
+            const Icon = metric.icon;
+
+            return (
+              <article
+                key={metric.label}
+                className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${metric.iconClass}`}>
+                    <Icon size={20} strokeWidth={2} />
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                    {metric.trend}
+                  </span>
+                </div>
+                <div className="mt-5 animate-pulse">
+                  <BrandedSkeletonBlock className="h-7 w-14" strong />
+                </div>
+                <p className="mt-2 text-sm font-semibold text-gray-700">{metric.label}</p>
+                <p className="mt-1 text-xs text-gray-500">{metric.helper}</p>
+              </article>
+            );
+          })}
         </div>
-        <div className="grid animate-pulse grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <BrandedSkeletonBlock key={index} className="h-40 rounded-lg" />
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <Panel
+            title="Platform Activity"
+            subtitle="Activity log volume for the last 7 days"
+            className="xl:col-span-8"
+            action={
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                <ArrowUpRight size={13} />
+                events
+              </span>
+            }
+          >
+            <div className="mb-5 flex flex-wrap items-center gap-4">
+              <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
+                <span className="h-2.5 w-2.5 rounded-sm bg-teal-500" />
+                Activity logs
+              </span>
+            </div>
+            <div className="flex h-56 items-end gap-4">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, index) => (
+                <div key={day} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                  <div className="flex h-44 w-full items-end justify-center rounded-md bg-gray-50 px-2 pt-3">
+                    <BrandedSkeletonBlock
+                      className={`w-full max-w-8 rounded-t ${index === 3 ? "h-36" : index === 4 ? "h-20" : "h-12"}`}
+                      strong={index === 3}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">{day}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="System Health" subtitle="Derived checks, not uptime" className="xl:col-span-4">
+            <div className="rounded-lg bg-slate-950 p-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-teal-200">Health checks</p>
+                  <div className="mt-3 animate-pulse">
+                    <BrandedSkeletonBlock className="h-10 w-20 bg-white/30" strong />
+                  </div>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/10">
+                  <Gauge size={24} />
+                </div>
+              </div>
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15">
+                <div className="h-full w-4/5 rounded-full bg-teal-400" />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {["Database", "Superadmin Auth", "Email Config"].map((label) => (
+                <div key={label} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-teal-700">
+                      <Server size={17} />
+                    </span>
+                    <span className="truncate text-sm font-semibold text-gray-800">{label}</span>
+                  </div>
+                  <BrandedSkeletonBlock className="h-3 w-16" />
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Conversion Pipeline" subtitle="Demo request status counts" className="xl:col-span-5">
+            <div className="space-y-4">
+              {["Pending", "Converted", "Rejected"].map((label, index) => (
+                <div key={label}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                    <BrandedSkeletonBlock className="h-4 w-8" />
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
+                    <BrandedSkeletonBlock className={index === 0 ? "h-full w-3/4 rounded-full" : "h-full w-1/2 rounded-full"} strong />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Recent Organizations" subtitle="Latest tenant records" className="xl:col-span-7">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left">
+                <thead>
+                  <tr className="text-xs font-semibold uppercase text-gray-400">
+                    <th className="pb-3">Organization</th>
+                    <th className="pb-3">Plan</th>
+                    <th className="pb-3 text-right">Users</th>
+                    <th className="pb-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {[0, 1, 2].map((row) => (
+                    <tr key={row}>
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <BrandedSkeletonBlock className="h-9 w-9 rounded-lg" strong />
+                          <BrandedSkeletonBlock className="h-4 w-44" />
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <BrandedSkeletonBlock className="h-4 w-20" />
+                      </td>
+                      <td className="py-3">
+                        <BrandedSkeletonBlock className="ml-auto h-4 w-10" />
+                      </td>
+                      <td className="py-3">
+                        <BrandedSkeletonBlock className="ml-auto h-5 w-16 rounded-full" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel title="Priority Queue" subtitle="Items that need attention" className="xl:col-span-4">
+            <div className="space-y-3">
+              {["Review pending demo requests", "Configure Gmail sender"].map((label) => (
+                <div key={label} className="rounded-lg border border-gray-100 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                      <TriangleAlert size={16} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{label}</p>
+                      <BrandedSkeletonBlock className="mt-2 h-3 w-36" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Quick Actions" subtitle="Common super admin workflows" className="xl:col-span-8">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <div
+                    key={action.key}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+                        <Icon size={19} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-gray-900">{action.label}</p>
+                        <p className="mt-1 truncate text-xs text-gray-500">{action.description}</p>
+                      </div>
+                    </div>
+                    <ArrowRight size={17} className="shrink-0 text-gray-400" />
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardFullSkeleton() {
+  const metricIcons = [
+    { icon: Building2, iconClass: "bg-teal-50 text-teal-700" },
+    { icon: ShieldCheck, iconClass: "bg-sky-50 text-sky-700" },
+    { icon: UsersRound, iconClass: "bg-violet-50 text-violet-700" },
+    { icon: Inbox, iconClass: "bg-amber-50 text-amber-700" },
+    { icon: Gauge, iconClass: "bg-rose-50 text-rose-700" },
+  ];
+
+  return (
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8" role="status" aria-label="Loading dashboard">
+      <span className="sr-only">Loading dashboard</span>
+      <div className="mx-auto max-w-[1400px] space-y-6 animate-pulse">
+        <header className="flex flex-col gap-4 border-b border-teal-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <BrandedSkeletonBlock className="mb-2 h-7 w-36 rounded-full" />
+            <BrandedSkeletonBlock className="h-8 w-40" strong />
+            <BrandedSkeletonBlock className="mt-2 h-4 w-[420px] max-w-full" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <BrandedSkeletonBlock className="h-10 w-28 rounded-lg" />
+            <BrandedSkeletonBlock className="h-10 w-24 rounded-lg" />
+            <BrandedSkeletonBlock className="h-10 w-36 rounded-lg" strong />
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {metricIcons.map(({ icon: Icon, iconClass }) => (
+            <article key={iconClass} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+                  <Icon size={20} strokeWidth={2} />
+                </div>
+                <BrandedSkeletonBlock className="h-6 w-20 rounded-full" />
+              </div>
+              <BrandedSkeletonBlock className="mt-5 h-7 w-14" strong />
+              <BrandedSkeletonBlock className="mt-2 h-4 w-28" />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-36" />
+            </article>
           ))}
         </div>
-        <div className="grid animate-pulse grid-cols-1 gap-5 xl:grid-cols-12">
-          <BrandedSkeletonBlock className="h-80 rounded-lg xl:col-span-8" />
-          <BrandedSkeletonBlock className="h-80 rounded-lg xl:col-span-4" />
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-8">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+              <div>
+                <BrandedSkeletonBlock className="h-4 w-36" strong />
+                <BrandedSkeletonBlock className="mt-2 h-3 w-56" />
+              </div>
+              <BrandedSkeletonBlock className="h-6 w-24 rounded-full" />
+            </div>
+            <div className="p-5">
+              <div className="mb-5 flex items-center gap-2">
+                <BrandedSkeletonBlock className="h-3 w-3 rounded-sm" strong />
+                <BrandedSkeletonBlock className="h-3 w-24" />
+              </div>
+              <div className="flex h-56 items-end gap-4">
+                {["h-12", "h-20", "h-8", "h-40", "h-28", "h-8", "h-10"].map((height, index) => (
+                  <div key={index} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                    <div className="flex h-44 w-full items-end justify-center rounded-md bg-gray-50 px-2 pt-3">
+                      <BrandedSkeletonBlock className={`w-full max-w-8 rounded-t ${height}`} strong={index === 3} />
+                    </div>
+                    <BrandedSkeletonBlock className="h-3 w-8" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-4">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-28" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-40" />
+            </div>
+            <div className="p-5">
+              <div className="rounded-lg bg-slate-950 p-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <BrandedSkeletonBlock className="h-3 w-28 bg-white/30" />
+                    <BrandedSkeletonBlock className="mt-3 h-10 w-20 bg-white/30" strong />
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/10">
+                    <Gauge size={24} />
+                  </div>
+                </div>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full w-4/5 rounded-full bg-teal-400" />
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <BrandedSkeletonBlock className="h-8 w-8 rounded-lg" />
+                      <BrandedSkeletonBlock className="h-4 w-36" />
+                    </div>
+                    <BrandedSkeletonBlock className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-5">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-36" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-44" />
+            </div>
+            <div className="space-y-4 p-5">
+              {[0, 1, 2].map((item) => (
+                <div key={item}>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <BrandedSkeletonBlock className="h-4 w-24" />
+                    <BrandedSkeletonBlock className="h-4 w-8" />
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
+                    <BrandedSkeletonBlock className={item === 0 ? "h-full w-3/4 rounded-full" : "h-full w-1/2 rounded-full"} strong />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-7">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-40" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-32" />
+            </div>
+            <div className="overflow-x-auto p-5">
+              <table className="w-full min-w-[560px] text-left">
+                <thead>
+                  <tr>
+                    {[0, 1, 2, 3].map((head) => (
+                      <th key={head} className="pb-3">
+                        <BrandedSkeletonBlock className="h-3 w-24" />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {[0, 1, 2].map((row) => (
+                    <tr key={row}>
+                      <td className="py-3">
+                        <div className="flex items-center gap-3">
+                          <BrandedSkeletonBlock className="h-9 w-9 rounded-lg" strong />
+                          <BrandedSkeletonBlock className="h-4 w-44" />
+                        </div>
+                      </td>
+                      <td className="py-3"><BrandedSkeletonBlock className="h-4 w-20" /></td>
+                      <td className="py-3"><BrandedSkeletonBlock className="ml-auto h-4 w-10" /></td>
+                      <td className="py-3"><BrandedSkeletonBlock className="ml-auto h-5 w-16 rounded-full" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-4">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-28" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-40" />
+            </div>
+            <div className="space-y-3 p-5">
+              {[0, 1].map((item) => (
+                <div key={item} className="rounded-lg border border-gray-100 p-4">
+                  <div className="flex items-start gap-3">
+                    <BrandedSkeletonBlock className="h-8 w-8 rounded-lg" />
+                    <div>
+                      <BrandedSkeletonBlock className="h-4 w-44" strong />
+                      <BrandedSkeletonBlock className="mt-2 h-3 w-36" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white shadow-sm xl:col-span-8">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <BrandedSkeletonBlock className="h-4 w-28" strong />
+              <BrandedSkeletonBlock className="mt-2 h-3 w-48" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <BrandedSkeletonBlock className="h-10 w-10 rounded-lg" />
+                    <div>
+                      <BrandedSkeletonBlock className="h-4 w-32" strong />
+                      <BrandedSkeletonBlock className="mt-2 h-3 w-44" />
+                    </div>
+                  </div>
+                  <BrandedSkeletonBlock className="h-4 w-4" />
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -407,7 +850,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
   }, [overview]);
 
   if (isLoading) {
-    return <DashboardSkeleton />;
+    return <DashboardFullSkeleton />;
   }
 
   if (error || !overview) {

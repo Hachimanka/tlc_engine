@@ -19,6 +19,7 @@ import {
 } from "@/lib/customerConversionEmail";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateTempPassword } from "@/lib/tempPassword";
+import { checkUserLimitBeforeCreate } from "@/lib/tenantSubscriptionLimits";
 
 export const runtime = "nodejs";
 
@@ -605,6 +606,30 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Select at least one feature for this account." },
       { status: 400 },
+    );
+  }
+
+  try {
+    const limitCheck = await checkUserLimitBeforeCreate({
+      orgId: context.org.id,
+      planName: context.org.subscription_plan,
+    });
+
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.error || "User limit reached for this subscription." },
+        { status: 403 },
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to verify subscription user limit.",
+      },
+      { status: 500 },
     );
   }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { buildOrganizationAcronym } from "@/lib/organizationNickname";
 import { supabase } from "@/lib/supabaseClient";
@@ -61,6 +62,61 @@ function FieldRow({ icon, label, value }: { icon: React.ReactNode; label: string
 			<div className="flex-1 min-w-0">
 				<div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">{label}</div>
 				<div className="text-sm text-gray-800 font-medium break-words">{value || <span className="text-gray-400 italic">—</span>}</div>
+			</div>
+		</div>
+	);
+}
+
+function OrganizationLoadingScreen() {
+	return (
+		<div className="w-full px-8 py-6 relative animate-pulse" role="status" aria-label="Loading organizations">
+			<span className="sr-only">Loading organizations</span>
+
+			<div className="w-full border-b border-teal-200 mb-6">
+				<BrandedSkeletonBlock className="h-8 w-56 mb-2" strong />
+			</div>
+
+			<div className="flex items-center gap-3 mb-5 w-full">
+				<div className="relative flex-1">
+					<BrandedSkeletonBlock className="h-12 w-full rounded-lg bg-white" />
+				</div>
+				<BrandedSkeletonBlock className="h-12 w-[160px] flex-shrink-0 rounded-lg bg-white" />
+				<BrandedSkeletonBlock className="h-12 w-20 flex-shrink-0 rounded-lg" strong />
+			</div>
+
+			<div className="overflow-x-auto rounded-xl shadow border border-gray-100 bg-white">
+				<table className="min-w-full bg-white text-sm">
+					<thead>
+						<tr className="bg-teal-800 text-white">
+							<th className="px-5 py-3 text-left font-semibold text-xs tracking-wider">ORGANIZATION</th>
+							<th className="px-5 py-3 text-left font-semibold text-xs tracking-wider">ADMIN EMAIL</th>
+							<th className="px-5 py-3 text-left font-semibold text-xs tracking-wider">PLAN</th>
+							<th className="px-5 py-3 text-left font-semibold text-xs tracking-wider">STATUS</th>
+							<th className="px-5 py-3 text-left font-semibold text-xs tracking-wider">CREATED</th>
+						</tr>
+					</thead>
+					<tbody>
+						{[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
+							<tr key={row} className={row % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-56" strong />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-52" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-20" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-6 w-20 rounded-full" />
+								</td>
+								<td className="px-5 py-3">
+									<BrandedSkeletonBlock className="h-4 w-28" />
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
 			</div>
 		</div>
 	);
@@ -447,6 +503,10 @@ export default function OrganizationTable() {
 		? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)
 		: "All Status";
 
+	if (loading) {
+		return <OrganizationLoadingScreen />;
+	}
+
 	return (
 		<div className="w-full px-8 py-6 relative">
 			<div className="w-full border-b border-teal-200 mb-6">
@@ -512,9 +572,7 @@ export default function OrganizationTable() {
 
 			{/* Table */}
 			<div className="overflow-x-auto rounded-xl shadow border border-gray-100">
-				{loading ? (
-					<div className="text-center py-10 text-gray-500">Loading...</div>
-				) : error ? (
+				{error ? (
 					<div className="text-center py-10 text-red-500">{error}</div>
 				) : (
 					<table className="min-w-full bg-white text-sm">
