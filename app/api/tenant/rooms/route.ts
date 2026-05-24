@@ -41,7 +41,9 @@ type RawRoomAssignmentRow = {
   updated_at: string;
 };
 
-const roomSelect = "id, room_name, building, room_type, capacity, status, created_at, updated_at";
+const baseRoomSelect = "id, room_name, building, room_type, capacity, status, created_at, updated_at";
+const roomSelect =
+  "id, room_name, building, room_type, capacity, status, section, year_level, created_at, updated_at";
 const subjectSelect = "id, subject_title, subject_code, department, year_level, meetings_per_week, units";
 const rawAssignmentSelect =
   "id, subject_id, room_id, section, day_of_week, start_time, end_time, created_at, updated_at";
@@ -53,12 +55,44 @@ const getRoomValues = (payload: RoomRequest) => ({
   type: normalizeText(payload.type) || "Lecture Room",
   capacity: parsePositiveInteger(payload.capacity),
   status: normalizeRoomStatus(payload.status),
+  section: normalizeText(payload.section),
+  yearLevel: normalizeText(payload.yearLevel),
 });
 
 const isMissingTableError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === "42P01" ||
   error?.message?.toLowerCase().includes("schema cache") ||
   error?.message?.toLowerCase().includes("does not exist");
+
+const isMissingRoomMetadataColumnError = (
+  error: { code?: string; message?: string } | null | undefined,
+) => {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (
+    error?.code === "42703" ||
+    (message.includes("schema cache") &&
+      (message.includes("'section'") || message.includes("'year_level'")))
+  );
+};
+
+async function loadRooms(orgId: string) {
+  const withMetadata = await supabaseAdmin
+    .from("academic_rooms")
+    .select(roomSelect)
+    .eq("org_id", orgId)
+    .order("room_name", { ascending: true });
+
+  if (!withMetadata.error || !isMissingRoomMetadataColumnError(withMetadata.error)) {
+    return withMetadata;
+  }
+
+  return supabaseAdmin
+    .from("academic_rooms")
+    .select(baseRoomSelect)
+    .eq("org_id", orgId)
+    .order("room_name", { ascending: true });
+}
 
 async function loadRoomAssignments(orgId: string) {
   let lastError: { code?: string; message?: string } | null = null;
@@ -159,11 +193,7 @@ export async function GET(req: Request) {
   }
 
   const [roomsResult, subjectsResult] = await Promise.all([
-    supabaseAdmin
-      .from("academic_rooms")
-      .select(roomSelect)
-      .eq("org_id", context.org.id)
-      .order("room_name", { ascending: true }),
+    loadRooms(context.org.id),
     supabaseAdmin
       .from("academic_subjects")
       .select(subjectSelect)
@@ -238,23 +268,38 @@ export async function POST(req: Request) {
   }
 
   const now = new Date().toISOString();
-  const { data, error } = await supabaseAdmin
+  const roomToInsert = {
+    org_id: context.org.id,
+    room_name: values.name,
+    building: values.building,
+    room_type: values.type,
+    capacity: values.capacity,
+    status: values.status,
+    section: values.section || null,
+    year_level: values.yearLevel || null,
+    created_by_org_user_id: context.orgUser.id,
+    created_at: now,
+    updated_at: now,
+  };
+  let insertResult = await supabaseAdmin
     .from("academic_rooms")
-    .insert([
-      {
-        org_id: context.org.id,
-        room_name: values.name,
-        building: values.building,
-        room_type: values.type,
-        capacity: values.capacity,
-        status: values.status,
-        created_by_org_user_id: context.orgUser.id,
-        created_at: now,
-        updated_at: now,
-      },
-    ])
+    .insert([roomToInsert])
     .select(roomSelect)
     .single();
+
+  if (insertResult.error && isMissingRoomMetadataColumnError(insertResult.error)) {
+    const { section, year_level, ...baseRoomToInsert } = roomToInsert;
+    void section;
+    void year_level;
+
+    insertResult = await supabaseAdmin
+      .from("academic_rooms")
+      .insert([baseRoomToInsert])
+      .select(baseRoomSelect)
+      .single();
+  }
+
+  const { data, error } = insertResult;
 
   if (error || !data) {
     return jsonError(error?.message || "Failed to create room.", 500);
@@ -308,20 +353,39 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const { data, error } = await supabaseAdmin
+  const roomUpdates = {
+    room_name: values.name,
+    building: values.building,
+    room_type: values.type,
+    capacity: values.capacity,
+    status: values.status,
+    section: values.section || null,
+    year_level: values.yearLevel || null,
+    updated_at: new Date().toISOString(),
+  };
+  let updateResult = await supabaseAdmin
     .from("academic_rooms")
-    .update({
-      room_name: values.name,
-      building: values.building,
-      room_type: values.type,
-      capacity: values.capacity,
-      status: values.status,
-      updated_at: new Date().toISOString(),
-    })
+    .update(roomUpdates)
     .eq("id", roomId)
     .eq("org_id", context.org.id)
     .select(roomSelect)
     .maybeSingle();
+
+  if (updateResult.error && isMissingRoomMetadataColumnError(updateResult.error)) {
+    const { section, year_level, ...baseRoomUpdates } = roomUpdates;
+    void section;
+    void year_level;
+
+    updateResult = await supabaseAdmin
+      .from("academic_rooms")
+      .update(baseRoomUpdates)
+      .eq("id", roomId)
+      .eq("org_id", context.org.id)
+      .select(baseRoomSelect)
+      .maybeSingle();
+  }
+
+  const { data, error } = updateResult;
 
   if (error || !data) {
     return jsonError(error?.message || "Room not found.", error ? 500 : 404);
