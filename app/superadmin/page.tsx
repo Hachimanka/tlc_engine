@@ -88,6 +88,22 @@ export default function SuperAdminPage() {
     checkAuth();
   }, [router]);
 
+  useEffect(() => {
+    const handleSuperAdminNavigate = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: string }>).detail?.section;
+
+      if (section) {
+        setActiveKey(section);
+      }
+    };
+
+    window.addEventListener("tlc-superadmin-navigate", handleSuperAdminNavigate);
+
+    return () => {
+      window.removeEventListener("tlc-superadmin-navigate", handleSuperAdminNavigate);
+    };
+  }, []);
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

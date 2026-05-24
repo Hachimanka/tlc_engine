@@ -1,6 +1,11 @@
 import React, { useEffect, useState, type ChangeEvent } from "react";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
 import StyledSelect from "@/components/Global/StyledSelect";
+import {
+	DEFAULT_SUPERADMIN_NOTIFICATION_PREFERENCES,
+	readSuperAdminNotificationPreferences,
+	saveSuperAdminNotificationPreferences,
+} from "@/lib/superadminNotificationPreferences";
 import { supabase } from "@/lib/supabaseClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -366,6 +371,8 @@ export default function SuperAdminSettings() {
 	const [notifSystemAlerts, setNotifSystemAlerts] = useState(true);
 	const [notifWeeklyReport, setNotifWeeklyReport] = useState(false);
 	const [notifLoginAlert, setNotifLoginAlert] = useState(true);
+	const [notifSaving, setNotifSaving] = useState(false);
+	const [notifSuccess, setNotifSuccess] = useState(false);
 
 	// Danger
 	const [confirmDelete, setConfirmDelete] = useState("");
@@ -377,6 +384,16 @@ export default function SuperAdminSettings() {
 		{ key: "notifications", label: "Notifications", icon: Icons.notifications },
 		{ key: "danger", label: "Danger Zone", icon: Icons.danger },
 	];
+
+	useEffect(() => {
+		const preferences = readSuperAdminNotificationPreferences();
+		setNotifDemoRequest(preferences.demoRequests);
+		setNotifNewOrg(preferences.newOrganizations);
+		setNotifSubscription(preferences.subscriptions);
+		setNotifSystemAlerts(preferences.systemAlerts);
+		setNotifLoginAlert(preferences.loginAlerts);
+		setNotifWeeklyReport(preferences.weeklyReports);
+	}, []);
 
 	useEffect(() => {
 		const loadProfile = async () => {
@@ -418,6 +435,26 @@ export default function SuperAdminSettings() {
 
 		loadProfile();
 	}, []);
+
+	const saveNotificationPreferences = async () => {
+		setNotifSaving(true);
+		setNotifSuccess(false);
+
+		saveSuperAdminNotificationPreferences({
+			...DEFAULT_SUPERADMIN_NOTIFICATION_PREFERENCES,
+			demoRequests: notifDemoRequest,
+			newOrganizations: notifNewOrg,
+			subscriptions: notifSubscription,
+			systemAlerts: notifSystemAlerts,
+			loginAlerts: notifLoginAlert,
+			weeklyReports: notifWeeklyReport,
+		});
+
+		window.setTimeout(() => {
+			setNotifSaving(false);
+			setNotifSuccess(true);
+		}, 250);
+	};
 
 	const loadSuperAdmins = async () => {
 		setAdminsLoading(true);
@@ -1110,7 +1147,7 @@ export default function SuperAdminSettings() {
 								<Toggle value={notifWeeklyReport} onChange={setNotifWeeklyReport} label="Weekly Summary Report" description="Receive a weekly digest of platform activity" />
 
 								<div className="flex justify-end pt-4 border-t border-gray-100 mt-2">
-									<SaveButton onClick={async () => {}} saving={false} success={false} label="Save Preferences" />
+									<SaveButton onClick={saveNotificationPreferences} saving={notifSaving} success={notifSuccess} label="Save Preferences" />
 								</div>
 							</div>
 						</SectionCard>
