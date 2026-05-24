@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SubjectAssignmentModal, { type SubjectOption } from "./SubjectAssignmentModal";
 import VersionHistory from "./VersionHistory";
 import { supabase } from "@/lib/supabaseClient";
@@ -16,6 +16,8 @@ type FacultyRow = {
 type FacultyApiRow = FacultyRow & {
 	email?: string;
 	department?: string;
+	subjects?: SubjectRow[];
+	history?: VersionHistoryItem[];
 };
 
 type SubjectApiRow = SubjectOption;
@@ -23,10 +25,19 @@ type SubjectApiRow = SubjectOption;
 type SubjectRow = {
 	id: string;
 	subjectTitle: string;
+	subjectCode?: string;
 	section: string;
 	schedule: string;
 	room: string;
 	hoursPerDay: string;
+};
+
+type VersionHistoryItem = {
+	id: string;
+	version: string;
+	changedBy: string;
+	changedAt: string;
+	action: string;
 };
 
 type DepartmentFacultyTableProps = {
@@ -87,26 +98,20 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 	const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
 	const [facultyError, setFacultyError] = useState("");
 	const [facultySubjects, setFacultySubjects] = useState<Record<string, SubjectRow[]>>({});
+	const [facultyHistory, setFacultyHistory] = useState<Record<string, VersionHistoryItem[]>>({});
 	const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
 	const [isAssignSubjectOpen, setIsAssignSubjectOpen] = useState(false);
 	const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 	const [assignSubjectError, setAssignSubjectError] = useState("");
+	const [isAssigningSubject, setIsAssigningSubject] = useState(false);
+	const [deletingSubjectId, setDeletingSubjectId] = useState("");
 	const activeDepartmentName = departmentName ?? resolvedDepartmentName;
 
-	useEffect(() => {
-		if (departmentName) {
-			setResolvedDepartmentName(departmentName);
-			setIsDepartmentLoading(false);
-			setDepartmentError("");
-			setFacultyRows([]);
-			setSubjectOptions([]);
-			return;
-		}
-
-		let isActive = true;
-
-		const loadDepartmentFaculty = async () => {
-			setIsDepartmentLoading(true);
+	const loadDepartmentFaculty = useCallback(
+		async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
+			if (showLoading) {
+				setIsDepartmentLoading(true);
+			}
 			setDepartmentError("");
 			setFacultyError("");
 
@@ -120,11 +125,19 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 					throw sessionError;
 				}
 
-				const response = await fetch("/api/tenant/deped/department-faculty", {
-					headers: session?.access_token
-						? { Authorization: `Bearer ${session.access_token}` }
-						: undefined,
-				});
+				const params = new URLSearchParams();
+				if (departmentName) {
+					params.set("departmentName", departmentName);
+				}
+
+				const response = await fetch(
+					`/api/tenant/deped/department-faculty${params.size ? `?${params.toString()}` : ""}`,
+					{
+						headers: session?.access_token
+							? { Authorization: `Bearer ${session.access_token}` }
+							: undefined,
+					},
+				);
 				const payload = await response.json().catch(() => ({}));
 
 				if (!response.ok) {
@@ -135,27 +148,49 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 					);
 				}
 
-				if (!isActive) return;
-
 				setResolvedDepartmentName(
 					typeof payload?.departmentName === "string" ? payload.departmentName : "",
 				);
-				setFacultyRows(
+				const nextFacultyRows: FacultyRow[] = Array.isArray(payload?.faculty)
+					? payload.faculty.map((faculty: FacultyApiRow) => ({
+							id: faculty.id,
+							accountId: faculty.accountId ?? faculty.id,
+							name: faculty.name,
+							specialization: faculty.specialization,
+							employmentType: faculty.employmentType,
+						}))
+					: [];
+				setFacultyRows(nextFacultyRows);
+				setFacultySubjects(
 					Array.isArray(payload?.faculty)
-						? payload.faculty.map((faculty: FacultyApiRow) => ({
-								id: faculty.id,
-								accountId: faculty.accountId ?? faculty.id,
-								name: faculty.name,
-								specialization: faculty.specialization,
-								employmentType: faculty.employmentType,
-							}))
-						: [],
+						? payload.faculty.reduce((subjectsByFaculty: Record<string, SubjectRow[]>, faculty: FacultyApiRow) => {
+								subjectsByFaculty[faculty.id] = Array.isArray(faculty.subjects) ? faculty.subjects : [];
+								return subjectsByFaculty;
+							}, {} as Record<string, SubjectRow[]>)
+						: {},
+				);
+				setFacultyHistory(
+					Array.isArray(payload?.faculty)
+						? payload.faculty.reduce(
+								(historyByFaculty: Record<string, VersionHistoryItem[]>, faculty: FacultyApiRow) => {
+									historyByFaculty[faculty.id] = Array.isArray(faculty.history) ? faculty.history : [];
+									return historyByFaculty;
+								},
+								{} as Record<string, VersionHistoryItem[]>,
+							)
+						: {},
+				);
+				setSelectedFacultyId((current) =>
+					current && nextFacultyRows.some((faculty) => faculty.id === current)
+						? current
+						: nextFacultyRows[0]?.id ?? null,
 				);
 				setSubjectOptions(
 					Array.isArray(payload?.subjects)
-						? payload.subjects.map((subject: SubjectApiRow) => ({
+							? payload.subjects.map((subject: SubjectApiRow) => ({
 								id: subject.id,
 								subjectTitle: subject.subjectTitle,
+								subjectCode: subject.subjectCode,
 								department: subject.department,
 								yearLevel: subject.yearLevel,
 								schedule: subject.schedule,
@@ -167,7 +202,6 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 						: [],
 				);
 			} catch (error) {
-				if (!isActive) return;
 				setDepartmentError(
 					error instanceof Error
 						? error.message
@@ -175,19 +209,18 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 				);
 				setFacultyRows([]);
 				setSubjectOptions([]);
+				setFacultySubjects({});
+				setFacultyHistory({});
 			} finally {
-				if (isActive) {
-					setIsDepartmentLoading(false);
-				}
+				setIsDepartmentLoading(false);
 			}
-		};
+		},
+		[departmentName],
+	);
 
+	useEffect(() => {
 		void loadDepartmentFaculty();
-
-		return () => {
-			isActive = false;
-		};
-	}, [departmentName]);
+	}, [loadDepartmentFaculty]);
 
 	const selectedFaculty = facultyRows.find((faculty) => faculty.id === selectedFacultyId) ?? null;
 	const selectedSubjects = useMemo(
@@ -219,8 +252,9 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 		() => formatTotalMinutes(selectedSubjects),
 		[selectedSubjects],
 	);
+	const selectedHistory = selectedFaculty ? facultyHistory[selectedFaculty.id] ?? [] : [];
 
-	const handleAssignSubject = (subject: SubjectOption) => {
+	const handleAssignSubject = async (subject: SubjectOption) => {
 		if (!selectedFaculty) return;
 
 		const nextTotalHours =
@@ -233,35 +267,83 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 			return;
 		}
 
-		const assignedSubject: SubjectRow = {
-			id: subject.id,
-			subjectTitle: subject.subjectTitle,
-			section: `${subject.yearLevel} ${subject.section}`,
-			schedule: subject.schedule,
-			room: subject.room,
-			hoursPerDay: subject.hoursPerDay,
-		};
+		const {
+			data: { session },
+			error: sessionError,
+		} = await supabase.auth.getSession();
 
-		setFacultySubjects((currentSubjects) => ({
-			...currentSubjects,
-			[selectedFaculty.id]: [
-				...(currentSubjects[selectedFaculty.id] ?? []),
-				assignedSubject,
-			],
-		}));
+		if (sessionError || !session?.access_token) {
+			setAssignSubjectError("Your session expired. Please log in again.");
+			return;
+		}
+
+		setIsAssigningSubject(true);
 		setAssignSubjectError("");
+
+		const response = await fetch("/api/tenant/deped/department-faculty", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${session.access_token}`,
+			},
+			body: JSON.stringify({
+				facultyId: selectedFaculty.id,
+				assignmentId: subject.id,
+				departmentName: activeDepartmentName,
+			}),
+		});
+		const payload: { error?: string } = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			setAssignSubjectError(payload.error || "Unable to assign subject to this teacher.");
+			setIsAssigningSubject(false);
+			return;
+		}
+
+		await loadDepartmentFaculty({ showLoading: false });
+		setAssignSubjectError("");
+		setIsAssigningSubject(false);
 		setIsAssignSubjectOpen(false);
 	};
 
-	const handleDeleteSubject = (subjectId: string) => {
+	const handleDeleteSubject = async (subjectId: string) => {
 		if (!selectedFaculty) return;
 
-		setFacultySubjects((currentSubjects) => ({
-			...currentSubjects,
-			[selectedFaculty.id]: (currentSubjects[selectedFaculty.id] ?? []).filter(
-				(subject) => subject.id !== subjectId,
-			),
-		}));
+		const {
+			data: { session },
+			error: sessionError,
+		} = await supabase.auth.getSession();
+
+		if (sessionError || !session?.access_token) {
+			setDepartmentError("Your session expired. Please log in again.");
+			return;
+		}
+
+		setDeletingSubjectId(subjectId);
+		setDepartmentError("");
+
+		const response = await fetch("/api/tenant/deped/department-faculty", {
+			method: "DELETE",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${session.access_token}`,
+			},
+			body: JSON.stringify({
+				facultyId: selectedFaculty.id,
+				assignmentId: subjectId,
+				departmentName: activeDepartmentName,
+			}),
+		});
+		const payload: { error?: string } = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			setDepartmentError(payload.error || "Unable to remove assigned subject.");
+			setDeletingSubjectId("");
+			return;
+		}
+
+		await loadDepartmentFaculty({ showLoading: false });
+		setDeletingSubjectId("");
 	};
 
 	if (isDepartmentLoading) {
@@ -292,11 +374,13 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 				departmentName={activeDepartmentName}
 				subjectOptions={availableSubjects}
 				errorMessage={assignSubjectError}
+				isSubmitting={isAssigningSubject}
 			/>
 			<VersionHistory
 				isOpen={isVersionHistoryOpen}
 				onClose={() => setIsVersionHistoryOpen(false)}
 				selectedFacultyName={selectedFaculty?.name ?? "Faculty"}
+				entries={selectedHistory}
 			/>
 
 			<div className="overflow-hidden rounded-[18px] border border-[color:var(--color-default)] bg-[var(--color-card)] shadow-level-1">
@@ -425,9 +509,10 @@ export default function DepartmentFacultyTable({ departmentName }: DepartmentFac
 													<button
 														type="button"
 														onClick={() => handleDeleteSubject(subject.id)}
+														disabled={deletingSubjectId === subject.id}
 														className="text-label-button text-[var(--color-error)] transition hover:opacity-80"
 													>
-														Delete
+														{deletingSubjectId === subject.id ? "Deleting..." : "Delete"}
 													</button>
 												</td>
 											</tr>
