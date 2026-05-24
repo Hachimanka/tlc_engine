@@ -55,6 +55,8 @@ type RoomRow = {
   room_name: string;
   building: string | null;
   room_type: string | null;
+  section?: string | null;
+  year_level?: string | null;
 };
 
 type AssignFacultyRequest = {
@@ -164,6 +166,16 @@ const splitGroupedIds = (value: string) =>
 const normalizeSubjectSectionKey = (subjectTitle?: string | null, section?: string | null) =>
   `${normalizeText(subjectTitle).toLowerCase()}|${normalizeText(section || "N/A").toLowerCase()}`;
 
+const getDisplaySection = (assignmentSection: unknown, roomSection?: unknown) => {
+  const normalizedAssignmentSection = normalizeText(assignmentSection);
+
+  if (normalizedAssignmentSection && normalizedAssignmentSection.toLowerCase() !== "n/a") {
+    return normalizedAssignmentSection;
+  }
+
+  return normalizeText(roomSection) || normalizedAssignmentSection || "N/A";
+};
+
 const getDurationMinutes = (startTime: unknown, endTime: unknown) => {
   const start = parseTimeParts(startTime);
   const end = parseTimeParts(endTime);
@@ -192,7 +204,7 @@ const mapJoinedAssignmentToSubject = (
     yearLevel: subject.year_level ?? "",
     schedule: `${normalizeText(assignment.day_of_week)} ${startLabel} - ${endLabel}`,
     room: room?.room_name ?? "",
-    section: normalizeText(assignment.section) || "N/A",
+    section: getDisplaySection(assignment.section, room?.section),
     hoursPerDay: `${durationMinutes} minutes`,
     status: "Approved" as const,
   };
@@ -288,7 +300,7 @@ async function loadAssignedSubjects(orgId: string, departmentName: string) {
       .in("id", subjectIds),
     supabaseAdmin
       .from("academic_rooms")
-      .select("id, room_name, building, room_type")
+      .select("id, room_name, building, room_type, section, year_level")
       .eq("org_id", orgId)
       .in("id", roomIds),
   ]);
@@ -330,7 +342,7 @@ async function loadAssignedSubjects(orgId: string, departmentName: string) {
         yearLevel: subject.year_level ?? "",
         schedule: `${normalizeText(assignment.day_of_week)} ${startLabel} - ${endLabel}`,
         room: room?.room_name ?? "",
-        section: normalizeText(assignment.section) || "N/A",
+        section: getDisplaySection(assignment.section, room?.section),
         hoursPerDay: `${durationMinutes} minutes`,
         status: "Approved" as const,
       };
@@ -378,7 +390,9 @@ async function loadSavedAssignments(orgId: string, facultyIds: string[]) {
             id,
             room_name,
             building,
-            room_type
+            room_type,
+            section,
+            year_level
           )
         )
       `,
@@ -684,7 +698,9 @@ export async function POST(req: Request) {
           id,
           room_name,
           building,
-          room_type
+          room_type,
+          section,
+          year_level
         )
       `,
     )
