@@ -315,7 +315,11 @@ function PersonLine({
   );
 }
 
-export default function Departments() {
+type DepartmentsProps = {
+  showInitialSkeleton?: boolean;
+};
+
+export default function Departments({ showInitialSkeleton = false }: DepartmentsProps) {
   const [colleges, setColleges] = useState<College[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Person[]>([]);
@@ -1333,7 +1337,7 @@ export default function Departments() {
     return null;
   };
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return <DepartmentsSkeleton />;
   }
 

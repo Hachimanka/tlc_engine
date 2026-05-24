@@ -181,7 +181,11 @@ const isTeacherAccount = (roleKey: string, roleName: string) => {
   return key === "teacher" || name.includes("teacher");
 };
 
-export default function Employee() {
+type EmployeeProps = {
+  showInitialSkeleton?: boolean;
+};
+
+export default function Employee({ showInitialSkeleton = false }: EmployeeProps) {
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [roles, setRoles] = useState<EmployeeRole[]>([]);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
@@ -393,7 +397,7 @@ export default function Employee() {
     };
   };
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return <EmployeeSkeleton />;
   }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Global/navbar";
 import Sidebar, { type SidebarItem } from "@/components/Global/sidebar";
+import TenantLogoLoader from "@/components/Global/TenantLogoLoader";
 import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
@@ -114,7 +115,11 @@ function UpgradeRequiredPanel({ subscriptionPlan }: { subscriptionPlan?: string 
   );
 }
 
-function AnalyticsReportsPanel() {
+function AnalyticsReportsPanel({
+  showInitialSkeleton = false,
+}: {
+  showInitialSkeleton?: boolean;
+}) {
   const [users, setUsers] = useState<AnalyticsUserPayload[]>([]);
   const [features, setFeatures] = useState<AnalyticsFeaturePayload[]>([]);
   const [departments, setDepartments] = useState<AnalyticsDepartmentPayload[]>([]);
@@ -154,7 +159,11 @@ function AnalyticsReportsPanel() {
   }, []);
 
   useEffect(() => {
-    loadAnalytics();
+    const frame = window.requestAnimationFrame(() => {
+      loadAnalytics();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [loadAnalytics]);
 
   const activeUsers = users.filter((user) => (user.status ?? "active") === "active");
@@ -194,7 +203,7 @@ function AnalyticsReportsPanel() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && showInitialSkeleton) {
     return (
       <TenantLoadingScreen
         branding={null}
@@ -323,7 +332,10 @@ export default function TenantPage() {
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
+  const [tabSkeletonView, setTabSkeletonView] = useState<TenantAdminView | null>(null);
   const [authError, setAuthError] = useState("");
+  const [showTenantLoader, setShowTenantLoader] = useState(true);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const sidebarItems = useMemo<SidebarItem[]>(() => {
     const iconMap: Record<TenantAdminView, string> = {
@@ -363,14 +375,25 @@ export default function TenantPage() {
   };
 
   const content = {
-    accounts: <Accounts />,
-    policies: <Policies />,
-    "manage-users": <TenantRolePermissionsPanel />,
-    departments: <Departments />,
-    employees: <Employee />,
-    branding: <Branding onBrandingUpdated={handleBrandingUpdated} />,
+    accounts: <Accounts showInitialSkeleton={tabSkeletonView === "accounts"} />,
+    policies: <Policies showInitialSkeleton={tabSkeletonView === "policies"} />,
+    "manage-users": (
+      <TenantRolePermissionsPanel
+        showInitialSkeleton={tabSkeletonView === "manage-users"}
+      />
+    ),
+    departments: <Departments showInitialSkeleton={tabSkeletonView === "departments"} />,
+    employees: <Employee showInitialSkeleton={tabSkeletonView === "employees"} />,
+    branding: (
+      <Branding
+        onBrandingUpdated={handleBrandingUpdated}
+        showInitialSkeleton={tabSkeletonView === "branding"}
+      />
+    ),
     "analytics-reports": canUseFullAnalyticsReports ? (
-      <AnalyticsReportsPanel />
+      <AnalyticsReportsPanel
+        showInitialSkeleton={tabSkeletonView === "analytics-reports"}
+      />
     ) : (
       <UpgradeRequiredPanel subscriptionPlan={subscriptionPlan} />
     ),
@@ -389,7 +412,6 @@ export default function TenantPage() {
       setProfile(storedShell.profile);
       setBranding(storedShell.branding);
       setActiveView(getDefaultTenantAdminView(storedShell.institutionType));
-      setIsBootstrapping(false);
     } else {
       setBranding(readStoredTenantBranding());
     }
@@ -537,6 +559,7 @@ export default function TenantPage() {
     ];
     const shouldUseSectionLoader = !viewsWithLocalLoaders.includes(key as TenantAdminView);
 
+    setTabSkeletonView(shouldUseSectionLoader ? null : (key as TenantAdminView));
     setContentLoading(shouldUseSectionLoader);
     setActiveView(key as TenantAdminView);
   };
@@ -561,11 +584,17 @@ export default function TenantPage() {
 
   if (isBootstrapping) {
     return (
-      <TenantLoadingScreen
+      <TenantBrandScope
         branding={branding}
-        label="Loading workspace"
-        useStoredBranding
-      />
+        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      >
+        <TenantLogoLoader
+          branding={branding}
+          logoUrl={branding?.logoUrl}
+          logoAlt={branding?.logoAlt}
+          isDataReady={false}
+        />
+      </TenantBrandScope>
     );
   }
 
@@ -574,6 +603,18 @@ export default function TenantPage() {
       branding={branding}
       className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
     >
+      {showTenantLoader ? (
+        <TenantLogoLoader
+          branding={branding}
+          logoUrl={branding?.logoUrl}
+          logoAlt={branding?.logoAlt}
+          isDataReady
+          onAnimationComplete={() => {
+            setShowTenantLoader(false);
+            setShowDashboard(true);
+          }}
+        />
+      ) : null}
       <Navbar
         branding={branding}
         organizationName={orgName}
@@ -600,6 +641,8 @@ export default function TenantPage() {
           }}
         />
         <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
+          {showDashboard ? (
+            <>
           {contentLoading &&
           activeView !== "accounts" &&
           activeView !== "manage-users" &&
@@ -614,6 +657,8 @@ export default function TenantPage() {
           ) : (
             content
           )}
+            </>
+          ) : null}
         </section>
       </div>
     </TenantBrandScope>
