@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import StyledSelect from "@/components/Global/StyledSelect";
-import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
+import LogoLoadingScreen from "@/components/LandingPage/LogoLoadingScreen";
 import {
 	BasicInstitutionIcon,
 	CheckMarkedIcon,
@@ -215,6 +216,39 @@ const institutionCards = [
 	},
 ];
 
+const onboardingProgressStorageKey = "tlc-onboarding-progress";
+
+const institutionTypeValues = ["higher_ed", "deped", "tesda", "training"] as const;
+
+function isInstitutionType(value: unknown): value is Exclude<InstitutionType, null> {
+	return typeof value === "string" && institutionTypeValues.includes(value as (typeof institutionTypeValues)[number]);
+}
+
+function readStoredOnboardingProgress() {
+	if (typeof window === "undefined") {
+		return null;
+	}
+
+	try {
+		const raw = window.localStorage.getItem(onboardingProgressStorageKey);
+		if (!raw) {
+			return null;
+		}
+
+		const parsed = JSON.parse(raw) as { step?: unknown; institutionType?: unknown };
+		if (typeof parsed.step !== "number") {
+			return null;
+		}
+
+		return {
+			step: parsed.step,
+			institutionType: isInstitutionType(parsed.institutionType) ? parsed.institutionType : null,
+		};
+	} catch {
+		return null;
+	}
+}
+
 // ─── Institution Type Card ────────────────────────────────────────────────────
 function TypeCard({ icon, title, description, selected, onClick }: {
 	icon: string;
@@ -355,6 +389,26 @@ export default function TenantOnboardingPage() {
 	const [passingGrade, setPassingGrade] = useState("75");
 	const [gradingScale, setGradingScale] = useState("percentage");
 	const [assessmentType, setAssessmentType] = useState("competency");
+
+	useEffect(() => {
+		const storedProgress = readStoredOnboardingProgress();
+		if (storedProgress) {
+			setStep(storedProgress.step);
+			setInstitutionType(storedProgress.institutionType);
+		}
+	}, []);
+
+	useEffect(() => {
+		try {
+			window.localStorage.setItem(onboardingProgressStorageKey, JSON.stringify({ step, institutionType }));
+		} catch {
+			// Ignore storage failures and keep the flow usable.
+		}
+	}, [institutionType, step]);
+
+	useEffect(() => {
+		setStep(prev => Math.min(prev, steps.length - 1));
+	}, [steps.length]);
 
 	useEffect(() => {
 		const checkAuth = async () => {
@@ -539,28 +593,29 @@ export default function TenantOnboardingPage() {
 		router.replace("/tenant/tenant-admin");
 	};
 
-	if (loading) {
-		return (
-			<TenantLoadingScreen
-				card
-				className="flex min-h-screen items-start justify-center bg-[var(--color-background)] px-4 py-10"
-				label="Loading onboarding"
-				useStoredBranding
-			/>
-		);
-	}
-
 	return (
-		<div className="min-h-screen bg-gray-50 flex flex-col">
-			{/* Top bar */}
-			<header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-end">
-				<span className="text-xs text-gray-400 font-medium">
-					Step {step + 1} of {steps.length}
-				</span>
-			</header>
+			<>
+				<LogoLoadingScreen
+					canDismiss={!loading}
+				/>
+			<div className={`min-h-screen bg-gray-50 flex flex-col transition-opacity duration-300 ${loading ? "opacity-0 pointer-events-none" : "opacity-100"}`} aria-hidden={loading}>
+					{/* Top bar */}
+					<header className="h-[72px] bg-[var(--color-primary)] px-6 md:px-10">
+						<div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4">
+							<a href="/" aria-label="Home" data-tlc-navbar-logo className="flex items-center gap-3">
+								<Image src="/TLCLogo.svg" alt="TLC Engine Logo" width={48} height={48} className="object-contain" />
+							</a>
+							<div className="flex items-center gap-3 text-[var(--color-card)]">
+								<span className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--color-card)]/70 sm:block">Onboarding</span>
+								<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-[var(--color-card)]">
+									Step {step + 1} of {steps.length}
+								</span>
+							</div>
+						</div>
+					</header>
 
-			<div className="flex-1 flex items-start justify-center py-10 px-4">
-				<div className="w-full max-w-2xl">
+					<div className="flex-1 flex items-start justify-center py-10 px-4">
+						<div className="w-full max-w-2xl">
 
 					{/* Progress bar */}
 					<div className="flex gap-1.5 mb-8">
@@ -1457,8 +1512,9 @@ export default function TenantOnboardingPage() {
 							</div>
 						</div>
 					</div>
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
+			</>
 	);
 }
