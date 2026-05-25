@@ -1,6 +1,15 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { tenantBrandingToCssVariables, type TenantBranding } from "@/lib/tenantBranding";
+import { readStoredTenantBranding } from "@/lib/tenantBrandingSession";
 import {
   teacherLoadRows,
   type TeacherLoadRow,
@@ -148,7 +157,15 @@ const getCoveredTimeSlots = (block: ScheduleBlock, timeSlots: string[]) => {
 // Falls back to the Wikimedia SVG if the local file is absent.
 const CHED_LOGO = "/ched-logo.png";
 
-function OrgLogo({ url, alt }: { url: string | null; alt: string }) {
+function OrgLogo({
+  url,
+  alt,
+  brandColor,
+}: {
+  url: string | null;
+  alt: string;
+  brandColor: string;
+}) {
   if (url) {
     return (
       <img
@@ -162,7 +179,7 @@ function OrgLogo({ url, alt }: { url: string | null; alt: string }) {
   return (
     <div
       className="h-16 w-16 rounded-full border-2 bg-contain bg-center bg-no-repeat"
-      style={{ borderColor: "var(--color-primary)" }}
+      style={{ borderColor: brandColor }}
     />
   );
 }
@@ -211,9 +228,16 @@ export default function ExportFrom({
   onClose,
   rows = teacherLoadRows,
 }: ExportFromProps) {
+  const exportRootRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<TeacherProfile>(DEFAULT_PROFILE);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState("");
+  const [tenantBranding, setTenantBranding] = useState<TenantBranding | null>(null);
+  const [exportPrimaryColor, setExportPrimaryColor] = useState("#006b5f");
+  const exportBrandingStyle = useMemo(
+    () => tenantBrandingToCssVariables(tenantBranding) as CSSProperties,
+    [tenantBranding],
+  );
   const scheduleBlocks = useMemo(
     () => rows.flatMap((row) => extractScheduleBlocks(row)),
     [rows],
@@ -252,6 +276,22 @@ export default function ExportFrom({
       document.body.style.overflow = prev;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setTenantBranding(readStoredTenantBranding());
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !exportRootRef.current) return;
+
+    const computedPrimary = getComputedStyle(exportRootRef.current)
+      .getPropertyValue("--color-primary")
+      .trim();
+
+    setExportPrimaryColor(computedPrimary || "#006b5f");
+  }, [exportBrandingStyle, isOpen]);
 
   // Fetch all teacher + org details from DB
   useEffect(() => {
@@ -386,7 +426,11 @@ export default function ExportFrom({
 
   return (
     <>
-      <div className="teacher-export-overlay fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/50 p-3">
+      <div
+        ref={exportRootRef}
+        className="teacher-export-overlay fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/50 p-3"
+        style={exportBrandingStyle}
+      >
         <div className="flex max-h-[calc(100vh-24px)] w-[95vw] max-w-[1180px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
           {/* ── Toolbar ── */}
           <div className="flex items-center justify-between gap-4 px-5 py-3">
@@ -436,7 +480,7 @@ export default function ExportFrom({
                 <div className="space-y-3">
                   {/* ── Header: Org logo | Title | CHED logo ── */}
                   <div className="grid grid-cols-[1fr_2fr_1fr] items-center">
-                    <OrgLogo url={orgLogoUrl} alt={orgLogoAlt} />
+                    <OrgLogo url={orgLogoUrl} alt={orgLogoAlt} brandColor={exportPrimaryColor} />
 
                     <div className="text-center">
                       <h1 className="text-lg font-bold uppercase">
@@ -525,7 +569,7 @@ export default function ExportFrom({
                                   style={{
                                     top,
                                     height: Math.max(height - 4, 24),
-                                    backgroundColor: "var(--color-primary)",
+                                    backgroundColor: exportPrimaryColor,
                                   }}
                                 >
                                   <span className="font-bold leading-tight">{block.row.subjectCode}</span>
