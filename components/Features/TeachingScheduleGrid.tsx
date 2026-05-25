@@ -211,95 +211,122 @@ export default function TeachingScheduleGrid({
   const scheduleBlocks = buildScheduleBlocks(rows);
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[1220px] overflow-hidden rounded-lg border border-[var(--color-primary)] bg-white shadow-level-1">
-        <div
-          className="grid bg-[var(--color-primary)] text-xs font-bold text-white"
-          style={{ gridTemplateColumns: "150px repeat(7, minmax(145px, 1fr))" }}
-        >
-          <div className="sticky left-0 z-20 border-r border-white/30 bg-[var(--color-primary)] px-3 py-4 text-center">
-            Time
-          </div>
-          {weekDays.map((day) => (
-            <div
-              key={day}
-              className="border-r border-white/20 px-3 py-4 text-center last:border-r-0"
-            >
-              {day}
+    <div className="isolate overflow-hidden rounded-lg border border-[var(--color-primary)] bg-[var(--color-card)] shadow-level-1">
+      <div className="teaching-schedule-scrollbar overflow-x-auto">
+        <div className="min-w-[1220px] bg-white">
+          <div
+            className="grid bg-[var(--color-primary)] text-xs font-bold text-white"
+            style={{ gridTemplateColumns: "150px repeat(7, minmax(145px, 1fr))" }}
+          >
+            <div className="sticky left-0 z-20 border-r border-white/30 bg-[var(--color-primary)] px-3 py-4 text-center">
+              Time
             </div>
-          ))}
-        </div>
-
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: "150px repeat(7, minmax(145px, 1fr))",
-            minHeight: bodyHeight,
-          }}
-        >
-          <div className="sticky left-0 z-10 bg-white shadow-[2px_0_0_var(--color-default)]">
-            {displaySlots.map((slot) => (
+            {weekDays.map((day) => (
               <div
-                key={`${slot.start}-${slot.end}`}
-                className="flex items-center justify-center border-b border-[var(--color-default)] bg-[#f8fafc] px-2 text-center text-[11px] font-semibold text-[var(--color-high-emphasis)] last:border-b-0"
-                style={{ height: scheduleRowHeight }}
+                key={day}
+                className="border-r border-white/20 px-3 py-4 text-center last:border-r-0"
               >
-                {slot.label}
+                {day}
               </div>
             ))}
           </div>
 
-          {weekDays.map((day) => {
-            const dayBlocks = scheduleBlocks.filter((block) => block.day === day);
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: "150px repeat(7, minmax(145px, 1fr))",
+              minHeight: bodyHeight,
+            }}
+          >
+            <div className="sticky left-0 z-10 bg-white shadow-[2px_0_0_var(--color-default)]">
+              {displaySlots.map((slot) => (
+                <div
+                  key={`${slot.start}-${slot.end}`}
+                  className="flex items-center justify-center border-b border-[var(--color-default)] bg-[#f8fafc] px-2 text-center text-[11px] font-semibold text-[var(--color-high-emphasis)] last:border-b-0"
+                  style={{ height: scheduleRowHeight }}
+                >
+                  {slot.label}
+                </div>
+              ))}
+            </div>
 
-            return (
-              <div
-                key={day}
-                className="relative border-r border-[var(--color-default)] last:border-r-0"
-                style={{ height: bodyHeight }}
-              >
-                {displaySlots.map((slot) => (
-                  <div
-                    key={`${slot.start}-${slot.end}`}
-                    className="border-b border-[var(--color-default)] last:border-b-0"
-                    style={{ height: scheduleRowHeight }}
-                  />
-                ))}
+            {weekDays.map((day) => {
+              const dayBlocks = scheduleBlocks.filter((block) => block.day === day);
 
-                {dayBlocks.map((block) => {
-                  const clampedStart = Math.max(activeScheduleStart, block.startMinutes);
-                  const clampedEnd = Math.min(activeScheduleEnd, Math.max(block.endMinutes, clampedStart + 15));
-                  const top = ((clampedStart - activeScheduleStart) / 60) * scheduleRowHeight;
-                  const height = ((clampedEnd - clampedStart) / 60) * scheduleRowHeight;
-
-                  return (
+              return (
+                <div
+                  key={day}
+                  className="relative border-r border-[var(--color-default)] last:border-r-0"
+                  style={{ height: bodyHeight }}
+                >
+                  {displaySlots.map((slot) => (
                     <div
-                      key={block.id}
-                      className="absolute left-2 right-2 flex min-h-10 flex-col items-center justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-2 py-1 text-center text-white shadow-sm"
-                      style={{ top, height: Math.max(height - 6, 42) }}
-                      title={`${formatMinutes(block.startMinutes)} - ${formatMinutes(block.endMinutes)}`}
-                    >
-                      {block.assignments.map((assignment) => (
-                        <div key={`${assignment.id}-${assignment.subjectCode}`} className="w-full py-0.5">
-                          <p className="truncate text-xs font-bold leading-4">
-                            {assignment.subjectCode}
-                          </p>
-                          <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-semibold leading-4">
-                            <span className="rounded bg-white/20 px-1.5 py-0.5">
-                              {assignment.section}
-                            </span>
-                            <span className="truncate">{assignment.room}</span>
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                      key={`${slot.start}-${slot.end}`}
+                      className="border-b border-[var(--color-default)] last:border-b-0"
+                      style={{ height: scheduleRowHeight }}
+                    />
+                  ))}
+
+                  {dayBlocks.map((block) => {
+                    const clampedStart = Math.max(activeScheduleStart, block.startMinutes);
+                    const clampedEnd = Math.min(activeScheduleEnd, Math.max(block.endMinutes, clampedStart + 15));
+                    const top = ((clampedStart - activeScheduleStart) / 60) * scheduleRowHeight;
+                    const height = ((clampedEnd - clampedStart) / 60) * scheduleRowHeight;
+
+                    return (
+                      <div
+                        key={block.id}
+                        className="absolute left-2 right-2 flex min-h-10 flex-col items-center justify-center overflow-hidden rounded-md bg-[var(--color-primary)] px-2 py-1 text-center text-white shadow-sm"
+                        style={{ top, height: Math.max(height - 6, 42) }}
+                        title={`${formatMinutes(block.startMinutes)} - ${formatMinutes(block.endMinutes)}`}
+                      >
+                        {block.assignments.map((assignment) => (
+                          <div key={`${assignment.id}-${assignment.subjectCode}`} className="w-full py-0.5">
+                            <p className="truncate text-xs font-bold leading-4">
+                              {assignment.subjectCode}
+                            </p>
+                            <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-semibold leading-4">
+                              <span className="rounded bg-white/20 px-1.5 py-0.5">
+                                {assignment.section}
+                              </span>
+                              <span className="truncate">{assignment.room}</span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
+      <style jsx>{`
+        .teaching-schedule-scrollbar {
+          scrollbar-color: var(--color-primary) var(--color-default);
+          scrollbar-width: thin;
+        }
+
+        .teaching-schedule-scrollbar::-webkit-scrollbar {
+          height: 12px;
+        }
+
+        .teaching-schedule-scrollbar::-webkit-scrollbar-track {
+          background: var(--color-default);
+          border-top: 1px solid var(--color-default);
+        }
+
+        .teaching-schedule-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-primary);
+          border: 3px solid var(--color-default);
+          border-radius: 999px;
+        }
+
+        .teaching-schedule-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--color-light-primary);
+        }
+      `}</style>
     </div>
   );
 }

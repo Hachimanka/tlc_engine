@@ -115,7 +115,7 @@ export default function TenantRoleLayout({
   };
 
   const sectionClassName = [
-    "min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)]",
+    "tenant-branded-scrollbar min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)]",
     contentClassName,
   ]
     .filter(Boolean)

@@ -34,6 +34,8 @@ import CollegeTeachingLoadTable from "@/components/Features/College/view-teachin
 import type { FeatureKey } from "@/features/tenant-feature-catalog";
 import { ICON_SVGS } from "@/public/icons";
 
+const brandedDownloadIcon = ICON_SVGS.download.replaceAll("#029383", "currentColor");
+
 type TenantFeatureContentProps = {
   featureKey: string;
   children: ReactNode;
@@ -274,9 +276,9 @@ function DepedTeachingLoadContent() {
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[12px] font-medium text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)]"
           >
             <span
-              className="flex h-4 w-4 items-center justify-center"
+              className="flex h-4 w-4 items-center justify-center text-white"
               aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: ICON_SVGS.download }}
+              dangerouslySetInnerHTML={{ __html: brandedDownloadIcon }}
             />
             Export
           </button>
@@ -292,7 +294,7 @@ function DepedTeachingLoadContent() {
           >
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[rgba(2,147,131,0.30)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
+              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[var(--color-default)] opacity-80 transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
             />
             <span className="relative z-10 text-center">Send Request</span>
           </button>
@@ -322,9 +324,9 @@ function CollegeTeachingLoadContent() {
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-[12px] font-medium text-white shadow-level-1 transition hover:bg-[var(--color-light-primary)] cursor-pointer"
           >
             <span
-              className="flex h-4 w-4 items-center justify-center"
+              className="flex h-4 w-4 items-center justify-center text-white"
               aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: ICON_SVGS.download }}
+              dangerouslySetInnerHTML={{ __html: brandedDownloadIcon }}
             />
             Export
           </button>
@@ -340,7 +342,7 @@ function CollegeTeachingLoadContent() {
           >
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[rgba(2,147,131,0.30)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
+              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[var(--color-default)] opacity-80 transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
             />
             <span className="relative z-10 text-center cursor-pointer">Send Request</span>
           </button>
