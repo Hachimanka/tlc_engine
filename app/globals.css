@@ -236,6 +236,41 @@
   .themed-svg-icon svg * {
     stroke: currentColor !important;
   }
+
+  .tenant-branded-scrollbars,
+  .tenant-branded-scrollbars * {
+    scrollbar-color: var(--tenant-scrollbar-thumb, var(--color-primary)) var(--tenant-scrollbar-track, var(--color-default));
+    scrollbar-width: thin;
+  }
+
+  .tenant-branded-scrollbars::-webkit-scrollbar,
+  .tenant-branded-scrollbars *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .tenant-branded-scrollbars::-webkit-scrollbar-track,
+  .tenant-branded-scrollbars *::-webkit-scrollbar-track {
+    background: var(--tenant-scrollbar-track, var(--color-default));
+    border-radius: 999px;
+  }
+
+  .tenant-branded-scrollbars::-webkit-scrollbar-thumb,
+  .tenant-branded-scrollbars *::-webkit-scrollbar-thumb {
+    background: var(--tenant-scrollbar-thumb, var(--color-primary));
+    border: 2px solid var(--tenant-scrollbar-track, var(--color-default));
+    border-radius: 999px;
+  }
+
+  .tenant-branded-scrollbars::-webkit-scrollbar-thumb:hover,
+  .tenant-branded-scrollbars *::-webkit-scrollbar-thumb:hover {
+    background: var(--tenant-scrollbar-thumb-hover, var(--color-light-primary));
+  }
+
+  .tenant-branded-scrollbars::-webkit-scrollbar-corner,
+  .tenant-branded-scrollbars *::-webkit-scrollbar-corner {
+    background: var(--tenant-scrollbar-track, var(--color-default));
+  }
 }
 
 .animate-fade-in {
