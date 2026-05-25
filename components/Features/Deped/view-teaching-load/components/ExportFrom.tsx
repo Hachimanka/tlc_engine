@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import { teacherLoadRows, type TeacherLoadRow } from "./teacher-load-data";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -326,10 +327,10 @@ export default function ExportFrom({
 	}
 
 	return (
-		<>
+		<TenantBrandScope>
 			<div className="teacher-export-overlay fixed inset-0 z-50 bg-black/50 px-4 py-6">
 				<div className="mx-auto flex h-full w-full max-w-[1400px] flex-col overflow-hidden rounded-2xl bg-[var(--color-background)] shadow-2xl">
-					<div className="flex items-center justify-between gap-4 border-b border-[rgba(0,0,0,0.08)] bg-white px-5 py-4">
+					<div className="flex items-center justify-between gap-4 border-b border-[rgba(0,0,0,0.08)] bg-[var(--color-card)] px-5 py-4">
 						<div>
 							<h2 className="text-lg font-semibold text-[var(--color-high-emphasis)]">PDF Preview</h2>
 							<p className="text-sm text-[var(--color-low-emphasis)]">Portrait A4 export preview for the class program form.</p>
@@ -346,7 +347,7 @@ export default function ExportFrom({
 							<button
 								type="button"
 								onClick={onClose}
-								className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-white"
+								className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
 							>
 								Close
 							</button>
@@ -482,6 +483,6 @@ export default function ExportFrom({
 					}
 				}
 			`}</style>
-		</>
+		</TenantBrandScope>
 	);
 }

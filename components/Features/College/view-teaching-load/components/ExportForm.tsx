@@ -431,12 +431,12 @@ export default function ExportFrom({
         className="teacher-export-overlay fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/50 p-3"
         style={exportBrandingStyle}
       >
-        <div className="flex max-h-[calc(100vh-24px)] w-[95vw] max-w-[1180px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex max-h-[calc(100vh-24px)] w-[95vw] max-w-[1180px] flex-col overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-2xl">
           {/* ── Toolbar ── */}
           <div className="flex items-center justify-between gap-4 px-5 py-3">
             <div>
               <h2 className="text-lg font-semibold">PDF Preview</h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--color-low-emphasis)]">
                 Landscape Letter Class Schedule
               </p>
             </div>
@@ -458,7 +458,7 @@ export default function ExportFrom({
               <button
                 type="button"
                 onClick={onClose}
-                className="cursor-pointer rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-white"
+                className="cursor-pointer rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
               >
                 Close
               </button>

@@ -236,6 +236,35 @@
   .themed-svg-icon svg * {
     stroke: currentColor !important;
   }
+
+  .tenant-branded-scrollbar,
+  .tenant-branded-scrollbar * {
+    scrollbar-color: var(--color-primary) var(--color-default);
+    scrollbar-width: thin;
+  }
+
+  .tenant-branded-scrollbar::-webkit-scrollbar,
+  .tenant-branded-scrollbar *::-webkit-scrollbar {
+    height: 12px;
+    width: 12px;
+  }
+
+  .tenant-branded-scrollbar::-webkit-scrollbar-track,
+  .tenant-branded-scrollbar *::-webkit-scrollbar-track {
+    background: var(--color-default);
+  }
+
+  .tenant-branded-scrollbar::-webkit-scrollbar-thumb,
+  .tenant-branded-scrollbar *::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border: 3px solid var(--color-default);
+    border-radius: 999px;
+  }
+
+  .tenant-branded-scrollbar::-webkit-scrollbar-thumb:hover,
+  .tenant-branded-scrollbar *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-light-primary);
+  }
 }
 
 .animate-fade-in {

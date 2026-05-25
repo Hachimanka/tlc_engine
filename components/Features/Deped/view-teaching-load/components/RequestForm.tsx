@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { AppIcon } from "@/public/icons";
 import { supabase } from "@/lib/supabaseClient";
@@ -141,16 +142,20 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 	};
 
 	return (
-		<div
-			className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
-			onClick={handleCancel}
-		>
+		<TenantBrandScope>
 			<div
-				className="w-full max-w-2xl overflow-hidden rounded-[18px] bg-white shadow-level-2"
-				onClick={(event) => event.stopPropagation()}
+				className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+				onClick={handleCancel}
 			>
-				<form onSubmit={handleSubmit} className="max-h-[90vh] overflow-y-auto">
-					<div className="flex items-start justify-between gap-4 bg-[var(--color-primary)] px-6 py-5 text-white">
+				<div
+					className="w-full max-w-2xl overflow-hidden rounded-[18px] bg-[var(--color-card)] shadow-level-2"
+					onClick={(event) => event.stopPropagation()}
+				>
+				<form
+					onSubmit={handleSubmit}
+					className="request-modal-scrollbar max-h-[90vh] overflow-y-auto"
+				>
+					<div className="sticky top-0 z-20 flex items-start justify-between gap-4 bg-[var(--color-primary)] px-6 py-5 text-white">
 						<div className="space-y-1">
 							<p className="text-xs font-semibold uppercase tracking-wide text-white/75">
 								DepEd load request
@@ -167,11 +172,11 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 							type="button"
 							onClick={handleCancel}
 							aria-label="Close modal"
-							className="flex h-10 w-10 items-center justify-center rounded-lg text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+							className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/30 bg-white/10 text-white transition-colors hover:bg-[var(--color-light-primary)]"
 						>
 							<AppIcon
 								name="close"
-								className="inline-block [&_svg]:h-4 [&_svg]:w-4"
+								className="inline-block [&_svg]:h-4 [&_svg]:w-4 [&_svg_*]:stroke-current"
 								title="Close"
 							/>
 						</button>
@@ -223,7 +228,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 								value={formData.description}
 								onChange={handleChange}
 								placeholder="Type here..."
-								className="text-body-small h-44 w-full resize-none rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1 outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+								className="text-body-small h-44 w-full resize-none rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1 outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
 							/>
 						</div>
 
@@ -232,7 +237,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 								type="button"
 								onClick={handleCancel}
 								disabled={isSubmitting}
-								className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+								className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
 							>
 								Cancel
 							</button>
@@ -246,7 +251,32 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 						</div>
 					</div>
 				</form>
+				</div>
 			</div>
-		</div>
+			<style jsx>{`
+				.request-modal-scrollbar {
+					scrollbar-color: var(--color-primary) var(--color-default);
+					scrollbar-width: thin;
+				}
+
+				.request-modal-scrollbar::-webkit-scrollbar {
+					width: 12px;
+				}
+
+				.request-modal-scrollbar::-webkit-scrollbar-track {
+					background: var(--color-default);
+				}
+
+				.request-modal-scrollbar::-webkit-scrollbar-thumb {
+					background: var(--color-primary);
+					border: 3px solid var(--color-default);
+					border-radius: 999px;
+				}
+
+				.request-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+					background: var(--color-light-primary);
+				}
+			`}</style>
+		</TenantBrandScope>
 	);
 }

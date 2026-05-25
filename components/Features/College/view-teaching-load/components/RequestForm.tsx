@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TenantBrandScope from "@/components/Global/TenantBrandScope";
 import StyledSelect from "@/components/Global/StyledSelect";
 import { AppIcon } from "@/public/icons";
 import { supabase } from "@/lib/supabaseClient";
@@ -24,14 +25,12 @@ type FormData = {
   subjectConcerned: string;
   requestType: string;
   description: string;
-  otherDetails: string;
 };
 
 const initialFormData: FormData = {
   subjectConcerned: "",
   requestType: "",
   description: "",
-  otherDetails: "",
 };
 
 const baseSubjectOptions = [{ value: "", label: "Select a subject" }];
@@ -181,7 +180,6 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
       schedule: selectedRow?.schedule ?? null,
       requestType: formData.requestType,
       description: formData.description,
-      otherDetails: formData.otherDetails,
     };
 
     try {
@@ -223,39 +221,43 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
-      onClick={handleCancel}
-    >
+    <TenantBrandScope>
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2"
-        onClick={(event) => event.stopPropagation()}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+        onClick={handleCancel}
       >
-        <form onSubmit={handleSubmit} className="max-h-[90vh] overflow-y-auto">
-          <div className="flex items-start justify-between gap-4 border-b border-[var(--color-default)] px-6 py-5">
-            <div className="space-y-1">
-              <h2 className="text-[20px] font-semibold text-[var(--color-high-emphasis)]">
-                Submit Load Request or Concern
-              </h2>
-              <p className="text-sm text-[var(--color-low-emphasis)]">
-                Send a load concern or a question about your current teaching
-                assignment.
-              </p>
-            </div>
+        <div
+          className="w-full max-w-2xl overflow-hidden rounded-2xl bg-[var(--color-card)] shadow-level-2"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <form
+            onSubmit={handleSubmit}
+            className="request-modal-scrollbar max-h-[90vh] overflow-y-auto"
+          >
+            <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-[var(--color-default)] bg-[var(--color-card)] px-6 py-5">
+              <div className="space-y-1">
+                <h2 className="text-[20px] font-semibold text-[var(--color-high-emphasis)]">
+                  Submit Load Request or Concern
+                </h2>
+                <p className="text-sm text-[var(--color-low-emphasis)]">
+                  Send a load concern or a question about your current teaching
+                  assignment.
+                </p>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleCancel}
-              aria-label="Close modal"
-              className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-default)]"
-            >
-              <AppIcon
-                name="close"
-                className="inline-block [&_svg]:h-4 [&_svg]:w-4"
-                title="Close"
-              />
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleCancel}
+                aria-label="Close modal"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-default)] text-[var(--color-primary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-default)]"
+              >
+                <AppIcon
+                  name="close"
+                  className="inline-block [&_svg]:h-4 [&_svg]:w-4 [&_svg_*]:stroke-current"
+                  title="Close"
+                />
+              </button>
+            </div>
 
           <div className="space-y-5 p-6">
             <div className="space-y-2">
@@ -307,23 +309,6 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="otherDetails"
-                className="text-label-input text-[#364153]"
-              >
-                Other Details (Optional)
-              </label>
-              <textarea
-                id="otherDetails"
-                name="otherDetails"
-                value={formData.otherDetails}
-                onChange={handleChange}
-                placeholder="Add any extra context here..."
-                className="text-body-small h-28 w-full resize-none rounded-lg border border-[var(--color-default)] bg-[var(--color-card)] px-3 py-2 text-[var(--color-high-emphasis)] shadow-level-1"
-              />
-            </div>
-
             {submitError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {submitError}
@@ -334,7 +319,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
               <button
                 type="button"
                 onClick={handleCancel}
-                className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+                className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-default)]"
               >
                 Cancel
               </button>
@@ -347,8 +332,33 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
               </button>
             </div>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+      <style jsx>{`
+        .request-modal-scrollbar {
+          scrollbar-color: var(--color-primary) var(--color-default);
+          scrollbar-width: thin;
+        }
+
+        .request-modal-scrollbar::-webkit-scrollbar {
+          width: 12px;
+        }
+
+        .request-modal-scrollbar::-webkit-scrollbar-track {
+          background: var(--color-default);
+        }
+
+        .request-modal-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-primary);
+          border: 3px solid var(--color-default);
+          border-radius: 999px;
+        }
+
+        .request-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--color-light-primary);
+        }
+      `}</style>
+    </TenantBrandScope>
   );
 }

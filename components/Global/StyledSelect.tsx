@@ -87,7 +87,7 @@ export default function StyledSelect({
 				aria-controls={listboxId}
 				onClick={() => setIsOpen((current) => !current)}
 				onKeyDown={handleButtonKeyDown}
-				className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default,#d9e2df)] bg-white px-3 text-left text-sm font-medium text-[var(--color-high-emphasis,#1f2937)] outline-none transition hover:border-[var(--color-primary,#007f73)] focus:border-[var(--color-primary,#007f73)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis,#8a9099)]"
+				className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default,#d9e2df)] bg-[var(--color-card,#ffffff)] px-3 text-left text-sm font-medium text-[var(--color-high-emphasis,#1f2937)] outline-none transition hover:border-[var(--color-primary,#007f73)] focus:border-[var(--color-primary,#007f73)] focus:ring-2 focus:ring-[var(--color-default,#d9e2df)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis,#8a9099)]"
 			>
 				<span className={selectedOption ? "truncate" : "truncate text-[var(--color-low-emphasis,#8a9099)]"}>
 					{selectedOption?.label ?? placeholder}
@@ -105,7 +105,7 @@ export default function StyledSelect({
 			</button>
 
 			{isOpen && !disabled ? (
-				<div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[140] overflow-hidden rounded-lg border border-[var(--color-default,#d9e2df)] bg-white py-1 shadow-level-2">
+				<div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[140] overflow-hidden rounded-lg border border-[var(--color-default,#d9e2df)] bg-[var(--color-card,#ffffff)] py-1 shadow-level-2">
 					<div id={listboxId} role="listbox" className="max-h-56 overflow-y-auto px-1">
 						{options.map((option) => {
 							const isSelected = option.value === value;
@@ -130,8 +130,8 @@ export default function StyledSelect({
 										option.disabled
 											? "cursor-not-allowed text-[var(--color-low-emphasis,#8a9099)] opacity-60"
 											: isSelected
-											? "bg-[#e0f4f1] font-semibold text-[var(--color-primary,#007f73)]"
-											: "text-[var(--color-high-emphasis,#1f2937)] hover:bg-[#ecf8f6]"
+											? "bg-[var(--color-default,#e0f4f1)] font-semibold text-[var(--color-primary,#007f73)]"
+											: "text-[var(--color-high-emphasis,#1f2937)] hover:bg-[var(--color-default,#ecf8f6)]"
 									}`}
 								>
 									<span className="min-w-0">
