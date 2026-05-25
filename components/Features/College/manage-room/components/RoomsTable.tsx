@@ -146,6 +146,11 @@ const getRoomScheduleTag = (roomType?: string) =>
 const getMeetingsLabel = (count: number, limit: number) =>
   `${count}/${limit} meeting${limit === 1 ? "" : "s"} used`;
 
+const normalizeSectionKey = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+
+const getSubjectSectionKey = (subjectId: string, section: string) =>
+  `${subjectId}|${normalizeSectionKey(section)}`;
+
 const normalizeYearLevel = (value: string) => {
   const normalized = value.trim().toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ");
 
@@ -494,36 +499,59 @@ export default function RoomsTable() {
     [subjects],
   );
 
-  const subjectMeetingCounts = useMemo(() => {
+  const subjectSectionMeetingCounts = useMemo(() => {
     const counts = new Map<string, number>();
 
     assignments.forEach((assignment) => {
       const subjectId = assignment.subject?.id;
+      const section = normalizeSectionKey(assignment.section);
 
-      if (!subjectId) {
+      if (!subjectId || !section) {
         return;
       }
 
-      counts.set(subjectId, (counts.get(subjectId) ?? 0) + 1);
+      const key = getSubjectSectionKey(subjectId, section);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     });
 
     return counts;
   }, [assignments]);
 
+  const getSubjectSectionMeetingCount = useCallback(
+    (subjectId: string, section: string) =>
+      subjectSectionMeetingCounts.get(getSubjectSectionKey(subjectId, section)) ?? 0,
+    [subjectSectionMeetingCounts],
+  );
+
   const hasReachedSubjectMeetingLimit = useCallback(
-    (subject: SubjectOption) => {
+    (subject: SubjectOption, section: string) => {
+      const normalizedSection = normalizeSectionKey(section);
+
+      if (!normalizedSection) {
+        return false;
+      }
+
       const limit = Number(subject.meetingsPerWeek || 2);
-      const count = subjectMeetingCounts.get(subject.id) ?? 0;
+      const count = getSubjectSectionMeetingCount(subject.id, normalizedSection);
 
       return Number.isFinite(limit) && limit > 0 && count >= limit;
     },
-    [subjectMeetingCounts],
+    [getSubjectSectionMeetingCount],
   );
 
   const getFirstAssignableSubject = useCallback(
     (nextSubjects: SubjectOption[]) =>
-      nextSubjects.find((subject) => !hasReachedSubjectMeetingLimit(subject)),
-    [hasReachedSubjectMeetingLimit],
+      nextSubjects.find((subject) => !hasReachedSubjectMeetingLimit(subject, assignmentForm.section)),
+    [assignmentForm.section, hasReachedSubjectMeetingLimit],
+  );
+
+  const getSubjectMeetingUsageLabel = useCallback(
+    (subject: SubjectOption) =>
+      getMeetingsLabel(
+        getSubjectSectionMeetingCount(subject.id, assignmentForm.section),
+        Number(subject.meetingsPerWeek || 2),
+      ),
+    [assignmentForm.section, getSubjectSectionMeetingCount],
   );
 
   const filteredAssignmentSubjects = useMemo(() => {
@@ -573,10 +601,10 @@ export default function RoomsTable() {
   );
 
   const selectedSubjectReachedLimit = selectedAssignmentSubject
-    ? hasReachedSubjectMeetingLimit(selectedAssignmentSubject)
+    ? hasReachedSubjectMeetingLimit(selectedAssignmentSubject, assignmentForm.section)
     : false;
   const hasAssignableFilteredSubjects = filteredAssignmentSubjects.some(
-    (subject) => !hasReachedSubjectMeetingLimit(subject),
+    (subject) => !hasReachedSubjectMeetingLimit(subject, assignmentForm.section),
   );
 
   const openCreateForm = () => {
@@ -1131,16 +1159,16 @@ export default function RoomsTable() {
                         : filteredAssignmentSubjects.map((subject) => ({
                             value: subject.id,
                             label: `${subject.code} - ${subject.title}`,
-                            disabled: hasReachedSubjectMeetingLimit(subject),
-                            description: hasReachedSubjectMeetingLimit(subject)
-                              ? `Limit reached: ${getMeetingsLabel(
-                                  subjectMeetingCounts.get(subject.id) ?? 0,
-                                  Number(subject.meetingsPerWeek || 2),
-                                )}`
-                              : getMeetingsLabel(
-                                  subjectMeetingCounts.get(subject.id) ?? 0,
-                                  Number(subject.meetingsPerWeek || 2),
-                                ),
+                            disabled: hasReachedSubjectMeetingLimit(
+                              subject,
+                              assignmentForm.section,
+                            ),
+                            description: hasReachedSubjectMeetingLimit(
+                              subject,
+                              assignmentForm.section,
+                            )
+                              ? `Limit reached for this section: ${getSubjectMeetingUsageLabel(subject)}`
+                              : getSubjectMeetingUsageLabel(subject),
                           }))
                     }
                     className="[&_button]:h-10"

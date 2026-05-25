@@ -17,6 +17,8 @@ type FacultyUserRow = {
   email: string;
   employee_id: string | null;
   department: string | null;
+  department_id?: string | null;
+  role_label?: string | null;
   status: string | null;
   roles?: RoleShape | RoleShape[] | null;
 };
@@ -85,6 +87,16 @@ const getRole = (roles: FacultyUserRow["roles"]) => {
   }
 
   return roles ?? null;
+};
+
+const isFacultyAccount = (row: Pick<FacultyUserRow, "role_label" | "roles">) => {
+  const role = getRole(row.roles);
+  const roleKey = normalizeRoleKey(role?.key ?? "");
+  const roleName = normalizeRoleKey(role?.name ?? "");
+  const roleLabel = normalizeRoleKey(row.role_label ?? "");
+  const combined = `${roleLabel} ${roleKey} ${roleName}`;
+
+  return facultyRoleKeys.has(roleKey) || combined.includes("faculty") || combined.includes("teacher");
 };
 
 const sameDepartment = (left?: string | null, right?: string | null) =>
@@ -325,9 +337,21 @@ export async function GET(req: Request) {
     );
   }
 
-  const department = context.orgUser.department?.trim() ?? "";
+  const departmentId = context.orgUser.department_id?.trim() ?? "";
+  let department = context.orgUser.department?.trim() ?? "";
 
-  if (!department && roleKey !== "org_admin" && roleKey !== "dean") {
+  if (!department && departmentId) {
+    const { data: assignedDepartment } = await supabaseAdmin
+      .from("org_departments")
+      .select("name")
+      .eq("id", departmentId)
+      .eq("org_id", context.org.id)
+      .maybeSingle<{ name: string | null }>();
+
+    department = assignedDepartment?.name?.trim() ?? "";
+  }
+
+  if (!department && !departmentId && roleKey !== "org_admin" && roleKey !== "dean") {
     return NextResponse.json({
       department: "",
       faculty: [],
@@ -337,12 +361,14 @@ export async function GET(req: Request) {
 
   let query = supabaseAdmin
     .from("org_users")
-    .select("id, full_name, email, employee_id, department, status, roles(key, name)")
+    .select("id, full_name, email, employee_id, department, department_id, role_label, status, roles(key, name)")
     .eq("org_id", context.org.id)
     .eq("status", "active")
     .order("full_name", { ascending: true });
 
-  if (department) {
+  if (departmentId) {
+    query = query.eq("department_id", departmentId);
+  } else if (department) {
     query = query.ilike("department", department);
   }
 
@@ -447,10 +473,7 @@ export async function GET(req: Request) {
   }, {});
 
   const faculty = ((facultyResult.data ?? []) as FacultyUserRow[])
-    .filter((row) => {
-      const role = getRole(row.roles);
-      return facultyRoleKeys.has(normalizeRoleKey(role?.key ?? ""));
-    })
+    .filter(isFacultyAccount)
     .map((row) => {
       const baseFaculty = mapFaculty(row);
       const assignedSubjects = assignmentsByFaculty[row.id] ?? [];
@@ -512,9 +535,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const department = context.orgUser.department?.trim() ?? "";
+  const departmentId = context.orgUser.department_id?.trim() ?? "";
+  let department = context.orgUser.department?.trim() ?? "";
 
-  if (!department && roleKey !== "org_admin" && roleKey !== "dean") {
+  if (!department && departmentId) {
+    const { data: assignedDepartment } = await supabaseAdmin
+      .from("org_departments")
+      .select("name")
+      .eq("id", departmentId)
+      .eq("org_id", context.org.id)
+      .maybeSingle<{ name: string | null }>();
+
+    department = assignedDepartment?.name?.trim() ?? "";
+  }
+
+  if (!department && !departmentId && roleKey !== "org_admin" && roleKey !== "dean") {
     return NextResponse.json(
       { error: "Your account has no department assigned yet." },
       { status: 403 },
@@ -523,7 +558,7 @@ export async function POST(req: Request) {
 
   const { data: facultyUser, error: facultyError } = await supabaseAdmin
     .from("org_users")
-    .select("id, department, status, roles(key)")
+    .select("id, department, department_id, role_label, status, roles(key, name)")
     .eq("id", facultyId)
     .eq("org_id", context.org.id)
     .maybeSingle<FacultyUserRow>();
@@ -535,17 +570,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const facultyRole = getRole(facultyUser?.roles);
-
   if (
     !facultyUser?.id ||
     facultyUser.status !== "active" ||
-    !facultyRoleKeys.has(normalizeRoleKey(facultyRole?.key ?? ""))
+    !isFacultyAccount(facultyUser)
   ) {
     return NextResponse.json({ error: "Faculty user not found." }, { status: 404 });
   }
 
-  if (department && !sameDepartment(facultyUser.department, department)) {
+  if (
+    (departmentId && facultyUser.department_id !== departmentId) ||
+    (!departmentId && department && !sameDepartment(facultyUser.department, department))
+  ) {
     return NextResponse.json(
       { error: "You can only assign loads within your department." },
       { status: 403 },
@@ -840,9 +876,21 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const department = context.orgUser.department?.trim() ?? "";
+  const departmentId = context.orgUser.department_id?.trim() ?? "";
+  let department = context.orgUser.department?.trim() ?? "";
 
-  if (!department && roleKey !== "org_admin" && roleKey !== "dean") {
+  if (!department && departmentId) {
+    const { data: assignedDepartment } = await supabaseAdmin
+      .from("org_departments")
+      .select("name")
+      .eq("id", departmentId)
+      .eq("org_id", context.org.id)
+      .maybeSingle<{ name: string | null }>();
+
+    department = assignedDepartment?.name?.trim() ?? "";
+  }
+
+  if (!department && !departmentId && roleKey !== "org_admin" && roleKey !== "dean") {
     return NextResponse.json(
       { error: "Your account has no department assigned yet." },
       { status: 403 },
@@ -851,7 +899,7 @@ export async function DELETE(req: Request) {
 
   const { data: facultyUser, error: facultyError } = await supabaseAdmin
     .from("org_users")
-    .select("id, department, status, roles(key)")
+    .select("id, department, department_id, role_label, status, roles(key, name)")
     .eq("id", facultyId)
     .eq("org_id", context.org.id)
     .maybeSingle<FacultyUserRow>();
@@ -863,17 +911,18 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const facultyRole = getRole(facultyUser?.roles);
-
   if (
     !facultyUser?.id ||
     facultyUser.status !== "active" ||
-    !facultyRoleKeys.has(normalizeRoleKey(facultyRole?.key ?? ""))
+    !isFacultyAccount(facultyUser)
   ) {
     return NextResponse.json({ error: "Faculty user not found." }, { status: 404 });
   }
 
-  if (department && !sameDepartment(facultyUser.department, department)) {
+  if (
+    (departmentId && facultyUser.department_id !== departmentId) ||
+    (!departmentId && department && !sameDepartment(facultyUser.department, department))
+  ) {
     return NextResponse.json(
       { error: "You can only remove loads within your department." },
       { status: 403 },
