@@ -260,9 +260,9 @@ function AcademicApprovalsLoadingScreen() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {["w-40", "w-48", "w-44", "w-44", "w-36"].map((width) => (
+        {["w-40", "w-48", "w-44", "w-44", "w-36"].map((width, index) => (
           <BrandedSkeletonBlock
-            key={width}
+            key={`${width}-${index}`}
             className={`h-10 rounded-lg ${width}`}
           />
         ))}
