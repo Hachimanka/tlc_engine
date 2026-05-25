@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeRoleKey } from "@/features/tenant-role-catalog";
 import { parseTimeToMinutes, rangesOverlap } from "@/lib/academicRooms";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import { loadTenantContext, type TenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -68,8 +68,16 @@ const managerRoleKeys = new Set([
   "org_admin",
   "dean",
   "department_head",
+  "program_chair",
+  "chair",
+  "chairman",
   "load_manager",
 ]);
+
+const hasFacultyLoadManagerRole = (context: TenantContext) =>
+  [context.role.key, context.role.name, context.orgUser.role_label].some((value) =>
+    managerRoleKeys.has(normalizeRoleKey(value ?? "")),
+  );
 
 const getRole = (roles: FacultyUserRow["roles"]) => {
   if (Array.isArray(roles)) {
@@ -310,7 +318,7 @@ export async function GET(req: Request) {
   const { context } = result;
   const roleKey = normalizeRoleKey(context.role.key);
 
-  if (!managerRoleKeys.has(roleKey)) {
+  if (!hasFacultyLoadManagerRole(context)) {
     return NextResponse.json(
       { error: "Only load managers, program chairs, deans, or admins can view faculty loads." },
       { status: 403 },
@@ -477,7 +485,7 @@ export async function POST(req: Request) {
   const { context } = result;
   const roleKey = normalizeRoleKey(context.role.key);
 
-  if (!managerRoleKeys.has(roleKey)) {
+  if (!hasFacultyLoadManagerRole(context)) {
     return NextResponse.json(
       { error: "Only load managers, program chairs, deans, or admins can assign faculty loads." },
       { status: 403 },
@@ -800,7 +808,7 @@ export async function DELETE(req: Request) {
   const { context } = result;
   const roleKey = normalizeRoleKey(context.role.key);
 
-  if (!managerRoleKeys.has(roleKey)) {
+  if (!hasFacultyLoadManagerRole(context)) {
     return NextResponse.json(
       { error: "Only load managers, program chairs, deans, or admins can remove faculty loads." },
       { status: 403 },
