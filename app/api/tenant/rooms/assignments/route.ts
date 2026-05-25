@@ -56,6 +56,8 @@ const getAssignmentValues = (payload: AssignmentRequest) => ({
   endTime: normalizeTime(payload.endTime),
 });
 
+const normalizeSectionKey = (value: unknown) => normalizeText(value).toLowerCase();
+
 const isMissingTableError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === "42P01" ||
   error?.message?.toLowerCase().includes("schema cache") ||
@@ -193,7 +195,8 @@ export async function POST(req: Request) {
         .from(tableName)
         .select("id", { count: "exact", head: true })
         .eq("org_id", context.org.id)
-        .eq("subject_id", values.subjectId);
+        .eq("subject_id", values.subjectId)
+        .ilike("section", values.section);
 
       return { data: count ?? 0, error };
     });
@@ -210,7 +213,7 @@ export async function POST(req: Request) {
       (subjectResult.data as { subject_code?: string | null }).subject_code ?? "This subject";
 
     return jsonError(
-      `${subjectCode} already reached its ${meetingsPerWeek} meeting${
+      `${subjectCode} section ${values.section} already reached its ${meetingsPerWeek} meeting${
         meetingsPerWeek === 1 ? "" : "s"
       } per week limit.`,
       409,
@@ -258,6 +261,58 @@ export async function POST(req: Request) {
       `Room conflict: ${conflictSubject?.subject_code ?? "Subject"} is already assigned from ${
         conflict.start_time
       } to ${conflict.end_time}.`,
+      409,
+    );
+  }
+
+  const { data: sectionAssignments, error: sectionConflictError } =
+    await withRoomAssignmentTable<unknown[] | null>(async (tableName) => {
+      const result = await supabaseAdmin
+        .from(tableName)
+        .select(assignmentSelect)
+        .eq("org_id", context.org.id)
+        .ilike("section", values.section)
+        .eq("day_of_week", values.dayOfWeek);
+
+      return { data: result.data, error: result.error };
+    });
+
+  if (sectionConflictError) {
+    return jsonError(
+      sectionConflictError.message || "Failed to check section schedule conflicts.",
+      500,
+    );
+  }
+
+  const sectionConflict = ((sectionAssignments ?? []) as RawRoomAssignmentRow[]).find(
+    (assignment) => {
+      if (normalizeSectionKey(assignment.section) !== normalizeSectionKey(values.section)) {
+        return false;
+      }
+
+      const existingStart = parseTimeToMinutes(assignment.start_time);
+      const existingEnd = parseTimeToMinutes(assignment.end_time);
+
+      return (
+        existingStart !== null &&
+        existingEnd !== null &&
+        rangesOverlap(startMinutes, endMinutes, existingStart, existingEnd)
+      );
+    },
+  );
+
+  if (sectionConflict) {
+    const { data: conflictSubject } = await supabaseAdmin
+      .from("academic_subjects")
+      .select("subject_code")
+      .eq("id", sectionConflict.subject_id)
+      .eq("org_id", context.org.id)
+      .maybeSingle<{ subject_code: string | null }>();
+
+    return jsonError(
+      `Section conflict: ${values.section} already has ${
+        conflictSubject?.subject_code ?? "a subject"
+      } from ${sectionConflict.start_time} to ${sectionConflict.end_time}.`,
       409,
     );
   }
