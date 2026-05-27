@@ -568,7 +568,9 @@ export default function TenantPage() {
     return (
       <TenantBrandScope
         branding={branding}
-        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+        applyToDocument
+        lockDocumentScroll
+        className="tenant-branded-scrollbars min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
       >
         <div className="flex min-h-screen items-center justify-center px-4">
           <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
@@ -586,7 +588,9 @@ export default function TenantPage() {
     return (
       <TenantBrandScope
         branding={branding}
-        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+        applyToDocument
+        lockDocumentScroll
+        className="tenant-branded-scrollbars min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
       >
         <TenantLogoLoader
           branding={branding}
@@ -601,7 +605,9 @@ export default function TenantPage() {
   return (
     <TenantBrandScope
       branding={branding}
-      className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      applyToDocument
+      lockDocumentScroll
+      className="tenant-branded-scrollbars flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
     >
       {showTenantLoader ? (
         <TenantLogoLoader
@@ -640,7 +646,11 @@ export default function TenantPage() {
             avatarUrl: profile.avatarUrl,
           }}
         />
-        <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
+        <section
+          className={`min-w-0 flex-1 bg-[var(--color-background)] p-6 ${
+            activeView === "manage-users" ? "overflow-hidden" : "overflow-y-auto"
+          }`}
+        >
           {showDashboard ? (
             <>
           {contentLoading &&
