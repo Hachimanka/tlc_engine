@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import StyledSelect from "@/components/Global/StyledSelect";
 import { supabase } from "@/lib/supabaseClient";
 
 type DepartmentRow = {
@@ -439,19 +440,19 @@ export default function DepartmentFacultyTable() {
                 <span className="text-sm font-semibold text-[var(--color-high-emphasis)]">
                   Department Head in Charge
                 </span>
-                <select
+                <StyledSelect
                   value={departmentHeadUserId}
-                  onChange={(event) => setDepartmentHeadUserId(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[color:var(--color-default)] px-3 py-2 text-body-small outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                  onChange={setDepartmentHeadUserId}
+                  options={departmentHeadOptions.map((user) => ({
+                    value: user.id,
+                    label: `${user.name} - ${user.roleName}`,
+                  }))}
+                  placeholder="Unassigned"
                   disabled={isSaving}
-                >
-                  <option value="">Unassigned</option>
-                  {departmentHeadOptions.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {user.roleName}
-                    </option>
-                  ))}
-                </select>
+                  className="mt-2"
+                  ariaLabel="Department Head in Charge"
+                  clearable
+                />
               </label>
             </div>
 
@@ -522,19 +523,19 @@ export default function DepartmentFacultyTable() {
                 <span className="text-sm font-semibold text-[var(--color-high-emphasis)]">
                   Department Head in Charge
                 </span>
-                <select
+                <StyledSelect
                   value={editHeadUserId}
-                  onChange={(event) => setEditHeadUserId(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[color:var(--color-default)] px-3 py-2 text-body-small outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                  onChange={setEditHeadUserId}
+                  options={getHeadOptionsForDepartment(editingDepartment).map((user) => ({
+                    value: user.id,
+                    label: `${user.name} - ${user.roleName}`,
+                  }))}
+                  placeholder="Unassigned"
                   disabled={isUpdatingHead}
-                >
-                  <option value="">Unassigned</option>
-                  {getHeadOptionsForDepartment(editingDepartment).map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {user.roleName}
-                    </option>
-                  ))}
-                </select>
+                  className="mt-2"
+                  ariaLabel="Department Head in Charge"
+                  clearable
+                />
               </label>
 
               {getHeadOptionsForDepartment(editingDepartment).length === 0 ? (
