@@ -109,6 +109,8 @@ const formatDate = (value?: string | null) => {
   }).format(date);
 };
 
+const roleFilterValueFromLabel = (label: string) => `role-label:${label.toLowerCase()}`;
+
 function AccountsTableSkeleton() {
   const cellWidths = ["w-24", "w-36", "w-44", "w-40", "w-48", "w-16", "w-24", "w-28"];
 
@@ -543,6 +545,39 @@ export default function Accounts({ showInitialSkeleton = false }: AccountsProps)
       ).sort((left, right) => left.localeCompare(right)),
     [users],
   );
+  const roleFilterOptions = useMemo(() => {
+    const roleOptions = new Map<string, string>();
+    const normalizedRoleLabels = new Set<string>();
+
+    roles.forEach((role) => {
+      if (role.id && role.name.trim()) {
+        roleOptions.set(role.id, role.name);
+        normalizedRoleLabels.add(role.name.trim().toLowerCase());
+      }
+    });
+
+    users.forEach((user) => {
+      const roleName = user.roleName.trim();
+      const normalizedRoleName = roleName.toLowerCase();
+
+      if (!roleName || roleName === "Unassigned" || normalizedRoleLabels.has(normalizedRoleName)) {
+        return;
+      }
+
+      if (user.roleId && !roleOptions.has(user.roleId)) {
+        roleOptions.set(user.roleId, roleName);
+        normalizedRoleLabels.add(normalizedRoleName);
+        return;
+      }
+
+      roleOptions.set(roleFilterValueFromLabel(roleName), roleName);
+      normalizedRoleLabels.add(normalizedRoleName);
+    });
+
+    return Array.from(roleOptions.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }, [roles, users]);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -557,7 +592,10 @@ export default function Accounts({ showInitialSkeleton = false }: AccountsProps)
         (user.department ?? "").toLowerCase().includes(normalizedSearch) ||
         user.roleName.toLowerCase().includes(normalizedSearch);
 
-      const matchesRole = roleFilter === "all" || user.roleId === roleFilter;
+      const matchesRole =
+        roleFilter === "all" ||
+        user.roleId === roleFilter ||
+        roleFilterValueFromLabel(user.roleName.trim()) === roleFilter;
       const matchesDepartment =
         departmentFilter === "all" || userDepartment === departmentFilter;
       const matchesStatus = statusFilter === "all" || user.status === statusFilter;
@@ -888,7 +926,7 @@ export default function Accounts({ showInitialSkeleton = false }: AccountsProps)
             onChange={setRoleFilter}
             options={[
               { value: "all", label: "All roles" },
-              ...roles.map((role) => ({ value: role.id, label: role.name })),
+              ...roleFilterOptions,
             ]}
           />
 
