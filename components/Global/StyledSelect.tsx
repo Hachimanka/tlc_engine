@@ -16,6 +16,8 @@ type StyledSelectProps = {
 	placeholder?: string;
 	disabled?: boolean;
 	className?: string;
+	ariaLabel?: string;
+	clearable?: boolean;
 };
 
 export default function StyledSelect({
@@ -25,6 +27,8 @@ export default function StyledSelect({
 	placeholder = "Select option",
 	disabled = false,
 	className = "",
+	ariaLabel,
+	clearable = false,
 }: StyledSelectProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -77,6 +81,15 @@ export default function StyledSelect({
 		}
 	};
 
+	const handleOptionChange = (option: StyledSelectOption) => {
+		if (option.disabled) {
+			return;
+		}
+
+		onChange(clearable && option.value === value ? "" : option.value);
+		setIsOpen(false);
+	};
+
 	return (
 		<div ref={rootRef} className={`relative ${className}`}>
 			<button
@@ -85,9 +98,10 @@ export default function StyledSelect({
 				aria-haspopup="listbox"
 				aria-expanded={isOpen}
 				aria-controls={listboxId}
+				aria-label={ariaLabel}
 				onClick={() => setIsOpen((current) => !current)}
 				onKeyDown={handleButtonKeyDown}
-				className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default,#d9e2df)] bg-white px-3 text-left text-sm font-medium text-[var(--color-high-emphasis,#1f2937)] outline-none transition hover:border-[var(--color-primary,#007f73)] focus:border-[var(--color-primary,#007f73)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis,#8a9099)]"
+				className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default,#d9e2df)] bg-white px-3 text-left text-sm text-[var(--color-high-emphasis,#1f2937)] outline-none transition hover:border-[var(--color-primary,#007f73)] focus:border-[var(--color-primary,#007f73)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[var(--color-low-emphasis,#8a9099)]"
 			>
 				<span className={selectedOption ? "truncate" : "truncate text-[var(--color-low-emphasis,#8a9099)]"}>
 					{selectedOption?.label ?? placeholder}
@@ -118,19 +132,12 @@ export default function StyledSelect({
 									aria-selected={isSelected}
 									aria-disabled={option.disabled}
 									disabled={option.disabled}
-									onClick={() => {
-										if (option.disabled) {
-											return;
-										}
-
-										onChange(option.value);
-										setIsOpen(false);
-									}}
+									onClick={() => handleOptionChange(option)}
 									className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
 										option.disabled
 											? "cursor-not-allowed text-[var(--color-low-emphasis,#8a9099)] opacity-60"
 											: isSelected
-											? "bg-[#e0f4f1] font-semibold text-[var(--color-primary,#007f73)]"
+											? "bg-[#e0f4f1] text-[var(--color-primary,#007f73)]"
 											: "text-[var(--color-high-emphasis,#1f2937)] hover:bg-[#ecf8f6]"
 									}`}
 								>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import BrandedSkeletonBlock from "@/components/Global/BrandedSkeleton";
+import StyledSelect from "@/components/Global/StyledSelect";
 import type {
   FeatureDefinition,
   FeatureKey,
@@ -321,16 +322,16 @@ export default function TenantRolePermissionsPanel({
             />
           </label>
 
-          <select
+          <StyledSelect
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "all" | "active" | "disabled")}
-            className="h-11 rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none"
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
-          </select>
+            onChange={(value) => setStatusFilter(value as "all" | "active" | "disabled")}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "active", label: "Active" },
+              { value: "disabled", label: "Disabled" },
+            ]}
+            ariaLabel="Filter by status"
+          />
         </div>
       </section>
 
