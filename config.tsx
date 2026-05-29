@@ -1,57 +1,86 @@
 import { AppIcon } from "@/public/icons";
 
-export type InstitutionType = "higher_ed" | "deped" | "tesda" | "training" | null;
+export type InstitutionType =
+  | "higher_ed"
+  | "deped"
+  | "tesda"
+  | "training"
+  | null;
 
 export type TenantAdminView =
   | "accounts"
   | "policies"
   | "manage-users"
   | "departments"
-  | "employees"
   | "branding"
   | "analytics-reports";
 
 const getTenantAdminLabels = (institutionType?: InstitutionType) => {
   if (institutionType === "higher_ed") {
-    return { policies: "Academic Policies", employees: "Faculty & Staff" };
+    return { policies: "Academic Policies" };
   }
 
   if (institutionType === "deped") {
-    return { policies: "School Policies", employees: "Teachers" };
+    return { policies: "School Policies" };
   }
 
   if (institutionType === "tesda") {
-    return { policies: "Assessment Policies", employees: "Trainers" };
+    return { policies: "Assessment Policies" };
   }
 
   if (institutionType === "training") {
-    return { policies: "Training Policies", employees: "Facilitators" };
+    return { policies: "Training Policies" };
   }
 
-  return { policies: "Manage Policies", employees: "Employees" };
+  return { policies: "Manage Policies" };
 };
 
-const getTenantAdminOrder = (institutionType?: InstitutionType): TenantAdminView[] => {
+const getTenantAdminOrder = (
+  institutionType?: InstitutionType,
+): TenantAdminView[] => {
   if (institutionType === "higher_ed") {
-    return ["accounts", "manage-users", "departments", "policies", "analytics-reports", "branding"];
+    return [
+      "accounts",
+      "manage-users",
+      "departments",
+      "policies",
+      "analytics-reports",
+      "branding",
+    ];
   }
 
   if (institutionType === "deped") {
-    return ["employees", "accounts", "manage-users", "policies", "analytics-reports", "branding"];
+    return [
+      "accounts",
+      "manage-users",
+      "policies",
+      "analytics-reports",
+      "branding",
+    ];
   }
 
   if (institutionType === "tesda" || institutionType === "training") {
-    return ["accounts", "employees", "manage-users", "policies", "analytics-reports", "branding"];
+    return [
+      "accounts",
+      "manage-users",
+      "policies",
+      "analytics-reports",
+      "branding",
+    ];
   }
 
-  return ["accounts", "manage-users", "employees", "policies", "analytics-reports", "branding"];
+  return [
+    "accounts",
+    "manage-users",
+    "policies",
+    "analytics-reports",
+    "branding",
+  ];
 };
 
-export const getDefaultTenantAdminView = (institutionType?: InstitutionType): TenantAdminView => {
-  if (institutionType === "deped") {
-    return "employees";
-  }
-
+export const getDefaultTenantAdminView = (
+  institutionType?: InstitutionType,
+): TenantAdminView => {
   return "accounts";
 };
 
@@ -98,15 +127,6 @@ export const NavItems = (
       institutionTypes: ["higher_ed"],
     },
     {
-      name: labels.employees,
-      href: "/tenant/tenant-admin",
-      view: "employees" as TenantAdminView,
-      icon: <AppIcon name="files" className="w-5 h-5" />,
-      active: activeView === "employees",
-      position: "top",
-      hiddenForInstitutionTypes: ["higher_ed"],
-    },
-    {
       name: "Analytics & Reports",
       href: "/tenant/tenant-admin",
       view: "analytics-reports" as TenantAdminView,
@@ -147,7 +167,9 @@ export const NavItems = (
       }
 
       const institutionTypes = item.institutionTypes;
-      return Boolean(institutionType && institutionTypes?.includes(institutionType));
+      return Boolean(
+        institutionType && institutionTypes?.includes(institutionType),
+      );
     })
     .sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view));
 };

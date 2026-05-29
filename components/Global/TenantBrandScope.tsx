@@ -23,9 +23,17 @@ export default function TenantBrandScope({
   lockDocumentScroll = false,
   children,
 }: TenantBrandScopeProps) {
-  const [storedBranding] = useState<TenantBranding | null>(() =>
-    branding ? null : readStoredTenantBranding(),
+  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(
+    null,
   );
+
+  useEffect(() => {
+    if (branding) {
+      return;
+    }
+
+    setStoredBranding(readStoredTenantBranding());
+  }, [branding]);
 
   const activeBranding = branding ?? storedBranding;
   const cssVariables = useMemo(
@@ -86,10 +94,7 @@ export default function TenantBrandScope({
     .join(" ");
 
   return (
-    <div
-      className={scopeClassName}
-      style={cssVariables as CSSProperties}
-    >
+    <div className={scopeClassName} style={cssVariables as CSSProperties}>
       {children}
     </div>
   );
