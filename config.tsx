@@ -22,7 +22,7 @@ type TenantAdminNavItem = {
   view: TenantAdminView;
   icon: ReactNode;
   active: boolean;
-  position: "top";
+  position: "top" | "bottom";
   institutionTypes?: InstitutionType[];
   hiddenForInstitutionTypes?: InstitutionType[];
   requiresFullAnalyticsReports?: boolean;
