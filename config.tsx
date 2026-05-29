@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AppIcon } from "@/public/icons";
 
 export type InstitutionType =
@@ -14,6 +15,18 @@ export type TenantAdminView =
   | "departments"
   | "branding"
   | "analytics-reports";
+
+type TenantAdminNavItem = {
+  name: string;
+  href: string;
+  view: TenantAdminView;
+  icon: ReactNode;
+  active: boolean;
+  position: "top";
+  institutionTypes?: InstitutionType[];
+  hiddenForInstitutionTypes?: InstitutionType[];
+  requiresFullAnalyticsReports?: boolean;
+};
 
 const getTenantAdminLabels = (institutionType?: InstitutionType) => {
   if (institutionType === "higher_ed") {
@@ -143,7 +156,7 @@ export const NavItems = (
       active: activeView === "branding",
       position: "top",
     },
-  ];
+  ] as TenantAdminNavItem[];
 
   return items
     .filter((item) => {
