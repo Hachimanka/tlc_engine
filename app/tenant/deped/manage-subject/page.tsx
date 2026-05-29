@@ -102,19 +102,7 @@ export default function TenantPage() {
   };
 
   return (
-    <>
-      <SubjectManagementForm
-        isOpen={isCreateSubjectOpen}
-        onClose={() => {
-          setSubmitError("");
-          setIsCreateSubjectOpen(false);
-        }}
-        onSubmit={handleCreateSubject}
-        submitError={submitError}
-        isSubmitting={isSubmitting}
-      />
-
-      <TenantRoleLayout
+    <TenantRoleLayout
         tenantType="Deped"
         role="subject-room-manager"
         title="Deped Menu"
@@ -122,6 +110,17 @@ export default function TenantPage() {
         requiredFeatureKey="deped-subject-management"
         contentClassName="px-4 py-4 font-ibm-plex-sans sm:px-6 lg:px-8"
       >
+        <SubjectManagementForm
+          isOpen={isCreateSubjectOpen}
+          onClose={() => {
+            setSubmitError("");
+            setIsCreateSubjectOpen(false);
+          }}
+          onSubmit={handleCreateSubject}
+          submitError={submitError}
+          isSubmitting={isSubmitting}
+        />
+
         <div className="mx-auto w-full max-w-none space-y-4">
           <div>
             <h1 className="text-[28px] font-semibold leading-none text-[var(--color-high-emphasis)]">
@@ -144,6 +143,5 @@ export default function TenantPage() {
           />
         </div>
       </TenantRoleLayout>
-    </>
   );
 }
