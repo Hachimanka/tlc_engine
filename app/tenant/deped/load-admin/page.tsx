@@ -2,6 +2,7 @@
 
 import TenantRoleLayout from "@/components/Global/TenantRoleLayout";
 import DepartmentListTable from "@/components/Features/Deped/load-admin/components/DepartmentListTable";
+import LoadRequestsPanel from "@/components/Features/Deped/load-admin/components/LoadRequestsPanel";
 import { ICON_SVGS } from "@/public/icons";
 
 export default function TenantPage() {
@@ -21,6 +22,7 @@ export default function TenantPage() {
           </h1>
         </div>
 
+        <LoadRequestsPanel />
         <DepartmentListTable />
       </div>
     </TenantRoleLayout>

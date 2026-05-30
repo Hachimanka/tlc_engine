@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import DepartmentListTable from "@/components/Features/Deped/load-admin/components/DepartmentListTable";
+import LoadRequestsPanel from "@/components/Features/Deped/load-admin/components/LoadRequestsPanel";
 import DepedDepartmentFacultyTable from "@/components/Features/Deped/manage-load/components/DepartmentFacultyTable";
 import DepedRoomsTable, {
   type RoomRow,
@@ -371,6 +372,7 @@ function renderFeatureContent(featureKey: FeatureKey, children: ReactNode) {
     "deped-room-management": <DepedRoomContent />,
     "deped-department-load": (
       <PageShell title="All Departments View">
+        <LoadRequestsPanel />
         <DepartmentListTable />
       </PageShell>
     ),

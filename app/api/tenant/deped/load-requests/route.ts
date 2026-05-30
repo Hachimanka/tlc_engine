@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
-import { loadTenantContext } from "@/lib/tenantAccess";
+import {
+  buildDecisionHistory,
+  canReviewApprovalRequest,
+  finalStatuses,
+  jsonError,
+  mapApprovalRequest,
+  type AcademicApprovalRow,
+  type ApprovalStatus,
+} from "@/lib/academicApprovals";
+import { loadTenantContext, type TenantContext } from "@/lib/tenantAccess";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -16,6 +25,17 @@ type DepartmentRow = {
   chair_user_id: string | null;
 };
 
+type OrgUserLookup = {
+  id: string;
+  full_name: string;
+  email: string;
+};
+
+type ReviewRequest = {
+  decision?: "approve" | "return" | "reject";
+  remarks?: string;
+};
+
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 
@@ -25,6 +45,36 @@ const requestTypeLabels: Record<string, string> = {
   "subject-assignment": "Subject Assignment",
   clarification: "Clarification / Question",
   other: "Other",
+};
+
+const isDepedLoadRequest = (request: AcademicApprovalRow) => {
+  const payload = request.payload;
+
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    !Array.isArray(payload) &&
+    (payload as Record<string, unknown>).source === "deped_teacher_load_request"
+  );
+};
+
+const canViewDepedLoadRequests = async (context: TenantContext) => {
+  if (
+    context.isOrgAdmin ||
+    context.enabledFeatureKeys.includes("deped-department-load") ||
+    context.enabledFeatureKeys.includes("deped-teacher-load-assignment")
+  ) {
+    return true;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("org_departments")
+    .select("id")
+    .eq("org_id", context.org.id)
+    .eq("chair_user_id", context.orgUser.id)
+    .limit(1);
+
+  return !error && Boolean(data?.[0]?.id);
 };
 
 async function loadTeacherDepartment(orgId: string, departmentId?: string | null, departmentName?: string | null) {
@@ -63,6 +113,113 @@ async function loadTeacherDepartment(orgId: string, departmentId?: string | null
   }
 
   return data ?? null;
+}
+
+export async function GET(req: Request) {
+  const result = await loadTenantContext(req);
+
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (context.institutionType !== "deped") {
+    return NextResponse.json(
+      { error: "Load requests are only available for DepEd accounts." },
+      { status: 403 },
+    );
+  }
+
+  if (!(await canViewDepedLoadRequests(context))) {
+    return NextResponse.json(
+      { error: "Only assigned department heads or load managers can view load requests." },
+      { status: 403 },
+    );
+  }
+
+  const { data: requests, error: requestsError } = await supabaseAdmin
+    .from("academic_approval_requests")
+    .select("*")
+    .eq("org_id", context.org.id)
+    .eq("request_type", "adjustment_request")
+    .order("updated_at", { ascending: false });
+
+  if (requestsError) {
+    return NextResponse.json(
+      { error: requestsError.message || "Failed to load DepEd load requests." },
+      { status: 500 },
+    );
+  }
+
+  const depedRequests = ((requests ?? []) as AcademicApprovalRow[]).filter(isDepedLoadRequest);
+  const submittedByIds = Array.from(
+    new Set(
+      depedRequests
+        .map((request) => request.submitted_by_org_user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const submittersById = new Map<string, OrgUserLookup>();
+
+  if (submittedByIds.length > 0) {
+    const { data: submitters, error: submittersError } = await supabaseAdmin
+      .from("org_users")
+      .select("id, full_name, email")
+      .eq("org_id", context.org.id)
+      .in("id", submittedByIds);
+
+    if (submittersError) {
+      return NextResponse.json(
+        { error: submittersError.message || "Failed to load teacher details." },
+        { status: 500 },
+      );
+    }
+
+    for (const submitter of (submitters ?? []) as OrgUserLookup[]) {
+      submittersById.set(submitter.id, submitter);
+    }
+  }
+
+  const mappedRequests = await Promise.all(
+    depedRequests.map(async (request) => {
+      const canAct = await canReviewApprovalRequest(context, request);
+      const wasReviewedByCurrentUser =
+        request.reviewed_by_chairman_org_user_id === context.orgUser.id ||
+        request.reviewed_by_dean_org_user_id === context.orgUser.id ||
+        request.reviewed_by_vpaa_org_user_id === context.orgUser.id;
+      const canView =
+        context.isOrgAdmin ||
+        canAct ||
+        wasReviewedByCurrentUser ||
+        finalStatuses.has(request.status);
+      const submitter = request.submitted_by_org_user_id
+        ? submittersById.get(request.submitted_by_org_user_id)
+        : undefined;
+
+      return {
+        canView,
+        hasReviewHistory: context.isOrgAdmin || wasReviewedByCurrentUser,
+        ...mapApprovalRequest(request, canAct),
+        submittedBy: submitter
+          ? {
+              id: submitter.id,
+              name: submitter.full_name,
+              email: submitter.email,
+            }
+          : null,
+      };
+    }),
+  );
+
+  return NextResponse.json({
+    requests: mappedRequests
+      .filter((request) => request.canView)
+      .map(({ canView, ...request }) => {
+        void canView;
+        return request;
+      }),
+  });
 }
 
 export async function POST(req: Request) {
@@ -174,4 +331,100 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, requestId: data.id }, { status: 201 });
+}
+
+export async function PATCH(req: Request) {
+  const result = await loadTenantContext(req);
+
+  if (result.error) {
+    return result.error;
+  }
+
+  const { context } = result;
+
+  if (context.institutionType !== "deped") {
+    return jsonError("Load requests are only available for DepEd accounts.", 403);
+  }
+
+  let payload: ReviewRequest & { requestId?: string } = {};
+
+  try {
+    payload = await req.json();
+  } catch {
+    return jsonError("Invalid request body.", 400);
+  }
+
+  const requestId = payload.requestId?.trim();
+  const decision = payload.decision;
+  const remarks = payload.remarks?.trim() || "";
+
+  if (!requestId) {
+    return jsonError("Missing load request id.", 400);
+  }
+
+  if (!decision || !["approve", "return", "reject"].includes(decision)) {
+    return jsonError("Decision must be approve, return, or reject.", 400);
+  }
+
+  if ((decision === "return" || decision === "reject") && !remarks) {
+    return jsonError("Remarks are required when returning or rejecting a request.", 400);
+  }
+
+  const { data: request, error: requestError } = await supabaseAdmin
+    .from("academic_approval_requests")
+    .select("*")
+    .eq("id", requestId)
+    .eq("org_id", context.org.id)
+    .maybeSingle<AcademicApprovalRow>();
+
+  if (requestError || !request?.id) {
+    return jsonError(requestError?.message || "Load request not found.", 404);
+  }
+
+  if (!isDepedLoadRequest(request)) {
+    return jsonError("This is not a DepEd teacher load request.", 400);
+  }
+
+  if (finalStatuses.has(request.status)) {
+    return jsonError("This load request is already closed.", 400);
+  }
+
+  if (!(await canReviewApprovalRequest(context, request))) {
+    return jsonError("Your role cannot review this load request.", 403);
+  }
+
+  const now = new Date().toISOString();
+  const nextStatus: ApprovalStatus =
+    decision === "approve" ? "approved" : decision === "return" ? "returned" : "rejected";
+  const history = buildDecisionHistory(request.decision_history, {
+    action: decision,
+    from_status: request.status,
+    to_status: nextStatus,
+    actor_org_user_id: context.orgUser.id,
+    actor_name: context.orgUser.full_name,
+    actor_role: context.orgUser.role_label ?? context.role.name,
+    remarks: remarks || null,
+    at: now,
+  });
+
+  const { data: updatedRequest, error: updateError } = await supabaseAdmin
+    .from("academic_approval_requests")
+    .update({
+      status: nextStatus,
+      reviewed_by_chairman_org_user_id: context.orgUser.id,
+      chairman_remarks: remarks || null,
+      chairman_reviewed_at: now,
+      decision_history: history,
+      updated_at: now,
+    })
+    .eq("id", request.id)
+    .eq("org_id", context.org.id)
+    .select("*")
+    .single<AcademicApprovalRow>();
+
+  if (updateError || !updatedRequest) {
+    return jsonError(updateError?.message || "Failed to update load request.", 500);
+  }
+
+  return NextResponse.json({ request: mapApprovalRequest(updatedRequest) });
 }
