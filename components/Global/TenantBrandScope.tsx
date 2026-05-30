@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_TENANT_BRANDING,
   tenantBrandingToCssVariables,
@@ -12,6 +12,8 @@ import { readStoredTenantBranding } from "@/lib/tenantBrandingSession";
 type TenantBrandScopeProps = {
   branding?: Partial<TenantBranding> | null;
   className?: string;
+  applyToDocument?: boolean;
+  lockDocumentScroll?: boolean;
   children: ReactNode;
 };
 
@@ -152,54 +154,76 @@ const shouldDerivePaletteFromLogo = (branding?: Partial<TenantBranding> | null) 
 export default function TenantBrandScope({
   branding,
   className,
+  applyToDocument = false,
+  lockDocumentScroll = false,
   children,
 }: TenantBrandScopeProps) {
-  const [storedBranding, setStoredBranding] = useState<TenantBranding | null>(null);
-  const [logoPalette, setLogoPalette] = useState<LogoPalette | null>(null);
-
-  useEffect(() => {
-    if (branding) {
-      return;
-    }
-
-    void Promise.resolve().then(() => setStoredBranding(readStoredTenantBranding()));
-  }, [branding]);
+  const [storedBranding] = useState<TenantBranding | null>(() =>
+    branding ? null : readStoredTenantBranding(),
+  );
 
   const activeBranding = branding ?? storedBranding;
-  const effectiveBranding = logoPalette
-    ? {
-        ...activeBranding,
-        ...logoPalette,
-      }
-    : activeBranding;
+  const cssVariables = useMemo(
+    () => tenantBrandingToCssVariables(activeBranding),
+    [activeBranding],
+  );
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (!shouldDerivePaletteFromLogo(activeBranding)) {
-      void Promise.resolve().then(() => {
-        if (!cancelled) {
-          setLogoPalette(null);
-        }
-      });
+    if (!applyToDocument || typeof document === "undefined") {
       return;
     }
 
-    void deriveLogoPalette(activeBranding?.logoUrl ?? "").then((palette) => {
-      if (!cancelled) {
-        setLogoPalette(palette);
+    const roots = [document.documentElement, document.body];
+    const previousValues = roots.map((root) => ({
+      root,
+      hadClass: root.classList.contains("tenant-branded-scrollbars"),
+      variables: Object.fromEntries(
+        Object.keys(cssVariables).map((name) => [
+          name,
+          root.style.getPropertyValue(name),
+        ]),
+      ),
+      overflow: root.style.overflow,
+    }));
+
+    roots.forEach((root) => {
+      root.classList.add("tenant-branded-scrollbars");
+      Object.entries(cssVariables).forEach(([name, value]) => {
+        root.style.setProperty(name, value);
+      });
+
+      if (lockDocumentScroll) {
+        root.style.overflow = "hidden";
       }
     });
 
     return () => {
-      cancelled = true;
+      previousValues.forEach(({ root, hadClass, variables, overflow }) => {
+        Object.entries(variables).forEach(([name, value]) => {
+          if (value) {
+            root.style.setProperty(name, value);
+          } else {
+            root.style.removeProperty(name);
+          }
+        });
+
+        if (!hadClass) {
+          root.classList.remove("tenant-branded-scrollbars");
+        }
+
+        root.style.overflow = overflow;
+      });
     };
-  }, [activeBranding]);
+  }, [applyToDocument, cssVariables, lockDocumentScroll]);
+
+  const scopeClassName = ["tenant-branded-scrollbars", className]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
-      className={className}
-      style={tenantBrandingToCssVariables(effectiveBranding) as CSSProperties}
+      className={scopeClassName}
+      style={cssVariables as CSSProperties}
     >
       {children}
     </div>

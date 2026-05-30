@@ -9,7 +9,6 @@ import TenantLoadingScreen from "@/components/Global/TenantLoadingScreen";
 import Accounts from "@/components/Features/Tenant/Accounts";
 import Branding from "@/components/Features/Tenant/Branding";
 import Departments from "@/components/Features/Tenant/Departments";
-import Employee from "@/components/Features/Tenant/Employee";
 import Policies from "@/components/Features/Tenant/Policies";
 import TenantRolePermissionsPanel from "@/components/Features/Tenant/TenantRolePermissionsPanel";
 import TenantBrandScope from "@/components/Global/TenantBrandScope";
@@ -95,7 +94,11 @@ function MetricCard({
   );
 }
 
-function UpgradeRequiredPanel({ subscriptionPlan }: { subscriptionPlan?: string | null }) {
+function UpgradeRequiredPanel({
+  subscriptionPlan,
+}: {
+  subscriptionPlan?: string | null;
+}) {
   return (
     <div className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
       <div className="max-w-md text-center">
@@ -107,7 +110,8 @@ function UpgradeRequiredPanel({ subscriptionPlan }: { subscriptionPlan?: string 
           Premium analytics required
         </h1>
         <p className="mt-2 text-sm leading-6 text-[var(--color-low-emphasis)]">
-          Analytics & Reports is available for Premium and Diamond subscriptions.
+          Analytics & Reports is available for Premium and Diamond
+          subscriptions.
           {subscriptionPlan ? ` Current plan: ${subscriptionPlan}.` : ""}
         </p>
       </div>
@@ -122,7 +126,9 @@ function AnalyticsReportsPanel({
 }) {
   const [users, setUsers] = useState<AnalyticsUserPayload[]>([]);
   const [features, setFeatures] = useState<AnalyticsFeaturePayload[]>([]);
-  const [departments, setDepartments] = useState<AnalyticsDepartmentPayload[]>([]);
+  const [departments, setDepartments] = useState<AnalyticsDepartmentPayload[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -166,7 +172,9 @@ function AnalyticsReportsPanel({
     return () => window.cancelAnimationFrame(frame);
   }, [loadAnalytics]);
 
-  const activeUsers = users.filter((user) => (user.status ?? "active") === "active");
+  const activeUsers = users.filter(
+    (user) => (user.status ?? "active") === "active",
+  );
   const disabledUsers = users.filter((user) => user.status === "disabled");
   const assignableFeatures = features.filter(
     (feature) => feature.status === "active" && !feature.adminOnly,
@@ -182,11 +190,14 @@ function AnalyticsReportsPanel({
     counts[role] = (counts[role] ?? 0) + 1;
     return counts;
   }, {});
-  const departmentCounts = users.reduce<Record<string, number>>((counts, user) => {
-    const department = user.department?.trim() || "Unassigned";
-    counts[department] = (counts[department] ?? 0) + 1;
-    return counts;
-  }, {});
+  const departmentCounts = users.reduce<Record<string, number>>(
+    (counts, user) => {
+      const department = user.department?.trim() || "Unassigned";
+      counts[department] = (counts[department] ?? 0) + 1;
+      return counts;
+    },
+    {},
+  );
 
   const roleRows = Object.entries(roleCounts)
     .sort((left, right) => right[1] - left[1])
@@ -232,41 +243,79 @@ function AnalyticsReportsPanel({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total users" value={users.length} detail={`${activeUsers.length} active, ${disabledUsers.length} disabled`} />
-        <MetricCard label="Departments" value={departments.length} detail="Configured institutional departments" />
-        <MetricCard label="Available features" value={assignableFeatures.length} detail="Active assignable workspace features" />
-        <MetricCard label="Avg. access" value={averageFeatureAccess} detail="Enabled features per account" />
+        <MetricCard
+          label="Total users"
+          value={users.length}
+          detail={`${activeUsers.length} active, ${disabledUsers.length} disabled`}
+        />
+        <MetricCard
+          label="Departments"
+          value={departments.length}
+          detail="Configured institutional departments"
+        />
+        <MetricCard
+          label="Available features"
+          value={assignableFeatures.length}
+          detail="Active assignable workspace features"
+        />
+        <MetricCard
+          label="Avg. access"
+          value={averageFeatureAccess}
+          detail="Enabled features per account"
+        />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">Users by Role</h2>
+          <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
+            Users by Role
+          </h2>
           <div className="mt-4 space-y-3">
-            {roleRows.length > 0 ? roleRows.map(([role, count]) => (
-              <div key={role} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-[var(--color-high-emphasis)]">{role}</span>
-                <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                  {count}
-                </span>
-              </div>
-            )) : (
-              <p className="text-sm text-[var(--color-low-emphasis)]">No users yet.</p>
+            {roleRows.length > 0 ? (
+              roleRows.map(([role, count]) => (
+                <div
+                  key={role}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span className="text-sm text-[var(--color-high-emphasis)]">
+                    {role}
+                  </span>
+                  <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                    {count}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[var(--color-low-emphasis)]">
+                No users yet.
+              </p>
             )}
           </div>
         </section>
 
         <section className="rounded-lg bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.12)]">
-          <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">Users by Department</h2>
+          <h2 className="text-base font-bold text-[var(--color-high-emphasis)]">
+            Users by Department
+          </h2>
           <div className="mt-4 space-y-3">
-            {departmentRows.length > 0 ? departmentRows.map(([department, count]) => (
-              <div key={department} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-[var(--color-high-emphasis)]">{department}</span>
-                <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)]">
-                  {count}
-                </span>
-              </div>
-            )) : (
-              <p className="text-sm text-[var(--color-low-emphasis)]">No department assignments yet.</p>
+            {departmentRows.length > 0 ? (
+              departmentRows.map(([department, count]) => (
+                <div
+                  key={department}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span className="text-sm text-[var(--color-high-emphasis)]">
+                    {department}
+                  </span>
+                  <span className="rounded-full bg-[#ecf8f6] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                    {count}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-[var(--color-low-emphasis)]">
+                No department assignments yet.
+              </p>
             )}
           </div>
         </section>
@@ -320,19 +369,19 @@ export default function TenantPage() {
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
-  const [canUseFullAnalyticsReports, setCanUseFullAnalyticsReports] = useState(false);
+  const [canUseFullAnalyticsReports, setCanUseFullAnalyticsReports] =
+    useState(false);
   const [roleName, setRoleName] = useState("Org Admin");
-  const [profile, setProfile] = useState(
-    {
-      displayName: "User",
-      email: "",
-      avatarUrl: "",
-    },
-  );
+  const [profile, setProfile] = useState({
+    displayName: "User",
+    email: "",
+    avatarUrl: "",
+  });
   const [branding, setBranding] = useState<TenantBranding | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
-  const [tabSkeletonView, setTabSkeletonView] = useState<TenantAdminView | null>(null);
+  const [tabSkeletonView, setTabSkeletonView] =
+    useState<TenantAdminView | null>(null);
   const [authError, setAuthError] = useState("");
   const [showTenantLoader, setShowTenantLoader] = useState(true);
   const [showDashboard, setShowDashboard] = useState(false);
@@ -343,7 +392,6 @@ export default function TenantPage() {
       "manage-users": ICON_SVGS.people,
       departments: ICON_SVGS.flow,
       policies: ICON_SVGS.file,
-      employees: ICON_SVGS.files,
       branding: ICON_SVGS.settings,
       "analytics-reports": ICON_SVGS.analytics,
     };
@@ -382,8 +430,9 @@ export default function TenantPage() {
         showInitialSkeleton={tabSkeletonView === "manage-users"}
       />
     ),
-    departments: <Departments showInitialSkeleton={tabSkeletonView === "departments"} />,
-    employees: <Employee showInitialSkeleton={tabSkeletonView === "employees"} />,
+    departments: (
+      <Departments showInitialSkeleton={tabSkeletonView === "departments"} />
+    ),
     branding: (
       <Branding
         onBrandingUpdated={handleBrandingUpdated}
@@ -407,7 +456,9 @@ export default function TenantPage() {
       setOrgName(storedShell.orgName);
       setOrgSlug(storedShell.orgSlug);
       setSubscriptionPlan(storedShell.subscriptionPlan ?? null);
-      setCanUseFullAnalyticsReports(Boolean(storedShell.canUseFullAnalyticsReports));
+      setCanUseFullAnalyticsReports(
+        Boolean(storedShell.canUseFullAnalyticsReports),
+      );
       setRoleName(storedShell.roleName);
       setProfile(storedShell.profile);
       setBranding(storedShell.branding);
@@ -419,7 +470,10 @@ export default function TenantPage() {
     const checkAuth = async () => {
       setAuthError("");
       const expectedSlug = getExpectedTenantSlug();
-      const loginUrl = buildTenantLoginUrl(expectedSlug, "/tenant/tenant-admin");
+      const loginUrl = buildTenantLoginUrl(
+        expectedSlug,
+        "/tenant/tenant-admin",
+      );
 
       try {
         const { data, error: userError } = await supabase.auth.getUser();
@@ -474,11 +528,16 @@ export default function TenantPage() {
         }
 
         if (metadata?.must_change_password === true) {
-          router.replace("/tenant/password-setup?redirect=/tenant/tenant-admin");
+          router.replace(
+            "/tenant/password-setup?redirect=/tenant/tenant-admin",
+          );
           return;
         }
 
-        if (metadata?.first_login === true || metadata?.onboarding_complete === false) {
+        if (
+          metadata?.first_login === true ||
+          metadata?.onboarding_complete === false
+        ) {
           router.replace("/tenant/onboarding");
           return;
         }
@@ -488,11 +547,14 @@ export default function TenantPage() {
           return;
         }
 
-        const detectedType = payload.org?.institutionType ?? metadata?.institution_type ?? null;
+        const detectedType =
+          payload.org?.institutionType ?? metadata?.institution_type ?? null;
         const nextOrgName = payload.org?.name || "";
         const nextOrgSlug = payload.org?.slug || "";
         const nextSubscriptionPlan = payload.org?.subscriptionPlan ?? null;
-        const nextCanUseFullAnalyticsReports = Boolean(payload.canUseFullAnalyticsReports);
+        const nextCanUseFullAnalyticsReports = Boolean(
+          payload.canUseFullAnalyticsReports,
+        );
         const nextRoleName = payload.role?.name || "Org Admin";
         const nextProfile = {
           displayName: payload.user?.fullName || user.email || "User",
@@ -522,9 +584,10 @@ export default function TenantPage() {
         });
         setActiveView(getDefaultTenantAdminView(detectedType));
         setIsBootstrapping(false);
-
       } catch {
-        setAuthError("Unable to reach Supabase Auth. Please check your internet connection and Supabase env values.");
+        setAuthError(
+          "Unable to reach Supabase Auth. Please check your internet connection and Supabase env values.",
+        );
         setIsBootstrapping(false);
       }
     };
@@ -557,9 +620,13 @@ export default function TenantPage() {
       "branding",
       "analytics-reports",
     ];
-    const shouldUseSectionLoader = !viewsWithLocalLoaders.includes(key as TenantAdminView);
+    const shouldUseSectionLoader = !viewsWithLocalLoaders.includes(
+      key as TenantAdminView,
+    );
 
-    setTabSkeletonView(shouldUseSectionLoader ? null : (key as TenantAdminView));
+    setTabSkeletonView(
+      shouldUseSectionLoader ? null : (key as TenantAdminView),
+    );
     setContentLoading(shouldUseSectionLoader);
     setActiveView(key as TenantAdminView);
   };
@@ -568,7 +635,9 @@ export default function TenantPage() {
     return (
       <TenantBrandScope
         branding={branding}
-        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+        applyToDocument
+        lockDocumentScroll
+        className="tenant-branded-scrollbars min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
       >
         <div className="flex min-h-screen items-center justify-center px-4">
           <div className="max-w-md rounded-lg bg-white px-6 py-5 text-center shadow-level-1">
@@ -586,7 +655,9 @@ export default function TenantPage() {
     return (
       <TenantBrandScope
         branding={branding}
-        className="min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+        applyToDocument
+        lockDocumentScroll
+        className="tenant-branded-scrollbars min-h-screen bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
       >
         <TenantLogoLoader
           branding={branding}
@@ -601,7 +672,9 @@ export default function TenantPage() {
   return (
     <TenantBrandScope
       branding={branding}
-      className="flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
+      applyToDocument
+      lockDocumentScroll
+      className="tenant-branded-scrollbars flex h-screen flex-col overflow-hidden bg-[var(--color-background)] text-[var(--color-high-emphasis)]"
     >
       {showTenantLoader ? (
         <TenantLogoLoader
@@ -640,23 +713,29 @@ export default function TenantPage() {
             avatarUrl: profile.avatarUrl,
           }}
         />
-        <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--color-background)] p-6">
+        <section
+          className={`min-w-0 flex-1 bg-[var(--color-background)] p-6 ${
+            activeView === "manage-users"
+              ? "overflow-hidden"
+              : "overflow-y-auto"
+          }`}
+        >
           {showDashboard ? (
             <>
-          {contentLoading &&
-          activeView !== "accounts" &&
-          activeView !== "manage-users" &&
-          activeView !== "departments" &&
-          activeView !== "policies" &&
-          activeView !== "branding" ? (
-            <TenantLoadingScreen
-              branding={branding}
-              className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
-              label="Loading section"
-            />
-          ) : (
-            content
-          )}
+              {contentLoading &&
+              activeView !== "accounts" &&
+              activeView !== "manage-users" &&
+              activeView !== "departments" &&
+              activeView !== "policies" &&
+              activeView !== "branding" ? (
+                <TenantLoadingScreen
+                  branding={branding}
+                  className="flex min-h-[420px] items-center justify-center rounded-lg bg-white px-6 py-8 shadow-[0_2px_8px_rgba(15,23,42,0.12)]"
+                  label="Loading section"
+                />
+              ) : (
+                content
+              )}
             </>
           ) : null}
         </section>

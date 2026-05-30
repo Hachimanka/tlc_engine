@@ -104,7 +104,7 @@ export const normalizeTenantBranding = (
 
 export const tenantBrandingToCssVariables = (
   branding: Partial<TenantBranding> | null | undefined,
-) => {
+): Record<string, string> => {
   const normalized = normalizeTenantBranding(branding ?? {});
 
   return {
@@ -119,6 +119,9 @@ export const tenantBrandingToCssVariables = (
     "--color-primary-muted": `color-mix(in srgb, ${normalized.primaryColor} 16%, white)`,
     "--color-primary-ring": `color-mix(in srgb, ${normalized.primaryColor} 22%, transparent)`,
     "--teal-primary": normalized.primaryColor,
+    "--tenant-scrollbar-thumb": normalized.primaryColor,
+    "--tenant-scrollbar-thumb-hover": normalized.lightPrimaryColor,
+    "--tenant-scrollbar-track": normalized.defaultColor,
     "--gradient-primary": `linear-gradient(90deg, ${normalized.defaultColor} 0%, ${normalized.lightPrimaryColor} 100%)`,
     "--tenant-logo-url": normalized.logoUrl ? `url("${normalized.logoUrl}")` : "none",
   };
