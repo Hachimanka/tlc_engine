@@ -183,8 +183,8 @@ export default function RoomsTable({
 										onKeyDown={(event) => handleRowKeyDown(event, () => onRoomSelect(room))}
 										tabIndex={0}
 										aria-selected={isSelected}
-										className={`cursor-pointer outline-none transition-colors hover:bg-[#ecf8f6] focus:bg-[#ecf8f6] ${
-											isSelected ? "bg-[#e0f4f1]" : "bg-white"
+										className={`cursor-pointer outline-none transition-colors hover:bg-[var(--color-primary-soft)] focus:bg-[var(--color-primary-soft)] ${
+											isSelected ? "bg-[var(--color-primary-muted)]" : "bg-white"
 										}`}
 									>
 										<td className="px-3 py-3 text-[12px] text-[var(--color-high-emphasis)] sm:px-4">
@@ -221,7 +221,7 @@ export default function RoomsTable({
 													event.stopPropagation();
 													onEditRoomClick(room);
 												}}
-												className="rounded-md border border-[var(--color-default)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+												className="rounded-md border border-[var(--color-default)] px-3 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
 											>
 												Edit
 											</button>

@@ -262,7 +262,7 @@ export default function DepedSubjectApprovalsDashboard() {
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
               activeTab === tab.key
                 ? "bg-[var(--color-primary)] text-white"
-                : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[var(--color-primary-soft)]"
             }`}
           >
             {tab.label}
@@ -417,7 +417,7 @@ export default function DepedSubjectApprovalsDashboard() {
               <button
                 type="button"
                 onClick={closeDecisionModal}
-                className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-semibold text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-semibold text-[var(--color-high-emphasis)] hover:bg-[var(--color-primary-soft)]"
                 disabled={submittingAction}
               >
                 Cancel

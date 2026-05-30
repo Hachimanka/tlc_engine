@@ -289,7 +289,7 @@ export default function ExportFrom({
 	}, [isOpen, rows, subjectArea, teacherName]);
 
 	useEffect(() => {
-		void loadExportData();
+		void Promise.resolve().then(loadExportData);
 	}, [loadExportData]);
 
 	useEffect(() => {

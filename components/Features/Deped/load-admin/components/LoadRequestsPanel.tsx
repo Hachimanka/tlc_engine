@@ -290,7 +290,7 @@ export default function LoadRequestsPanel() {
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
               activeTab === tab.key
                 ? "bg-[var(--color-primary)] text-white"
-                : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[var(--color-primary-soft)]"
             }`}
           >
             {tab.label}
@@ -381,7 +381,7 @@ export default function LoadRequestsPanel() {
                     <button
                       type="button"
                       onClick={() => openRequestModal(request)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-default)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6]"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-default)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary-soft)]"
                     >
                       <Eye className="h-4 w-4" aria-hidden="true" />
                       View
@@ -486,7 +486,7 @@ export default function LoadRequestsPanel() {
                         className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                           decision === nextDecision
                             ? decisionMeta[nextDecision].buttonClass
-                            : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                            : "border border-[var(--color-default)] bg-white text-[var(--color-high-emphasis)] hover:bg-[var(--color-primary-soft)]"
                         }`}
                       >
                         {decisionMeta[nextDecision].icon}
@@ -519,7 +519,7 @@ export default function LoadRequestsPanel() {
               <button
                 type="button"
                 onClick={closeRequestModal}
-                className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-semibold text-[var(--color-high-emphasis)] hover:bg-[#ecf8f6]"
+                className="rounded-lg border border-[var(--color-default)] px-4 py-2 text-sm font-semibold text-[var(--color-high-emphasis)] hover:bg-[var(--color-primary-soft)]"
                 disabled={submittingAction}
               >
                 Close

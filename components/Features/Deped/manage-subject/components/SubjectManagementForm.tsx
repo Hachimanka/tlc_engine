@@ -215,7 +215,7 @@ export default function SubjectManagementForm({
 									value={formValues.subjectTitle}
 									onChange={handleChange}
 									placeholder="e.g., Filipino"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 								{errors.subjectTitle ? (
 									<p className="text-xs text-[#f04444]">{errors.subjectTitle}</p>
@@ -272,7 +272,7 @@ export default function SubjectManagementForm({
 									value={formValues.classDuration}
 									onChange={handleChange}
 									placeholder="e.g., 45"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 								{errors.classDuration ? (
 									<p className="text-xs text-[#f04444]">{errors.classDuration}</p>
@@ -292,7 +292,7 @@ export default function SubjectManagementForm({
 									type="date"
 									value={formValues.dateCreated}
 									onChange={handleChange}
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm text-[var(--color-high-emphasis)] outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 								{errors.dateCreated ? (
 									<p className="text-xs text-[#f04444]">{errors.dateCreated}</p>
@@ -312,18 +312,18 @@ export default function SubjectManagementForm({
 									value={formValues.description}
 									onChange={handleChange}
 									placeholder="Brief description of the subject"
-									className="min-h-[96px] w-full resize-y rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="min-h-[96px] w-full resize-y rounded-lg border border-[var(--color-default)] bg-white px-3 py-2 text-sm text-[var(--color-high-emphasis)] outline-none transition placeholder:text-[var(--color-low-emphasis)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 							</div>
 						</div>
 					</div>
 
-					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[#fbfefd] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[var(--color-card)] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
 						<button
 							type="button"
 							onClick={handleCancel}
 							disabled={isSubmitting}
-							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
+							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[var(--color-primary-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
 						>
 							Cancel
 						</button>

@@ -79,6 +79,9 @@
   --color-background: #f3f3f1;
   --color-background-dark: #e5e7eb;
   --color-card: #ffffff;
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 10%, white);
+  --color-primary-muted: color-mix(in srgb, var(--color-primary) 16%, white);
+  --color-primary-ring: color-mix(in srgb, var(--color-primary) 22%, transparent);
   --color-medium-dark: #6b7280;
   --color-low-emphasis: #4A5565;
 

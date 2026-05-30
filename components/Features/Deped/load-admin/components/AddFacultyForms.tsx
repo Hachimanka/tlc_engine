@@ -105,7 +105,7 @@ export default function AddFacultyForms({ isOpen, onClose }: AddFacultyFormsProp
 									id="faculty-name"
 									value={selectedFacultyDetails.label}
 									readOnly
-									className="w-full rounded-lg border border-[var(--color-default)] bg-[#f8fbfa] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+									className="w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
 								/>
 							</div>
 
@@ -117,7 +117,7 @@ export default function AddFacultyForms({ isOpen, onClose }: AddFacultyFormsProp
 									id="employment-type"
 									value={selectedFacultyDetails.employmentType}
 									readOnly
-									className="w-full rounded-lg border border-[var(--color-default)] bg-[#f8fbfa] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+									className="w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
 								/>
 							</div>
 						</div>
@@ -131,7 +131,7 @@ export default function AddFacultyForms({ isOpen, onClose }: AddFacultyFormsProp
 									id="specialization"
 									value={selectedFacultyDetails.specialization}
 									readOnly
-									className="w-full rounded-lg border border-[var(--color-default)] bg-[#f8fbfa] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
+									className="w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none"
 								/>
 							</div>
 						</div>
@@ -141,7 +141,7 @@ export default function AddFacultyForms({ isOpen, onClose }: AddFacultyFormsProp
 						<button
 							type="button"
 							onClick={onClose}
-							className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+							className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-primary-soft)]"
 						>
 							Cancel
 						</button>

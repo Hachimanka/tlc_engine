@@ -185,7 +185,7 @@ export default function SubjectTable({ subjectRows, onCreateSubjectClick }: Subj
 								<tr>
 									<td colSpan={7} className="px-6 py-12 text-center">
 										<div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-											<div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ecf8f6] text-[var(--color-primary)]">
+											<div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
 												<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
 													<path
 														d="M7 4H17C18.1046 4 19 4.89543 19 6V20L12 16.5L5 20V6C5 4.89543 5.89543 4 7 4Z"
