@@ -241,7 +241,7 @@ export default function TeachingScheduleGrid({
             {displaySlots.map((slot) => (
               <div
                 key={`${slot.start}-${slot.end}`}
-                className="flex items-center justify-center border-b border-[var(--color-default)] bg-[#f8fafc] px-2 text-center text-[11px] font-semibold text-[var(--color-high-emphasis)] last:border-b-0"
+                className="flex items-center justify-center border-b border-[var(--color-default)] bg-[var(--color-background)] px-2 text-center text-[11px] font-semibold text-[var(--color-high-emphasis)] last:border-b-0"
                 style={{ height: scheduleRowHeight }}
               >
                 {slot.label}

@@ -293,7 +293,7 @@ function DepedTeachingLoadContent() {
           >
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[rgba(2,147,131,0.30)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
+              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[var(--color-primary-ring)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
             />
             <span className="relative z-10 text-center">Send Request</span>
           </button>
@@ -341,7 +341,7 @@ function CollegeTeachingLoadContent() {
           >
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[rgba(2,147,131,0.30)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
+              className="absolute inset-x-0 inset-y-0 translate-x-1.5 translate-y-1.5 rounded-[18px] bg-[var(--color-primary-ring)] transition-transform duration-200 group-hover:translate-x-2 group-hover:translate-y-2"
             />
             <span className="relative z-10 text-center cursor-pointer">Send Request</span>
           </button>

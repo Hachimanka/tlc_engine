@@ -99,7 +99,7 @@ export default function VersionHistory({
 					</button>
 				</div>
 
-				<div className="border-b border-[var(--color-default)] bg-[#ecf8f6] px-5 py-3 text-sm font-medium text-[var(--color-primary)]">
+				<div className="border-b border-[var(--color-default)] bg-[var(--color-primary-soft)] px-5 py-3 text-sm font-medium text-[var(--color-primary)]">
 					Only Principal and Load Manager can edit
 				</div>
 
@@ -138,7 +138,7 @@ export default function VersionHistory({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+						className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-primary-soft)]"
 					>
 						Close
 					</button>

@@ -201,7 +201,7 @@ export default function RoomFormModal({
 									value={formValues.roomNo}
 									onChange={handleChange}
 									placeholder="e.g., Room 1"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 							</Field>
 
@@ -211,7 +211,7 @@ export default function RoomFormModal({
 									value={formValues.section}
 									onChange={handleChange}
 									placeholder="e.g., Amethyst"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 							</Field>
 
@@ -232,7 +232,7 @@ export default function RoomFormModal({
 											value={formValues.building}
 											onChange={handleChange}
 											placeholder="e.g., Senior High School Building"
-											className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+											className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 										/>
 									) : null}
 								</div>
@@ -256,7 +256,7 @@ export default function RoomFormModal({
 									value={formValues.capacity}
 									onChange={handleChange}
 									placeholder="e.g., 40"
-									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.14)]"
+									className="h-11 w-full rounded-lg border border-[var(--color-default)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								/>
 							</Field>
 
@@ -279,11 +279,11 @@ export default function RoomFormModal({
 						</div>
 					</div>
 
-					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[#fbfefd] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+					<div className="flex flex-col-reverse gap-3 border-t border-[var(--color-default)] bg-[var(--color-card)] px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
 						<button
 							type="button"
 							onClick={handleClose}
-							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[#ecf8f6] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
+							className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--color-primary)] px-5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 sm:min-w-[150px]"
 						>
 							Cancel
 						</button>

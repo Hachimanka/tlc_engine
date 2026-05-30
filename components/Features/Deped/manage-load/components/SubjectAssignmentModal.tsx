@@ -87,8 +87,8 @@ export default function SubjectAssignmentModal({
 								return (
 									<label
 										key={subject.id}
-										className={`group grid cursor-pointer grid-cols-[80px_1.4fr_1fr_1.3fr_1fr_1fr] items-center px-4 py-3 text-sm transition-colors hover:bg-[#ecf8f6] ${
-											isSelected ? "bg-[#d7f2ee]" : "bg-white"
+										className={`group grid cursor-pointer grid-cols-[80px_1.4fr_1fr_1.3fr_1fr_1fr] items-center px-4 py-3 text-sm transition-colors hover:bg-[var(--color-primary-soft)] ${
+											isSelected ? "bg-[var(--color-primary-muted)]" : "bg-white"
 										}`}
 									>
 										<div className="flex justify-center">
@@ -100,10 +100,10 @@ export default function SubjectAssignmentModal({
 												className="peer sr-only"
 											/>
 											<span
-												className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-[rgba(0,107,95,0.18)] peer-focus-visible:ring-offset-2 ${
+												className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-ring)] peer-focus-visible:ring-offset-2 ${
 													isSelected
-														? "border-[var(--color-primary)] bg-[rgba(0,107,95,0.10)]"
-														: "border-[var(--color-primary)] bg-white group-hover:bg-[rgba(0,107,95,0.06)]"
+														? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
+														: "border-[var(--color-primary)] bg-white group-hover:bg-[var(--color-primary-soft)]"
 												}`}
 											>
 												<span
@@ -131,7 +131,7 @@ export default function SubjectAssignmentModal({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+						className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-primary-soft)]"
 					>
 						Cancel
 					</button>

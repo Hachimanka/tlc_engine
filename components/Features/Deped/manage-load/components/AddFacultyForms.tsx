@@ -135,7 +135,7 @@ export default function AddFacultyForms({
 									aria-haspopup="listbox"
 									aria-expanded={isDropdownOpen}
 									onClick={() => setIsDropdownOpen((current) => !current)}
-									className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 text-left text-sm text-[var(--color-high-emphasis)] outline-none transition hover:bg-[#f8fffe] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[rgba(0,107,95,0.12)]"
+									className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-default)] bg-white px-4 py-3 text-left text-sm text-[var(--color-high-emphasis)] outline-none transition hover:bg-[var(--color-primary-soft)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-ring)]"
 								>
 									<span className={selectedAccount ? "text-[var(--color-high-emphasis)]" : "text-[var(--color-low-emphasis)]"}>
 										{selectedAccount ? selectedAccount.name : `Select ${departmentName} faculty account`}
@@ -169,7 +169,7 @@ export default function AddFacultyForms({
 														setErrors({});
 													}}
 													className={`flex w-full rounded-lg px-3 py-3 text-left transition ${
-														isSelected ? "bg-[#d7f2ee]" : "hover:bg-[#ecf8f6]"
+														isSelected ? "bg-[var(--color-primary-muted)]" : "hover:bg-[var(--color-primary-soft)]"
 													}`}
 												>
 													<span className="block">
@@ -214,7 +214,7 @@ export default function AddFacultyForms({
 								value={selectedAccount?.specialization ?? ""}
 								readOnly
 								placeholder="Selected automatically"
-								className="w-full rounded-lg border border-[var(--color-default)] bg-[#f8fbfa] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
+								className="w-full rounded-lg border border-[var(--color-default)] bg-[var(--color-background)] px-4 py-3 text-sm text-[var(--color-high-emphasis)] outline-none placeholder:text-[var(--color-low-emphasis)]"
 							/>
 						</div>
 					</div>
@@ -223,7 +223,7 @@ export default function AddFacultyForms({
 						<button
 							type="button"
 							onClick={handleClose}
-							className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+							className="rounded-lg border border-[var(--color-primary)] px-5 py-3 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-primary-soft)]"
 						>
 							Cancel
 						</button>

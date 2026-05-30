@@ -190,7 +190,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 						) : null}
 
 						<div className="space-y-2">
-							<label htmlFor="subjectConcerned" className="text-label-input text-[#364153]">
+							<label htmlFor="subjectConcerned" className="text-label-input text-[var(--color-high-emphasis)]">
 								Subject Concerned
 							</label>
 							<StyledSelect
@@ -202,7 +202,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 						</div>
 
 						<div className="space-y-2">
-							<label htmlFor="requestType" className="text-label-input text-[#364153]">
+							<label htmlFor="requestType" className="text-label-input text-[var(--color-high-emphasis)]">
 								Type of Request
 							</label>
 							<StyledSelect
@@ -214,7 +214,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 						</div>
 
 						<div className="space-y-2">
-							<label htmlFor="description" className="text-label-input text-[#364153]">
+							<label htmlFor="description" className="text-label-input text-[var(--color-high-emphasis)]">
 								Description
 							</label>
 							<textarea
@@ -232,7 +232,7 @@ export default function RequestForm({ isOpen, onClose }: RequestFormProps) {
 								type="button"
 								onClick={handleCancel}
 								disabled={isSubmitting}
-								className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[#ecf8f6]"
+								className="rounded-lg border border-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[var(--color-high-emphasis)] transition hover:bg-[var(--color-primary-soft)]"
 							>
 								Cancel
 							</button>

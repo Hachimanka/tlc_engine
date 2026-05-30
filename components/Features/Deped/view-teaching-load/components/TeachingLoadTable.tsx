@@ -67,7 +67,7 @@ export default function TeachingLoadTable({ rows: providedRows }: TeachingLoadTa
     }, [providedRows]);
 
     useEffect(() => {
-        void loadTeachingLoad();
+        void Promise.resolve().then(loadTeachingLoad);
     }, [loadTeachingLoad]);
 
     return (
